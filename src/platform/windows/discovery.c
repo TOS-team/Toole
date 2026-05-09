@@ -13,9 +13,9 @@
 
 
 // En gros ,cette fonction ci-dessous permet sa presence aux autres pc qui ecoutent sur le port.
-int presence(char *ip,int port_tcp,char *message,char *username,int id); 
+int presence(char *ip,int port_tcp,char *message,char *username,int id);
 //------------------------------------------------------------------------------------
-// Ici cette le prototype de la func qui permet d'ecouter sur le resau 
+// Ici cette le prototype de la func qui permet d'ecouter sur le resau
 
 //generer des id pour les pc.
 char * id_generertor();
@@ -29,24 +29,6 @@ typedef struct {
     time_t last_time;
 } devices;
 
-
-/*fonction main:l'entre du code | programe*/
-
-int main(void)
-{
-    /* Initialisation de Winsock */
-    WSADATA Sa;
-    if(WSAStartup(MAKEWORD(2,2),&Sa) != 0){
-        printf("initialisation de la socket a échoué : %d", WSAGetLastError());
-        exit(1);
-    }
-    
-    char *name_pc = id_generertor();
-    //presence("172.16.17.140",PORT,name_pc);
-    free(name_pc);
-    return 0;
-}
-//------------------------------------------------------------------------------------------------
 /*Implementation des fonction */
 
 void cleaner(devices *liste,int *nb){
@@ -58,7 +40,7 @@ void cleaner(devices *liste,int *nb){
             liste[keepCount] = liste[i];
             keepCount++;
         }
-        
+
     }
     *nb = keepCount;
 }
@@ -89,9 +71,9 @@ int head(devices *liste,int *nb){
     }
 
     //   réception
-        int bytesReceived = recvfrom(head_sock, buffer, sizeof(buffer) - 1, 0, 
+        int bytesReceived = recvfrom(head_sock, buffer, sizeof(buffer) - 1, 0,
                                      (struct sockaddr*)&recvAddr, &recvAddr);
-        
+
         if (bytesReceived > 0) {
             char *ip_client = inet_ntoa(recvAddr.sin_addr);
             if(strcmp(ip_client,"127.0.0.1")==0){
@@ -125,12 +107,12 @@ int head(devices *liste,int *nb){
             }
         }
 
-            
+
         } else if (bytesReceived == SOCKET_ERROR) {
             printf("Erreur recvfrom: %d\n", WSAGetLastError());
-            
+
         }
-    
+
 }
 
 int presence(char *ip,int port_tcp,char *message,char *username,int id){
@@ -168,7 +150,7 @@ int presence(char *ip,int port_tcp,char *message,char *username,int id){
             printf("sendto() a échoué : %d", WSAGetLastError());
 
     }
-        
+
 
     // comme tu le sais : si tu a ouvert forcer tu vas  Fermeture.ainsi cette fonction permet de liberer les resource.
     closesocket(sock_envoi);
@@ -191,7 +173,7 @@ char * id_generertor(){
     if (GetComputerName(computerName,&size))
     {
         strcpy(namepc,computerName);
-        
+
     }else {
         printf("Erreur lors de la recuperation du nom (code : %lu)\n", GetLastError());
         return "INCONNU";
@@ -200,10 +182,10 @@ char * id_generertor(){
     nombre = rand() % 1001;//generation d'un nombre alleatoire pour faire l'id
     sprintf(chaine, "%d", nombre);
         //  Copier computerName dans namepc
-    strcpy(namepc, computerName);                
-    
+    strcpy(namepc, computerName);
+
     //  Concaténer chaine à la suite de namepc
-    strcat(namepc, chaine);  
-    
+    strcat(namepc, chaine);
+
     return namepc;//je retourne l'id avec ce format {NOMPCNOMBRE} EX:DELL57665555 NB:5555 est le nombre generer et DELL5766 nom de la machine.
 }
