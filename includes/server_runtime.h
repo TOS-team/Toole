@@ -5,11 +5,8 @@
 
 typedef int (*presence_fn)(
     int socket_udp,
-    char *id,
-    char *username,
-    char *ip,
-    int port_tcp,
-    char *message
+    const info *self,
+    const char *message
 );
 
 typedef void (*hear_fn)(
@@ -19,11 +16,8 @@ typedef void (*hear_fn)(
 );
 
 typedef struct {
-    char *id;
-    char *username;
-    char *ip;
-    int port_tcp;
-    char *message;
+    info self;
+    const char *message;
 
     device *liste;
     int *nb;
@@ -32,6 +26,13 @@ typedef struct {
     volatile int *stop_flag;
 } context;
 
-int discovery_multiplex(presence_fn presence_cb, hear_fn hear_cb, context *ctx);
+typedef struct thread_runtime thread_runtime_t;
+typedef void *(*thread_runtime_fn)(void *);
 
+
+int discovery_multiplex(presence_fn presence_cb, hear_fn hear_cb, context *ctx);
+int start_thread(thread_runtime_t **out, thread_runtime_fn fn, void *arg);
+int join_thread(thread_runtime_t *thread);
+int detach_thread(thread_runtime_t *thread);
+void destroy_thread(thread_runtime_t *thread);
 #endif

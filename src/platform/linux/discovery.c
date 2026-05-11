@@ -14,7 +14,7 @@
 
 //Prototype des fonctions
 int presence_socket(void);
-int presence(int socket_udp, char *id, char *username, char *ip, int port_tcp, char *message);
+int presence(int socket_udp, const info *self, const char *message);
 int hear_socket(void);
 void cleaner(device *liste, int *nb);
 void hear(int socket_udp, device *liste, int *nb);
@@ -45,10 +45,21 @@ int presence_socket()
 }
 
 // Presence est la focntion qui emet les beacon
-int presence(int socket_udp,char *id,char *username,char *ip,int port_tcp,char *message)
+int presence(int socket_udp, const info *self, const char *message)
 {
-    char beacon[256];
-    snprintf(beacon,sizeof(beacon), "toole|%s|%s|%s|%d|%s",id,username,ip,port_tcp,message);
+    if (!self) return -1;
+    char beacon[512];
+    snprintf(beacon, sizeof(beacon),
+             "toole|%s|%s|%s|%d|%d|%s|%s|%d|%s",
+             self->id,
+             self->username,
+             self->ip,
+             self->tcp_port,
+             (int)self->r,
+             self->cluster_id,
+             self->master_ip,
+             self->master_port,
+             message ? message : "");
 
     //Cette structure definit les adresse et port reseau pour entamer  l'emission de données en UDP
     struct sockaddr_in network_utils={
@@ -105,7 +116,7 @@ void cleaner(device *liste ,int *nb){
 //hear ecoute les beacon sur le port d'emmision
 void hear(int socket_udp,device *liste,int *nb)
 {
-    char buffer[256];
+    char buffer[512];
         struct sockaddr_in sender_addr;
         socklen_t size_of = sizeof(sender_addr);
         ssize_t result=recvfrom(socket_udp, buffer, sizeof(buffer)-1, 0,(struct sockaddr *)&sender_addr, &size_of);
@@ -116,15 +127,26 @@ void hear(int socket_udp,device *liste,int *nb)
             //ici je filtre les beacons, pour ne laiser que les beacons avec la signature de toolé
             if (strncmp(buffer, "toole|", 6) == 0) {
                 device d;
+                int role_tmp = ROLE_CLIENT;
                 // Je  parse les beacons recues pour le mettre  dans la structure device que j'ai creé
-                sscanf(buffer, "toole|%36[^|]|%63[^|]|%15[^|]|%d|%127[^\n]", d.id, d.username, d.ip, &d.port_tcp, d.message);
-                d.last_time=time(NULL);
+                sscanf(buffer, "toole|%36[^|]|%63[^|]|%15[^|]|%d|%d|%36[^|]|%15[^|]|%d|%127[^\n]",
+                       d.node_info.id,
+                       d.node_info.username,
+                       d.node_info.ip,
+                       &d.node_info.tcp_port,
+                       &role_tmp,
+                       d.node_info.cluster_id,
+                       d.node_info.master_ip,
+                       &d.node_info.master_port,
+                       d.message);
+                d.node_info.r = (role_tmp == ROLE_MASTER) ? ROLE_MASTER : ROLE_CLIENT;
+                d.last_time = time(NULL);
                 /*là pour eviter les doublons de beacons, je verifie la liste, si l'id d'un nouveau becons est deja present dans la liste ,
                  je le suprime et dans le cas contraire , je l'ajoute imediatement
                     */
                 int index = -1;
                 for (int i = 0; i < *nb; i++) {
-                    if (strcmp(liste[i].id, d.id) == 0) {
+                    if (strcmp(liste[i].node_info.id, d.node_info.id) == 0) {
                         index = i;
                         break;
                     }

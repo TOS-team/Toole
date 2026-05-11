@@ -1,9 +1,9 @@
 #include <poll.h>
-#include <sys/poll.h>
 #include <time.h>
 #include <errno.h>
 #include <unistd.h>
 #include <pthread.h>
+#include <stdlib.h>
 
 #include "discovery.h"
 #include "server_runtime.h"
@@ -76,7 +76,7 @@ for (;;) {
     d=duration(last,now);
     if (d >= interval)
     {
-        presence_cb(sock_p, ctx->id, ctx->username, ctx->ip, ctx->port_tcp, ctx->message);
+        presence_cb(sock_p, &ctx->self, ctx->message);
         last = now;
     }
     cleaner(ctx->liste, ctx->nb);
@@ -87,7 +87,37 @@ for (;;) {
 }
 
 // Hello la BOP,cette fonction sera utilisé pour lancé une fonction sur une thread,je compte utilisé pthread 
- int run_thread()
+struct thread_runtime{
+    pthread_t handle;
+};
+ int start_thread(thread_runtime_t **out, thread_runtime_fn fn, void *arg)
  {
+     if (!out || !fn) return -1;
+     thread_runtime_t *t = malloc(sizeof(*t));
+     if(!t) return -1;
+
+     int rc=pthread_create(&t->handle,NULL,fn,arg);
+     if(rc!=0){
+         free(t);
+         return -1;
+     }
+     *out=t;
      return 0;
+ }
+
+ int join_thread(thread_runtime_t *thread)
+ {
+     if (!thread) return -1;
+     return (pthread_join(thread->handle, NULL) == 0) ? 0 : -1;
+ }
+ 
+ int detach_thread(thread_runtime_t *thread)
+ {
+     if (!thread) return -1;
+     return (pthread_detach(thread->handle) == 0) ? 0 : -1;
+ }
+ 
+ void destroy_thread(thread_runtime_t *thread)
+ {
+     free(thread);
  }
