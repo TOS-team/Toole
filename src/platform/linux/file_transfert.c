@@ -69,8 +69,9 @@ return ((uint64_t)htonl((uint32_t)(x & 0xFFFFFFFFULL)) << 32) |
 //Voici l'equivalent de htonll pour reconstruire l'information à la reception
 static uint64_t ntohll(uint64_t x) {
 #if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
-return ((uint64_t)ntohl((uint32_t)(x >> 32)) << 32) |
-        (uint64_t)ntohl((uint32_t)(x & 0xFFFFFFFFULL));
+return ((uint64_t)ntohl((uint32_t)(x & 0xFFFFFFFFULL)) << 32) |
+        (uint64_t)ntohl((uint32_t)(x >> 32));
+
 #else
     return x;
 #endif
