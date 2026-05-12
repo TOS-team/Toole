@@ -7,6 +7,9 @@
 #include <arpa/inet.h>
 #include <unistd.h>
 
+
+#include "network.h"
+
 #define SERVER_PORT 42422
 #define BACKLOG 16 //represente le nombre de personne qui peuvent attendre avant que le server  ne les accepts
 // Hello la BOP, c'est Gérard, avec cette focntion ,je cree un socket que je vais utilisé tout dans ce fichier network.c
@@ -77,10 +80,8 @@ int accept_client(int socket_tcp){
 // là on permet au serveur de refuser une connection entrante,en acceptant et en coupant la connexion imediatement
 int denied_client(int socket_tcp){
     int client_socket=accept(socket_tcp,NULL,NULL);// je ne renvoie  ici que le socket du client, c'est pour cette raison que l'ip et le port sont à NULL
-    if (client_socket>=0) {
-        close(client_socket);
-        }
-        return client_socket;
+    if (client_socket>=0) close(client_socket);
+        return 0;
     // la focntion return une valeur >=0 car la connection sera fermé à la fin
 }
 
@@ -109,3 +110,9 @@ int connect_to(const char *ip,uint16_t port){
 
     return socket_tcp;
 }
+
+//___________________________________________________________________________________
+// 
+// là, on implemente la logique pour le transfere de mesage afin d'operationaliser
+// là logique de cluster et d'election de maitre qui represente  le serveur dans notre cas 
+

@@ -20,7 +20,7 @@ ou d'ecriture des fichiers ou meme  eviter d'avoir des fichiers corrompus
 //prototype des fonctions
 int send_struct(int socket_tcp, const char *filename, uint64_t file_size);
 int send_file(int socket_tcp, const char *path, const char *new_name);
-int recv_struct(int socket_tcp, char *filename_out, ssize_t max_len, uint64_t *file_size_out);
+int recv_struct(int socket_tcp, char *filename_out, size_t max_len, uint64_t *file_size_out);
 int recv_file(int socket_tcp, const char *destination);
 
 
@@ -60,7 +60,8 @@ static int read_n(int socket_tcp,void *buffer,size_t n){
 // sans ca le recepteur pourrait reconstruire une valeur incorrecte à la reception
 static uint64_t htonll(uint64_t x) {
 #if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
-    return ((uint64_t)htonl((uint32_t)(x >> 32))) | ((uint64_t)htonl((uint32_t)(x & 0xFFFFFFFFULL)));
+return ((uint64_t)htonl((uint32_t)(x & 0xFFFFFFFFULL)) << 32) |
+       ((uint64_t)htonl((uint32_t)(x >> 32)));
 #else
     return x;
 #endif
@@ -68,8 +69,8 @@ static uint64_t htonll(uint64_t x) {
 //Voici l'equivalent de htonll pour reconstruire l'information à la reception
 static uint64_t ntohll(uint64_t x) {
 #if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
-    return ((uint64_t)ntohl((uint32_t)(x & 0xFFFFFFFFULL)) << 32) |
-            ntohl((uint32_t)(x >> 32));
+return ((uint64_t)ntohl((uint32_t)(x >> 32)) << 32) |
+        (uint64_t)ntohl((uint32_t)(x & 0xFFFFFFFFULL));
 #else
     return x;
 #endif
@@ -139,7 +140,7 @@ int send_file(int socket_tcp,const char *path,const char *new_name){
 }
 
 // là cette focntion est l'equivalent de send_struct à la reception
-int recv_struct(int socket_tcp,char *filename_out,ssize_t max_len,uint64_t *file_size_out){
+int recv_struct(int socket_tcp,char *filename_out,size_t max_len,uint64_t *file_size_out){
     //
     file_struct one;
     if (read_n(socket_tcp,&one, sizeof(one))<0) return -1;
@@ -161,7 +162,8 @@ int recv_file(int socket_tcp,const char *destination){
     if(recv_struct(socket_tcp, filename, sizeof(filename), &file_size) < 0) return -1;
 
     char path[512];
-    snprintf(path, sizeof(path), "%s/%s", destination, filename);
+    int n = snprintf(path, sizeof(path), "%s/%s", destination, filename);
+    if (n < 0 || (size_t)n >= sizeof(path)) return -1;
 
     int file = open(path, O_WRONLY | O_CREAT | O_TRUNC, 0644);
     if(file < 0) return -1;
@@ -173,9 +175,15 @@ int recv_file(int socket_tcp,const char *destination){
             close(file);
             return -1;
         }
-        if(write(file, buffer, to_read) < 0) {
-            close(file);
-            return -1;
+        size_t written = 0;
+        while (written < to_read) {
+            ssize_t w = write(file, buffer + written, to_read - written);
+            if (w < 0) {
+                if (errno == EINTR) continue;
+                close(file);
+                return -1;
+            }
+            written += (size_t)w;
         }
         total+=to_read;
     }
