@@ -7,6 +7,9 @@
 #include <arpa/inet.h>
 #include <unistd.h>
 
+
+#include "network.h"
+
 #define SERVER_PORT 42422
 #define BACKLOG 16 //represente le nombre de personne qui peuvent attendre avant que le server  ne les accepts
 // Hello la BOP, c'est Gérard, avec cette focntion ,je cree un socket que je vais utilisé tout dans ce fichier network.c
@@ -107,3 +110,9 @@ int connect_to(const char *ip,uint16_t port){
 
     return socket_tcp;
 }
+
+//___________________________________________________________________________________
+// 
+// là, on implemente la logique pour le transfere de mesage afin d'operationaliser
+// là logique de cluster et d'election de maitre qui represente  le serveur dans notre cas 
+
