@@ -1,1 +1,3 @@
 /build
+src/ui/controller/__pycache__/
+src/ui/screens/__pycache__/
