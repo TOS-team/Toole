@@ -4,12 +4,4 @@
 
 # Python
 __pycache__/
-*.py[cod]
 .venv/
-
-# Local smoke-test artifacts
-/tmp_send/
-/tmp_recv/
-/network_smoke_test
-/file_transfer_smoke_test
-/runtime_failover_smoke_test
