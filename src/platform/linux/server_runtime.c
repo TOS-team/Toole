@@ -12,8 +12,6 @@
 #include "discovery.h"
 #include "network.h"
 #include "server_runtime.h"
-//cette type de fonction de fonction de sont celle de hear() et de presence dans discovery.c
-// elles seront utilisé par la suite pour permettre à discovery_multiplex() de prendre les focntions hear et presence en parametre
 
 
 //Hello le BOP , ici dans ce fichier ,je creér des fonctions pour gérer le logique
