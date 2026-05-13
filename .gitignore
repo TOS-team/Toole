@@ -1,1 +1,11 @@
+<<<<<<< HEAD
 /build
+=======
+/build
+/src/ui/controller/__pycache__
+/src/ui/screens/__pycache__
+
+# Python
+__pycache__/
+.venv/
+>>>>>>> 4f2ec6ce32eb8f8092ad46be7fd76220b4f353dd
