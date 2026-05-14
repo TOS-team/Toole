@@ -21,9 +21,10 @@ int write_n(SOCKET fd,char *buffer,size_t n){
         if(bytes == SOCKET_ERROR) return -1;
         total_sent +=bytes;
     }
-    
+
     return 0;
 }
+
 //cette s'assure que les donnees sont bien recu.
 int read_n(SOCKET fd,char *buffer,size_t n){
     size_t total_recv = 0;
@@ -34,7 +35,7 @@ int read_n(SOCKET fd,char *buffer,size_t n){
         if(bytes == 0) return -2;//connection coupée
         total_recv +=bytes;
     }
-    
+
     return 0;
 }
 
@@ -68,7 +69,7 @@ int network_send_file(SOCKET fd,const char * path){
 
     //recuperation de la taille du fchiers
     LARGE_INTEGER filesize ;
-    GetFileSize(hfile,&filesize);//fonction permetant de recuperer 
+    GetFileSize(hfile,&filesize);//fonction permetant de recuperer
 
     //envoie de la taille du fichiers
     if(write_n(fd,&filesize.QuadPart,sizeof(filesize.QuadPart)) < 0){
@@ -96,21 +97,21 @@ int network_send_file(SOCKET fd,const char * path){
             GetOverlappedResult((HANDLE)fd,&ol,&bytes,TRUE);
         }
 
-         
-        total += bytes_a_envoier; 
+
+        total += bytes_a_envoier;
         reste -= bytes_a_envoier;
 
     }
 
-    
-    CloseHandle(hfile); 
-    return (reste == 0) ? 0 : -1; 
+
+    CloseHandle(hfile);
+    return (reste == 0) ? 0 : -1;
 }
 
 //reception des fichiers.
 int network_recv_file(SOCKET fd, const char *dst_path) {
     long long fileSize = 0;
-    
+
     //  Lire la taille d'abord
     // On reçoit le nombre d'octets que l'envoyeur a calculé avec GetFileSizeEx.
     if (read_n(fd, &fileSize, sizeof(fileSize)) < 0) return -1;
@@ -126,16 +127,16 @@ int network_recv_file(SOCKET fd, const char *dst_path) {
     while (totalRecu < fileSize) {
         // On calcule combien d'octets lire pour ne pas dépasser la taille du buffer ni la fin du fichier.
         int aLire = (fileSize - totalRecu > sizeof(buffer)) ? sizeof(buffer) : (int)(fileSize - totalRecu);
-        
+
         // recv() récupère les données arrivant de la socket.
         int n = recv(fd, buffer, aLire, 0);
-        
+
         // Si n <= 0, soit la connexion est coupée (0), soit il y a une erreur (-1).
-        if (n <= 0) break; 
-        
+        if (n <= 0) break;
+
         // On écrit les octets reçus dans le fichier local.
         fwrite(buffer, 1, n, f);
-        
+
         totalRecu += n; // On met à jour le compteur global.
     }
 
@@ -143,4 +144,3 @@ int network_recv_file(SOCKET fd, const char *dst_path) {
     // Si on a reçu autant d'octets que prévu, c'est un succès (0).
     return (totalRecu == fileSize) ? 0 : -1;
 }
-
