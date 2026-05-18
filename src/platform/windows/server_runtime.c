@@ -1,14 +1,3 @@
-/*
-    ============================================================================
-        VERSION WINDOWS UNIQUEMENT
-        Remplacement des APIs Linux/POSIX :
-        - poll()        -> WSAPoll()
-        - close()       -> closesocket()
-        - pthread       -> CreateThread / WaitForSingleObject
-        - clock_gettime -> GetTickCount64()
-    ============================================================================
-*/
-
 #define _WIN32_WINNT 0x0601
 
 #include <winsock2.h>
@@ -27,33 +16,12 @@
 #include "server_runtime.h"
 
 
-/*
-    ============================================================================
-        OUTILS TEMPS WINDOWS
-    ============================================================================
-*/
 
-/*
-    Sous Linux le code utilisait :
-        clock_gettime(CLOCK_MONOTONIC)
-
-    Sous Windows on utilise :
-        GetTickCount64()
-
-    Cette fonction retourne le temps en millisecondes depuis le démarrage
-    du système.
-*/
 static uint64_t current_time_ms(void)
 {
     return GetTickCount64();
 }
 
-
-/*
-    ============================================================================
-        DISCOVERY MULTIPLEX
-    ============================================================================
-*/
 
 int discovery_multiplex(presence_fn presence_cb,
                         hear_fn hear_cb,
@@ -110,10 +78,7 @@ int discovery_multiplex(presence_fn presence_cb,
         if (timeout < 0)
             timeout = 0;
 
-        /*
-            Sous Windows :
-                poll() -> WSAPoll()
-        */
+
         int r = WSAPoll(&wait_beacon, 1, timeout);
 
         /*
@@ -168,15 +133,6 @@ int discovery_multiplex(presence_fn presence_cb,
         THREAD WINDOWS
     ============================================================================
 */
-
-/*
-    Sous Linux :
-        pthread_t
-
-    Sous Windows :
-        HANDLE
-*/
-
 struct thread_runtime
 {
     HANDLE handle;
@@ -293,12 +249,6 @@ int detach_thread(thread_runtime_t *thread)
     if (!thread)
         return -1;
 
-    /*
-        Windows ne possède pas pthread_detach.
-
-        On ferme simplement le HANDLE.
-        Le thread continue d'exister.
-    */
     if (!CloseHandle(thread->handle))
         return -1;
 
