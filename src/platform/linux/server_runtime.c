@@ -89,7 +89,7 @@ for (;;) {
     return 0;
 }
 
-// Hello la BOP,cette fonction sera utilisé pour lancé une fonction sur une thread,je compte utilisé pthread 
+// Hello la BOP,cette fonction sera utilisé pour lancé une fonction sur une thread,je compte utilisé pthread
 struct thread_runtime{
     pthread_t handle;
 };
@@ -113,19 +113,19 @@ struct thread_runtime{
      if (!thread) return -1;
      return (pthread_join(thread->handle, NULL) == 0) ? 0 : -1;
  }
- 
+
  int detach_thread(thread_runtime_t *thread)
  {
      if (!thread) return -1;
      return (pthread_detach(thread->handle) == 0) ? 0 : -1;
  }
- 
+
  void destroy_thread(thread_runtime_t *thread)
  {
      free(thread);
  }
 
-// Hello la BOP, ici c'est un wrapper simple pour envoyer un heartbeat avec notre protocole
+// Hello la BOP, ici c'est un wrapper simple pour envoyer un heartbeat(battement de coeur) avec notre protocole
 int runtime_send_heartbeat_once(int socket_tcp, const info *self)
 {
     if (!self) return -1;
@@ -211,7 +211,7 @@ static int contains_candidate(const info *candidates, size_t count, const char *
     return 0;
 }
 
-// ici on fabrique la liste des candidats et on applique la regle: plus petit id gagne
+// ici on repertorie la liste des candidats et on applique la regle: plus petit id gagne
 int runtime_elect_master_from_devices(const device *liste, int nb, const info *self, info *winner)
 {
     if (!self || !winner || nb < 0) return -1;
@@ -235,7 +235,7 @@ int runtime_elect_master_from_devices(const device *liste, int nb, const info *s
     return rc;
 }
 
-// là on tente d'abord connexion directe au master connu, puis fallback via voisin relay
+// là on tente d'abord connexion directe au master connu, puis reprise via le voisin relay
 int runtime_try_reconnect_from_devices(const device *liste, int nb, const info *self, info *master_out, int *socket_out)
 {
     if (!liste || nb < 0 || !self || !master_out || !socket_out) return -1;
