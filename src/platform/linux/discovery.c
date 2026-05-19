@@ -7,6 +7,7 @@
 #include <unistd.h>
 #include <sys/time.h>
 #include <stdio.h>
+#include <errno.h>
 
 #include "discovery.h"
 
@@ -81,6 +82,20 @@ int hear_socket(){
         perror("La creation du socket a echoué");
         return -1;
     }
+    // ici j'autorise la reutilisation d'adresse pour eviter les bind en echec au redemarrage
+    int reuse = 1;
+    if (setsockopt(socket_udp, SOL_SOCKET, SO_REUSEADDR, &reuse, sizeof(reuse)) < 0) {
+        perror("setsockopt SO_REUSEADDR");
+        close(socket_udp);
+        return -1;
+    }
+    // là je met un timeout de lecture pour eviter un blocage infini si utilisé hors poll()
+    struct timeval tv = { .tv_sec = 1, .tv_usec = 0 };
+    if (setsockopt(socket_udp, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv)) < 0) {
+        perror("setsockopt SO_RCVTIMEO");
+        close(socket_udp);
+        return -1;
+    }
     // creation de la stucture(support pour la transmision)
     struct sockaddr_in network_utils=
         {
@@ -129,16 +144,18 @@ void hear(int socket_udp,device *liste,int *nb)
                 device d;
                 int role_tmp = ROLE_CLIENT;
                 // Je  parse les beacons recues pour le mettre  dans la structure device que j'ai creé
-                sscanf(buffer, "toole|%36[^|]|%63[^|]|%15[^|]|%d|%d|%36[^|]|%15[^|]|%d|%127[^\n]",
-                       d.node_info.id,
-                       d.node_info.username,
-                       d.node_info.ip,
-                       &d.node_info.tcp_port,
-                       &role_tmp,
-                       d.node_info.cluster_id,
-                       d.node_info.master_ip,
-                       &d.node_info.master_port,
-                       d.message);
+                int parsed = sscanf(buffer, "toole|%36[^|]|%63[^|]|%15[^|]|%d|%d|%36[^|]|%15[^|]|%d|%127[^\n]",
+                                    d.node_info.id,
+                                    d.node_info.username,
+                                    d.node_info.ip,
+                                    &d.node_info.tcp_port,
+                                    &role_tmp,
+                                    d.node_info.cluster_id,
+                                    d.node_info.master_ip,
+                                    &d.node_info.master_port,
+                                    d.message);
+                if (parsed < 8) return;
+                if (parsed < 9) d.message[0] = '\0';
                 d.node_info.r = (role_tmp == ROLE_MASTER) ? ROLE_MASTER : ROLE_CLIENT;
                 d.last_time = time(NULL);
                 /*là pour eviter les doublons de beacons, je verifie la liste, si l'id d'un nouveau becons est deja present dans la liste ,
@@ -157,6 +174,9 @@ void hear(int socket_udp,device *liste,int *nb)
                 else if (*nb < 100) {
                     liste[*nb] = d;
                     (*nb)++;
+                }
+                else {
+                    fprintf(stderr, "[DISCOVERY] liste pleine (100), beacon ignore: %s\n", d.node_info.id);
                 }
             }
         }

@@ -6,6 +6,7 @@
 #include <string.h>
 #include <time.h>
 #include <unistd.h>
+#include <errno.h>
 
 #include "app.h"
 
@@ -31,7 +32,19 @@ int main(int argc, char **argv)
     snprintf(self.id, sizeof(self.id), "%s", (argc > 1) ? argv[1] : "N-001");
     snprintf(self.username, sizeof(self.username), "%s", (argc > 2) ? argv[2] : "gerard");
     snprintf(self.ip, sizeof(self.ip), "%s", (argc > 3) ? argv[3] : "127.0.0.1");
-    self.tcp_port = (argc > 4) ? atoi(argv[4]) : SERVER_PORT;
+    // Hello le BOP, ici on valide le port pour eviter un port invalide silencieux
+    if (argc > 4) {
+        char *end = NULL;
+        errno = 0;
+        long p = strtol(argv[4], &end, 10);
+        if (errno != 0 || !end || *end != '\0' || p < 1 || p > 65535) {
+            fprintf(stderr, "[APP] port invalide: %s\n", argv[4]);
+            return 1;
+        }
+        self.tcp_port = (int)p;
+    } else {
+        self.tcp_port = SERVER_PORT;
+    }
     self.r = ROLE_CLIENT;
     snprintf(self.cluster_id, sizeof(self.cluster_id), "%s", "");
 
@@ -65,7 +78,8 @@ int main(int argc, char **argv)
     long long ticks = 0;
     while (!g_stop) {
         if (app_tick(&app) < 0) {
-            fprintf(stderr, "[APP] erreur tick\n");
+            fprintf(stderr, "[APP] erreur tick en etat %s\n",
+                    app_state_name(app.current_state));
             break;
         }
 

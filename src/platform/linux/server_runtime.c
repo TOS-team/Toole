@@ -247,10 +247,14 @@ int runtime_try_reconnect_from_devices(const device *liste, int nb, const info *
         if (node->master_ip[0] != '\0' && node->master_port > 0) {
             int fd_master = connect_to(node->master_ip, (uint16_t)node->master_port);
             if (fd_master >= 0) {
-                *master_out = *node;
+                // Hello la BOP, ici on ne copie pas l'identite du voisin, juste le master reseau
+                memset(master_out, 0, sizeof(*master_out));
                 snprintf(master_out->ip, sizeof(master_out->ip), "%s", node->master_ip);
                 master_out->tcp_port = node->master_port;
                 master_out->r = ROLE_MASTER;
+                if (node->cluster_id[0] != '\0') {
+                    snprintf(master_out->cluster_id, sizeof(master_out->cluster_id), "%s", node->cluster_id);
+                }
                 *socket_out = fd_master;
                 return 0;
             }

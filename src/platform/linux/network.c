@@ -34,7 +34,13 @@ int create_socket(){
 }
 
 // là , c'est le sever TCP  qui est chargé d'etablir la connexion avec les appareils clients
-// int init_server_on(uint16_t port)
+int init_server(void)
+{
+    return init_server_on(SERVER_PORT);
+}
+
+// là, c'est la version paramétrable du serveur TCP
+int init_server_on(uint16_t port)
 {
     int socket_tcp = create_socket();
     if (socket_tcp < 0) return -1;
@@ -81,7 +87,10 @@ int accept_client(int socket_tcp){
 // là on permet au serveur de refuser une connection entrante,en acceptant et en coupant la connexion imediatement
 int denied_client(int socket_tcp){
     int client_socket=accept(socket_tcp,NULL,NULL);// je ne renvoie  ici que le socket du client, c'est pour cette raison que l'ip et le port sont à NULL
-    if (client_socket>=0) close(client_socket);
+    if (client_socket>=0) {
+        fprintf(stderr, "[NETWORK] connexion refusee (fd=%d)\n", client_socket);
+        close(client_socket);
+    }
         return 0;
     // la focntion return une valeur >=0 car la connection sera fermé à la fin
 }
