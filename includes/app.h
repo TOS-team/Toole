@@ -29,6 +29,7 @@ typedef struct {
     int client_sockets[TOOLE_MAX_CLIENTS];
     size_t client_count;
 
+    long long discovering_since_ms;
     long long last_master_announce_ms;
 } toole_app;
 

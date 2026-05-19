@@ -89,7 +89,7 @@ for (;;) {
     return 0;
 }
 
-// Hello la BOP,cette fonction sera utilisé pour lancé une fonction sur une thread,je compte utilisé pthread 
+// Hello la BOP,cette fonction sera utilisé pour lancé une fonction sur une thread,je compte utilisé pthread
 struct thread_runtime{
     pthread_t handle;
 };
@@ -113,19 +113,19 @@ struct thread_runtime{
      if (!thread) return -1;
      return (pthread_join(thread->handle, NULL) == 0) ? 0 : -1;
  }
- 
+
  int detach_thread(thread_runtime_t *thread)
  {
      if (!thread) return -1;
      return (pthread_detach(thread->handle) == 0) ? 0 : -1;
  }
- 
+
  void destroy_thread(thread_runtime_t *thread)
  {
      free(thread);
  }
 
-// Hello la BOP, ici c'est un wrapper simple pour envoyer un heartbeat avec notre protocole
+// Hello la BOP, ici c'est un wrapper simple pour envoyer un heartbeat(battement de coeur) avec notre protocole
 int runtime_send_heartbeat_once(int socket_tcp, const info *self)
 {
     if (!self) return -1;
@@ -211,7 +211,7 @@ static int contains_candidate(const info *candidates, size_t count, const char *
     return 0;
 }
 
-// ici on fabrique la liste des candidats et on applique la regle: plus petit id gagne
+// ici on repertorie la liste des candidats et on applique la regle: plus petit id gagne
 int runtime_elect_master_from_devices(const device *liste, int nb, const info *self, info *winner)
 {
     if (!self || !winner || nb < 0) return -1;
@@ -235,7 +235,7 @@ int runtime_elect_master_from_devices(const device *liste, int nb, const info *s
     return rc;
 }
 
-// là on tente d'abord connexion directe au master connu, puis fallback via voisin relay
+// là on tente d'abord connexion directe au master connu, puis reprise via le voisin relay
 int runtime_try_reconnect_from_devices(const device *liste, int nb, const info *self, info *master_out, int *socket_out)
 {
     if (!liste || nb < 0 || !self || !master_out || !socket_out) return -1;
@@ -247,10 +247,14 @@ int runtime_try_reconnect_from_devices(const device *liste, int nb, const info *
         if (node->master_ip[0] != '\0' && node->master_port > 0) {
             int fd_master = connect_to(node->master_ip, (uint16_t)node->master_port);
             if (fd_master >= 0) {
-                *master_out = *node;
+                // Hello la BOP, ici on ne copie pas l'identite du voisin, juste le master reseau
+                memset(master_out, 0, sizeof(*master_out));
                 snprintf(master_out->ip, sizeof(master_out->ip), "%s", node->master_ip);
                 master_out->tcp_port = node->master_port;
                 master_out->r = ROLE_MASTER;
+                if (node->cluster_id[0] != '\0') {
+                    snprintf(master_out->cluster_id, sizeof(master_out->cluster_id), "%s", node->cluster_id);
+                }
                 *socket_out = fd_master;
                 return 0;
             }

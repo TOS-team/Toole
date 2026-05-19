@@ -44,6 +44,9 @@ static int add_client_socket(toole_app *app, int fd)
 static void remove_client_socket(toole_app *app, size_t index)
 {
     if (index >= app->client_count) return;
+    // Hello la BOP, ici je log quand un client saute pour aider le debug
+    fprintf(stderr, "[MASTER] client fd=%d deconnecte (slot %zu)\n",
+            app->client_sockets[index], index);
     network_close(app->client_sockets[index]);
     for (size_t i = index; i + 1 < app->client_count; i++) {
         app->client_sockets[i] = app->client_sockets[i + 1];
@@ -105,6 +108,11 @@ static int step_discovering(toole_app *app)
         }
     }
 
+    // Hello la BOP, on attend un cycle beacon avant de s'auto-elire pour eviter 2 masters
+    if (now_ms() - app->discovering_since_ms < app->beacon_interval_ms + 200) {
+        return 0;
+    }
+
     info elected;
     if (runtime_elect_master_from_devices(app->devices, app->device_count, &app->self, &elected) == 0 &&
         strcmp(elected.id, app->self.id) == 0) {
@@ -117,6 +125,7 @@ static int step_client(toole_app *app)
 {
     if (app->control_socket < 0) {
         app->current_state = DISCOVERING;
+        app->discovering_since_ms = now_ms();
         return 0;
     }
 
@@ -156,10 +165,21 @@ static int step_master(toole_app *app)
             remove_client_socket(app, i);
             continue;
         }
-        if (wr == 0 && msg.type == NETWORK_MSG_RELAY_REQUEST) {
-            if (network_send_relay_response(app->client_sockets[i], &app->self, app->self.cluster_id) < 0) {
-                remove_client_socket(app, i);
-                continue;
+        if (wr == 0) {
+            switch (msg.type) {
+                case NETWORK_MSG_RELAY_REQUEST:
+                    if (network_send_relay_response(app->client_sockets[i], &app->self, app->self.cluster_id) < 0) {
+                        remove_client_socket(app, i);
+                        continue;
+                    }
+                    break;
+                case NETWORK_MSG_HELLO:
+                case NETWORK_MSG_HEARTBEAT:
+                    // on lit juste pour vider le buffer, pas d'action pour l'instant
+                    break;
+                default:
+                    fprintf(stderr, "[MASTER] message inattendu type=%d\n", msg.type);
+                    break;
             }
         }
         i++;
@@ -189,6 +209,7 @@ static int step_election(toole_app *app)
     int rc = runtime_client_failover(app->devices, app->device_count, &app->self, &new_master, &new_socket, &next);
     if (rc < 0) {
         app->current_state = DISCOVERING;
+        app->discovering_since_ms = now_ms();
         return 0;
     }
 
@@ -223,6 +244,7 @@ int app_init(toole_app *app, const info *self_template, state initial_state, con
     app->loop_tick_ms = 200;
     app->control_socket = -1;
     app->server_socket = -1;
+    app->discovering_since_ms = now_ms();
     app->last_master_announce_ms = now_ms();
     reset_clients(app);
 
@@ -254,6 +276,8 @@ int app_start(toole_app *app)
         snprintf(app->self.master_ip, sizeof(app->self.master_ip), "%s", app->self.ip);
         app->self.master_port = app->self.tcp_port;
         sync_presence_fields(app);
+    } else if (app->current_state == DISCOVERING) {
+        app->discovering_since_ms = now_ms();
     }
     return 0;
 }
