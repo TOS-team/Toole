@@ -1,57 +1,52 @@
+from tkinter import messagebox as tk_messagebox
+
 import customtkinter as ctk
 from controller.controller import Controller
 from screens.connection import ConnectionScreen
-from screens.transfer import TransferScreen
 from screens.popup import ConnectionRequestPopup, FileTransferRequestPopup
-from tkinter import messagebox as tk_messagebox
+from screens.transfer import TransferScreen
+
 
 class App(ctk.CTk):
     def __init__(self):
         super().__init__()
+
         ctk.set_appearance_mode("dark")
         ctk.set_default_color_theme("blue")
 
         self.title("Bit Transfer - LAN File Sharing")
-        self.geometry("1200x700")
-        self.minsize(1000, 650)
+        self.geometry("1280x760")
+        self.minsize(1100, 680)
 
         self.controller = Controller()
 
         # Tabview
-        self.tabview = ctk.CTkTabview(self)
-        self.tabview.pack(fill="both", expand=True, padx=20, pady=20)
+        self.tabview = ctk.CTkTabview(self, segmented_button_fg_color="#2B2B2B")
+        self.tabview.pack(fill="both", expand=True, padx=15, pady=15)
 
         self.tabview.add("Connexion")
         self.tabview.add("Transfert")
 
-        self.connection_screen = ConnectionScreen(self.tabview.tab("Connexion"), self.controller)
+        # Connexion Screen
+        self.connection_screen = ConnectionScreen(
+            self.tabview.tab("Connexion"), self.controller
+        )
         self.connection_screen.pack(fill="both", expand=True)
 
-        self.transfer_screen = TransferScreen(self.tabview.tab("Transfert"), self.controller)
+        # Transfer Screen
+        self.transfer_screen = TransferScreen(
+            self.tabview.tab("Transfert"), self.controller
+        )
         self.transfer_screen.pack(fill="both", expand=True)
 
-        # Test popups (tu peux les appeler depuis des boutons)
-        #self.after(2000, self.test_popups)
-
-    # def test_popups(self):
-    #     # Exemple de popup connexion
-    #     ConnectionRequestPopup(
-    #         self,
-    #         username="Madeleine_Y",
-    #         ip="192.168.1.5",
-    #         on_accept=lambda: self.controller.accept_connection("Madeleine_Y", "192.168.1.5"),
-    #         on_decline=lambda: self.controller.decline_connection("Madeleine_Y")
-    #     )
-
-    #     # Exemple de popup transfert
-    #     FileTransferRequestPopup(
-    #         self,
-    #         sender="Gerard_BIT",
-    #         filename="ubuntu.iso",
-    #         size="(2.3 Go)",
-    #         on_accept=lambda: self.controller.accept_file_transfer("Gerard_BIT", "ubuntu.iso", "2.3 Go"),
-    #         on_decline=lambda: print("Transfert refusé")
-    #     )
+    def show_connection_popup(self, username, ip):
+        ConnectionRequestPopup(
+            self,
+            username=username,
+            ip=ip,
+            on_accept=lambda: self.controller.accept_connection(username, ip),
+            on_decline=lambda: self.controller.decline_connection(username),
+        )
 
 
 if __name__ == "__main__":
