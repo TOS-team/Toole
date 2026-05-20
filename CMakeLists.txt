@@ -16,7 +16,7 @@ if(WIN32)
     src/platform/windows/server_runtime.c
   )
 else()
-  # Hello le BOP, backend Linux stable
+  # backend Linux stable
   set(TOOLE_PLATFORM_SOURCES
     src/platform/linux/discovery.c
     src/platform/linux/network.c
@@ -25,7 +25,7 @@ else()
   )
 endif()
 
-# Hello la BOP, lib plateforme (reseau + runtime)
+# lib plateforme (reseau + runtime)
 add_library(toole_platform STATIC ${TOOLE_PLATFORM_SOURCES})
 target_include_directories(toole_platform PUBLIC includes)
 
@@ -37,12 +37,12 @@ if(WIN32)
   target_link_libraries(toole_platform PUBLIC ws2_32)
 endif()
 
-# Hello le BOP, coeur applicatif (state machine)
+# coeur applicatif (state machine)
 add_library(toole_core STATIC src/core/app.c)
 target_include_directories(toole_core PUBLIC includes)
 target_link_libraries(toole_core PUBLIC toole_platform)
 
-# Hello la BOP, bridge C pour l'UI (ctypes)
+# bridge C pour l'UI (ctypes)
 add_library(toole_bridge SHARED src/core/bridge.c)
 target_include_directories(toole_bridge PUBLIC includes)
 target_link_libraries(toole_bridge PUBLIC toole_core)
