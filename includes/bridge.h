@@ -77,7 +77,10 @@ TOOLE_API int toole_bridge_get_snapshot(const toole_bridge_t *bridge, toole_brid
 TOOLE_API int toole_bridge_get_peers(const toole_bridge_t *bridge, toole_bridge_peer *out, size_t cap, size_t *written);
 
 // Python demandera un transfert via chemin local; le coeur C fait tout le reste
-TOOLE_API int toole_bridge_send_file(toole_bridge_t *bridge, const char *path, const char *new_name);
+TOOLE_API int toole_bridge_connect(toole_bridge_t *bridge, const char *ip, int tcp_port, const char *cluster_id);
+// Hello le BOP, on ajoute dest_ip et dest_port pour envoyer directement à n'importe quel peer
+// si dest_ip est NULL, on tombe sur le control_socket comme avant (retro-compat)
+TOOLE_API int toole_bridge_send_file(toole_bridge_t *bridge, const char *path, const char *new_name, const char *dest_ip, int dest_port);
 
 TOOLE_API int toole_bridge_get_last_error(const toole_bridge_t *bridge, char *out, size_t cap);
 

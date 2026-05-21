@@ -6,6 +6,16 @@
 #include "discovery.h"
 #include "network.h"
 
+// Hello le BOP, ici on ajoute un mutex cross-platform pour proteger les acces concurrents
+// le thread discovery ecrit dans devices[], le thread principal lit => il faut un verrou
+// le type est opaque: pthread_mutex sur Linux, CRITICAL_SECTION sur Windows
+typedef struct toole_mutex toole_mutex_t;
+
+toole_mutex_t *toole_mutex_create(void);
+void toole_mutex_destroy(toole_mutex_t *m);
+void toole_mutex_lock(toole_mutex_t *m);
+void toole_mutex_unlock(toole_mutex_t *m);
+
 typedef int (*presence_fn)(
     int socket_udp,
     const info *self,
@@ -15,7 +25,8 @@ typedef int (*presence_fn)(
 typedef void (*hear_fn)(
     int socket_udp,
     device *liste,
-    int *nb
+    int *nb,
+    const char *self_id
 );
 
 typedef struct {
@@ -27,6 +38,9 @@ typedef struct {
 
     int beacon_interval;
     volatile int *stop_flag;
+
+    // là on passe le mutex au thread discovery pour qu'il lock avant de toucher à la liste
+    toole_mutex_t *devices_lock;
 } context;
 
 typedef struct thread_runtime thread_runtime_t;

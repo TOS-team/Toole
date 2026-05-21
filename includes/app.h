@@ -20,6 +20,10 @@ typedef struct {
     device devices[TOOLE_MAX_DEVICES];
     int device_count;
 
+    // Hello le BOP, ce mutex protege devices[] et device_count
+    // le thread discovery ecrit dedans, le thread principal lit => verrou obligatoire
+    toole_mutex_t *devices_lock;
+
     context discovery_ctx;
     thread_runtime_t *discovery_thread;
     int discovery_started;
@@ -31,6 +35,8 @@ typedef struct {
 
     long long discovering_since_ms;
     long long last_master_announce_ms;
+
+    char receive_dir[256];
 } toole_app;
 
 int app_init(toole_app *app, const info *self_template, state initial_state, const char *message);
@@ -40,5 +46,6 @@ void app_request_stop(toole_app *app);
 void app_shutdown(toole_app *app);
 const char *app_state_name(state s);
 int app_snapshot_devices(const toole_app *app, device *out, size_t cap, size_t *written);
+int app_connect_to_master(toole_app *app, const char *ip, int tcp_port, const char *cluster_id);
 
 #endif

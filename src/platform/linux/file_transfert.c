@@ -10,6 +10,8 @@
 #include <stdio.h>
 #include <errno.h>
 
+#include "checksum.h"
+
 #define CHUNK_SIZE 4096
 
 /*
@@ -56,7 +58,7 @@ static int read_n(int socket_tcp,void *buffer,size_t n){
 }
 
 //on convertit l'ordre des octets avant de les envoyés pour optimiser le compatibilité entre architecture little-endian et big-endian
-// les octets d’un entier multi-octets (ex: uint64_t) sont stockés dans l’ordre inverse
+// les octets d'un entier multi-octets (ex: uint64_t) sont stockés dans l'ordre inverse
 // sans ca le recepteur pourrait reconstruire une valeur incorrecte à la reception
 static uint64_t htonll(uint64_t x) {
 #if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
@@ -100,6 +102,8 @@ int send_struct(int socket_tcp,const char *filename,uint64_t file_size){
     return 0;
 }
 //Hello la BOP, encore Gérard sur ce nouveau fichier , je cree cette focntion pour l'envoie de fichier à transfere un socket TCP dejà existant
+// là on ajoute le CRC32 pour verifier l'integrite du fichier apres transfert
+// le CRC est calculé chunk par chunk pendant l'envoi, puis envoyé en 4 octets à la fin du flux
 int send_file(int socket_tcp,const char *path,const char *new_name){
     if (!path || !new_name) return -1;//verification des parametres
     int file = open(path, O_RDONLY); // ouverture du fcihier en lecture seule
@@ -121,6 +125,11 @@ int send_file(int socket_tcp,const char *path,const char *new_name){
                 close(file);
                 return -1;
             }
+
+        // Hello le BOP, ici on initialise le CRC32 avant de lire les chunks
+        // on le met à jour à chaque chunk lu, et on envoie le resultat final apres le dernier chunk
+        uint32_t crc = crc32_init();
+
         uint8_t buf[CHUNK_SIZE];
         // eh  ben là , for(;;) permet de lancer une boucle infini,équivalent à while(1)
         for (;;) {
@@ -131,12 +140,22 @@ int send_file(int socket_tcp,const char *path,const char *new_name){
                     return -1;
                 }
                 if (r == 0) break;
+
+                // on met à jour le CRC avec le chunk qu'on vient de lire
+                crc = crc32_update(crc, buf, (size_t)r);
+
                 if (write_n(socket_tcp, buf, (size_t)r) < 0) {
                     close(file);
                     return -1;
                 }
         }
         close(file);
+
+        // là on finalise le CRC et on l'envoie en network byte order apres le flux
+        // le recepteur fera le meme calcul de son coté et comparera
+        uint32_t final_crc = htonl(crc32_finalize(crc));
+        if (write_n(socket_tcp, &final_crc, sizeof(final_crc)) < 0) return -1;
+
         return 0;
 }
 
@@ -157,6 +176,8 @@ int recv_struct(int socket_tcp,char *filename_out,size_t max_len,uint64_t *file_
 }
 
 // ici, c'est la focntion qui permettra de recevoir le fichier envoyé
+// Hello le BOP, maintenant elle verifie aussi le CRC32 apres reception
+// si le CRC ne correspond pas, le fichier est corrompu => on retourne -2
 int recv_file(int socket_tcp,const char *destination){
     char filename[256];
     uint64_t file_size;
@@ -168,6 +189,10 @@ int recv_file(int socket_tcp,const char *destination){
 
     int file = open(path, O_WRONLY | O_CREAT | O_TRUNC, 0644);
     if(file < 0) return -1;
+
+    // on initialise le CRC32 pour le calculer chunk par chunk pendant la reception
+    uint32_t crc = crc32_init();
+
     uint8_t buffer[CHUNK_SIZE];
     uint64_t total = 0;
     while(total < file_size) {
@@ -176,6 +201,10 @@ int recv_file(int socket_tcp,const char *destination){
             close(file);
             return -1;
         }
+
+        // on met à jour le CRC avec chaque chunk recu
+        crc = crc32_update(crc, buffer, to_read);
+
         size_t written = 0;
         while (written < to_read) {
             ssize_t w = write(file, buffer + written, to_read - written);
@@ -189,5 +218,23 @@ int recv_file(int socket_tcp,const char *destination){
         total+=to_read;
     }
     close(file);
+
+    // là on recoit le CRC32 envoyé par l'emetteur et on compare
+    // si ca ne correspond pas, le fichier est corrompu pendant le transfert
+    uint32_t expected_crc_net;
+    if (read_n(socket_tcp, &expected_crc_net, sizeof(expected_crc_net)) < 0) {
+        fprintf(stderr, "[FILE] impossible de lire le CRC32 du fichier %s\n", filename);
+        return -1;
+    }
+    uint32_t expected_crc = ntohl(expected_crc_net);
+    uint32_t computed_crc = crc32_finalize(crc);
+
+    if (computed_crc != expected_crc) {
+        fprintf(stderr, "[FILE] CRC32 mismatch pour %s: attendu=0x%08X recu=0x%08X => fichier corrompu\n",
+                filename, expected_crc, computed_crc);
+        return -2;
+    }
+
+    fprintf(stderr, "[FILE] CRC32 OK pour %s (0x%08X)\n", filename, computed_crc);
     return 0;
 }

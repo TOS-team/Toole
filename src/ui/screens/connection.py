@@ -1,65 +1,351 @@
 import customtkinter as ctk
 from controller.controller import Controller
+from CTkMessagebox import CTkMessagebox
+
+# Hello la BOP, on inline le theme directement ici pour eviter theme.py
+THEME = {
+    "bg_dark": "#0B0F19",       # Deep space navy background
+    "bg_card": "#152238",       # Sleek card container background
+    "bg_subcard": "#1E2D4A",    # Inner sub-card background
+    "border": "#243B5A",        # Thin sharp borders
+    "primary": "#6366F1",       # Indigo accent
+    "primary_hover": "#4F46E5",
+    "success": "#10B981",       # Teal accent
+    "success_hover": "#059669",
+    "warning": "#F59E0B",       # Amber warning
+    "danger": "#EF4444",        # Rose danger
+    "danger_hover": "#DC2626",
+    "text_main": "#F3F4F6",     # Almost white main text
+    "text_muted": "#9CA3AF",    # Light grey muted text
+    "text_dim": "#6B7280"       # Dark grey dim text
+}
+
+FONT_FAMILY = "Segoe UI"
+
+def _state_name(value: int) -> str:
+    return {
+        0: "RECHERCHE",
+        1: "CONNEXION",
+        2: "CLIENT",
+        3: "MASTER",
+        4: "ELECTION",
+    }.get(value, str(value))
 
 class ConnectionScreen(ctk.CTkFrame):
     def __init__(self, master, controller: Controller):
-        super().__init__(master)
+        super().__init__(master, fg_color="transparent")
         self.controller = controller
+        self._last_signature = None
+        self._layout_mode = "horizontal"
 
-        # Sidebar
-        sidebar = ctk.CTkFrame(self, width=200, corner_radius=0)
-        sidebar.pack(side="left", fill="y")
+        self._build_ui()
+        self._apply_layout()
+        self.bind("<Configure>", self._on_configure)
+        self.refresh_users(force=True)
 
-        ctk.CTkLabel(sidebar, text="Connexions", font=ctk.CTkFont(size=20, weight="bold")).pack(pady=20)
+    def _build_ui(self):
+        # 1. Left Panel (Dashboard & Profile)
+        self.left_panel = ctk.CTkFrame(
+            self, 
+            fg_color=THEME["bg_card"], 
+            border_width=1, 
+            border_color=THEME["border"],
+            corner_radius=12
+        )
+        
+        ctk.CTkLabel(
+            self.left_panel, 
+            text="Mon Profil", 
+            font=ctk.CTkFont(family=FONT_FAMILY, size=16, weight="bold"),
+            text_color=THEME["text_main"]
+        ).pack(anchor="w", padx=16, pady=(16, 8))
 
-        ctk.CTkButton(sidebar, text="🔄 Actualiser", command=self.refresh_users).pack(pady=10, padx=20)
+        # Username Card
+        user_card = ctk.CTkFrame(self.left_panel, fg_color=THEME["bg_subcard"], corner_radius=8)
+        user_card.pack(fill="x", padx=16, pady=4)
+        
+        ctk.CTkLabel(
+            user_card,
+            text="NOM D'UTILISATEUR",
+            font=ctk.CTkFont(family=FONT_FAMILY, size=9, weight="bold"),
+            text_color=THEME["text_dim"]
+        ).pack(anchor="w", padx=12, pady=(8, 2))
 
-        # Main content
-        main = ctk.CTkFrame(self)
-        main.pack(side="right", fill="both", expand=True, padx=20, pady=20)
+        self.username_entry = ctk.CTkEntry(
+            user_card, 
+            height=32,
+            fg_color=THEME["bg_card"],
+            border_color=THEME["border"],
+            font=ctk.CTkFont(family=FONT_FAMILY, size=13),
+            text_color=THEME["text_main"]
+        )
+        self.username_entry.pack(fill="x", padx=12, pady=(0, 8))
+        self.username_entry.insert(0, self.controller.current_user)
+        self.username_entry.bind("<FocusOut>", self._update_username)
+        self.username_entry.bind("<Return>", self._update_username)
 
-        # Configuration
-        config_frame = ctk.CTkFrame(main)
-        config_frame.pack(fill="x", pady=(0, 20))
+        # Dashboard status items
+        ctk.CTkLabel(
+            self.left_panel, 
+            text="Statut Reseau", 
+            font=ctk.CTkFont(family=FONT_FAMILY, size=16, weight="bold"),
+            text_color=THEME["text_main"]
+        ).pack(anchor="w", padx=16, pady=(16, 8))
 
-        ctk.CTkLabel(config_frame, text="CONFIGURATION", font=ctk.CTkFont(size=16, weight="bold")).pack(anchor="w", pady=5)
+        self.status_cards_frame = ctk.CTkFrame(self.left_panel, fg_color="transparent")
+        self.status_cards_frame.pack(fill="both", expand=True, padx=16)
 
-        ctk.CTkLabel(config_frame, text="Nom d'utilisateur :").pack(anchor="w", padx=10)
-        self.username_entry = ctk.CTkEntry(config_frame, placeholder_text=self.controller.current_user)
-        self.username_entry.pack(fill="x", padx=10, pady=5)
+        # Define status labels
+        self.lbl_state = self._add_dashboard_item("ETAT ACTUEL", "?", THEME["warning"])
+        self.lbl_role = self._add_dashboard_item("ROLE NOEUD", "?", THEME["primary"])
+        self.lbl_cluster = self._add_dashboard_item("CLUSTER ID", "-", THEME["text_muted"])
+        self.lbl_master = self._add_dashboard_item("IP MASTER", "-", THEME["text_muted"])
 
-        # Mode
-        mode_frame = ctk.CTkFrame(config_frame)
-        mode_frame.pack(fill="x", padx=10, pady=10)
-        ctk.CTkLabel(mode_frame, text="Mode :").pack(side="left", padx=5)
-        self.mode_switch = ctk.CTkSwitch(mode_frame, text="AUTOMATIQUE", onvalue="on", offvalue="off")
-        self.mode_switch.pack(side="right")
+        # Refresh Profile button
+        ctk.CTkButton(
+            self.left_panel,
+            text="Actualiser",
+            height=36,
+            font=ctk.CTkFont(family=FONT_FAMILY, size=12, weight="bold"),
+            fg_color=THEME["primary"],
+            hover_color=THEME["primary_hover"],
+            command=lambda: self.refresh_users(force=True),
+        ).pack(fill="x", padx=16, pady=16)
 
-        # Available users
-        ctk.CTkLabel(main, text="UTILISATEURS DISPONIBLES (Réseau local)", 
-                    font=ctk.CTkFont(size=16, weight="bold")).pack(anchor="w", pady=(20,10))
+        # 2. Right Panel (Peer list)
+        self.right_panel = ctk.CTkFrame(
+            self,
+            fg_color=THEME["bg_card"],
+            border_width=1,
+            border_color=THEME["border"],
+            corner_radius=12
+        )
 
-        self.users_frame = ctk.CTkScrollableFrame(main, height=300)
-        self.users_frame.pack(fill="both", expand=True)
+        head = ctk.CTkFrame(self.right_panel, fg_color="transparent")
+        head.pack(fill="x", padx=16, pady=(16, 8))
 
-        self.refresh_users()
+        ctk.CTkLabel(
+            head, 
+            text="Appareils Detectes", 
+            font=ctk.CTkFont(family=FONT_FAMILY, size=16, weight="bold"),
+            text_color=THEME["text_main"]
+        ).pack(side="left")
 
-    def refresh_users(self):
-        for widget in self.users_frame.winfo_children():
-            widget.destroy()
+        # Sleek badge count
+        self.count_badge = ctk.CTkFrame(head, fg_color=THEME["bg_subcard"], corner_radius=12)
+        self.count_badge.pack(side="right")
+        self.count_label = ctk.CTkLabel(
+            self.count_badge, 
+            text="0", 
+            font=ctk.CTkFont(family=FONT_FAMILY, size=12, weight="bold"),
+            text_color=THEME["primary"],
+            padx=10,
+            pady=2
+        )
+        self.count_label.pack()
 
-        users = [
-            ("Madeleine_Y", "192.168.1.5", "Pending acceptance..."),
-            ("Papa_Z", "192.168.1.??", "Connected"),
-            ("Admin_BIT", "192.168.1.??", "Available"),
-        ]
+        # Search Bar Container (Innovation)
+        search_frame = ctk.CTkFrame(self.right_panel, fg_color="transparent")
+        search_frame.pack(fill="x", padx=16, pady=(0, 8))
+        
+        self.search_var = ctk.StringVar()
+        self.search_var.trace_add("write", lambda *args: self.refresh_users(force=True))
+        
+        self.search_entry = ctk.CTkEntry(
+            search_frame,
+            textvariable=self.search_var,
+            placeholder_text="Rechercher un appareil par nom ou IP...",
+            height=32,
+            fg_color=THEME["bg_subcard"],
+            border_color=THEME["border"],
+            font=ctk.CTkFont(family=FONT_FAMILY, size=12),
+            text_color=THEME["text_main"]
+        )
+        self.search_entry.pack(fill="x")
 
-        for name, ip, status in users:
-            user_frame = ctk.CTkFrame(self.users_frame)
-            user_frame.pack(fill="x", pady=5, padx=5)
+        # Scrollable peer list
+        self.users_frame = ctk.CTkScrollableFrame(
+            self.right_panel, 
+            fg_color="transparent",
+            scrollbar_button_color=THEME["border"],
+            scrollbar_button_hover_color=THEME["bg_subcard"]
+        )
+        self.users_frame.pack(fill="both", expand=True, padx=8, pady=(0, 8))
 
-            ctk.CTkLabel(user_frame, text=name, font=ctk.CTkFont(size=15)).pack(side="left", padx=10)
-            ctk.CTkLabel(user_frame, text=ip, text_color="gray").pack(side="left", padx=10)
+    def _on_configure(self, event):
+        # Responsiveness configure listener using winfo_width() directly
+        width = self.winfo_width()
+        if width <= 1:
+            return
+        new_mode = "vertical" if width < 680 else "horizontal"
+        if new_mode != self._layout_mode:
+            self._layout_mode = new_mode
+            self._apply_layout()
+
+    def _apply_layout(self):
+        # Reset grid settings and adapt dynamically
+        if self._layout_mode == "vertical":
+            self.grid_columnconfigure(0, weight=1, minsize=0)
+            self.grid_columnconfigure(1, weight=0, minsize=0)
+            self.grid_rowconfigure(0, weight=0)
+            self.grid_rowconfigure(1, weight=1)
             
-            status_label = ctk.CTkLabel(user_frame, text=status, text_color="orange" if "Pending" in status else "green")
-            status_label.pack(side="right", padx=10)
+            self.left_panel.grid(row=0, column=0, sticky="ew", padx=0, pady=4)
+            self.right_panel.grid(row=1, column=0, sticky="nsew", padx=0, pady=4)
+        else:
+            self.grid_columnconfigure(0, weight=1, minsize=0)
+            self.grid_columnconfigure(1, weight=2, minsize=0)
+            self.grid_rowconfigure(0, weight=1)
+            self.grid_rowconfigure(1, weight=0)
+            
+            self.left_panel.grid(row=0, column=0, sticky="nsew", padx=(0, 8), pady=4)
+            self.right_panel.grid(row=0, column=1, sticky="nsew", padx=(8, 0), pady=4)
+
+    def _add_dashboard_item(self, title, default_val, text_color):
+        card = ctk.CTkFrame(self.status_cards_frame, fg_color=THEME["bg_subcard"], corner_radius=8)
+        card.pack(fill="x", pady=4)
+        
+        ctk.CTkLabel(
+            card,
+            text=title,
+            font=ctk.CTkFont(family=FONT_FAMILY, size=9, weight="bold"),
+            text_color=THEME["text_dim"]
+        ).pack(anchor="w", padx=12, pady=(6, 2))
+
+        val_label = ctk.CTkLabel(
+            card,
+            text=default_val,
+            font=ctk.CTkFont(family=FONT_FAMILY, size=13, weight="bold"),
+            text_color=text_color
+        )
+        val_label.pack(anchor="w", padx=12, pady=(0, 6))
+        return val_label
+
+    def _update_username(self, event=None):
+        new_name = self.username_entry.get().strip()
+        if new_name:
+            self.controller.current_user = new_name
+            self.refresh_users(force=True)
+
+    def _signature(self, snapshot, peers):
+        sig_peers = tuple(
+            (p.get("id"), p.get("ip"), p.get("role"), p.get("tcp_port")) for p in peers
+        )
+        sig_snap = (
+            snapshot.get("state") if snapshot else None,
+            snapshot.get("role") if snapshot else None,
+            snapshot.get("cluster_id") if snapshot else None,
+            snapshot.get("master_ip") if snapshot else None,
+            snapshot.get("master_port") if snapshot else None,
+        )
+        return sig_snap, sig_peers
+
+    def _connect_to_peer(self, peer):
+        ok, msg = self.controller.connect_to_peer(peer)
+        CTkMessagebox(
+            title="Connexion" if ok else "Erreur",
+            message=msg,
+            icon="check" if ok else "warning",
+        )
+        self.refresh_users(force=True)
+
+    def refresh_users(self, force: bool = False):
+        snapshot, peers = self.controller.get_runtime_view()
+        sig = self._signature(snapshot, peers)
+        if not force and sig == self._last_signature:
+            return
+        self._last_signature = sig
+
+        state_val = snapshot.get("state", -1) if snapshot else -1
+        state_txt = _state_name(state_val)
+        role_txt = "MASTER" if snapshot and snapshot.get("role") == 1 else "CLIENT"
+
+        # Update dashboard items
+        self.lbl_state.configure(text=state_txt)
+        if state_val == 2:  # CLIENT
+            self.lbl_state.configure(text_color=THEME["success"])
+        elif state_val == 3:  # MASTER
+            self.lbl_state.configure(text_color="#A855F7")
+        else:
+            self.lbl_state.configure(text_color=THEME["warning"])
+
+        self.lbl_role.configure(text=role_txt)
+        self.lbl_cluster.configure(text=snapshot.get("cluster_id", "-") if snapshot else "-")
+        self.lbl_master.configure(
+            text=f"{snapshot.get('master_ip', '-')}:{snapshot.get('master_port', '-')}" if snapshot and snapshot.get('master_port', 0) > 0 else "-"
+        )
+
+        for w in self.users_frame.winfo_children():
+            w.destroy()
+
+        # Apply search filter
+        search_filter = self.search_var.get().strip().lower()
+        filtered_peers = []
+        for p in peers:
+            name = (p.get("name") or p.get("id") or "Unknown").lower()
+            ip = p.get("ip", "?").lower()
+            if not search_filter or search_filter in name or search_filter in ip:
+                filtered_peers.append(p)
+
+        self.count_label.configure(text=str(len(filtered_peers)))
+
+        if not filtered_peers:
+            # Empty state feedback (No emojis)
+            empty_frame = ctk.CTkFrame(self.users_frame, fg_color="transparent")
+            empty_frame.pack(fill="both", expand=True, pady=40)
+            
+            ctk.CTkLabel(
+                empty_frame, 
+                text="Recherche d'autres appareils...", 
+                font=ctk.CTkFont(family=FONT_FAMILY, size=13, weight="bold"),
+                text_color=THEME["text_muted"]
+            ).pack(pady=8)
+            return
+
+        for p in filtered_peers:
+            card = ctk.CTkFrame(
+                self.users_frame,
+                fg_color=THEME["bg_subcard"],
+                border_width=1,
+                border_color=THEME["border"],
+                corner_radius=10
+            )
+            card.pack(fill="x", padx=4, pady=4)
+
+            name = p.get("name") or p.get("id") or "Unknown"
+            ip = p.get("ip", "?")
+            port = p.get("tcp_port", 0)
+            is_master = p.get("role") == 1
+
+            # Header info
+            info_frame = ctk.CTkFrame(card, fg_color="transparent")
+            info_frame.pack(fill="x", padx=12, pady=(10, 8))
+
+            text_frame = ctk.CTkFrame(info_frame, fg_color="transparent")
+            text_frame.pack(side="left")
+
+            ctk.CTkLabel(
+                text_frame, 
+                text=name, 
+                font=ctk.CTkFont(family=FONT_FAMILY, size=14, weight="bold"),
+                text_color=THEME["text_main"]
+            ).pack(anchor="w")
+
+            ctk.CTkLabel(
+                text_frame, 
+                text=f"{ip}:{port} - " + ("MASTER" if is_master else "CLIENT"), 
+                font=ctk.CTkFont(family=FONT_FAMILY, size=11),
+                text_color=THEME["success"] if is_master else THEME["text_muted"]
+            ).pack(anchor="w", pady=(2, 0))
+
+            # Connect button
+            ctk.CTkButton(
+                info_frame,
+                text="Connexion",
+                width=100,
+                height=30,
+                font=ctk.CTkFont(family=FONT_FAMILY, size=12, weight="bold"),
+                fg_color=THEME["primary"],
+                hover_color=THEME["primary_hover"],
+                command=lambda peer=p: self._connect_to_peer(peer),
+            ).pack(side="right", padx=(10, 0))

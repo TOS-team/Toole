@@ -13,6 +13,41 @@
 #include "network.h"
 #include "server_runtime.h"
 
+// Hello le BOP, ici on implemente le mutex cross-platform pour Linux
+// c'est un simple wrapper autour de pthread_mutex_t
+// le type est opaque dans le header, ici on revele la structure interne
+struct toole_mutex {
+    pthread_mutex_t mtx;
+};
+
+toole_mutex_t *toole_mutex_create(void)
+{
+    toole_mutex_t *m = malloc(sizeof(*m));
+    if (!m) return NULL;
+    if (pthread_mutex_init(&m->mtx, NULL) != 0) {
+        free(m);
+        return NULL;
+    }
+    return m;
+}
+
+void toole_mutex_destroy(toole_mutex_t *m)
+{
+    if (!m) return;
+    pthread_mutex_destroy(&m->mtx);
+    free(m);
+}
+
+void toole_mutex_lock(toole_mutex_t *m)
+{
+    if (m) pthread_mutex_lock(&m->mtx);
+}
+
+void toole_mutex_unlock(toole_mutex_t *m)
+{
+    if (m) pthread_mutex_unlock(&m->mtx);
+}
+
 
 //Hello le BOP , ici dans ce fichier ,je creér des fonctions pour gérer le logique
 //concurente  de nos differentes composantes
@@ -69,7 +104,11 @@ for (;;) {
 
     int r=poll(&wait_beacon,1,timeout);
     if (r>0 && (wait_beacon.revents & POLLIN)) {
-        hear_cb(sock_h, ctx->liste, ctx->nb);
+        // Hello le BOP, ici on lock avant de toucher à la liste des devices
+        // le thread principal lit cette liste en parallele, sans ca c'est data race
+        if (ctx->devices_lock) toole_mutex_lock(ctx->devices_lock);
+        hear_cb(sock_h, ctx->liste, ctx->nb, ctx->self.id);
+        if (ctx->devices_lock) toole_mutex_unlock(ctx->devices_lock);
     }
     else if (r<0 && errno != EINTR) {
         break;
@@ -82,7 +121,10 @@ for (;;) {
         presence_cb(sock_p, &ctx->self, ctx->message);
         last = now;
     }
+    // pareil ici, cleaner modifie la liste donc on protege
+    if (ctx->devices_lock) toole_mutex_lock(ctx->devices_lock);
     cleaner(ctx->liste, ctx->nb);
+    if (ctx->devices_lock) toole_mutex_unlock(ctx->devices_lock);
 }
     close(sock_p);
     close(sock_h);

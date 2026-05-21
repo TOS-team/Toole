@@ -13,12 +13,11 @@
 
 #define BEACON_PORT 47272
 
-//Prototype des fonctions
 int presence_socket(void);
 int presence(int socket_udp, const info *self, const char *message);
 int hear_socket(void);
 void cleaner(device *liste, int *nb);
-void hear(int socket_udp, device *liste, int *nb);
+void hear(int socket_udp, device *liste, int *nb, const char *self_id);
 
 
 
@@ -129,7 +128,7 @@ void cleaner(device *liste ,int *nb){
     }
 }
 //hear ecoute les beacon sur le port d'emmision
-void hear(int socket_udp,device *liste,int *nb)
+void hear(int socket_udp,device *liste,int *nb, const char *self_id)
 {
     char buffer[512];
         struct sockaddr_in sender_addr;
@@ -158,6 +157,12 @@ void hear(int socket_udp,device *liste,int *nb)
                 if (parsed < 9) d.message[0] = '\0';
                 d.node_info.r = (role_tmp == ROLE_MASTER) ? ROLE_MASTER : ROLE_CLIENT;
                 d.last_time = time(NULL);
+
+                // Hello la BOP, on filtre les beacons que l'ordinateur s'envoie a lui-meme
+                if (self_id && strcmp(d.node_info.id, self_id) == 0) {
+                    return;
+                }
+
                 /*là pour eviter les doublons de beacons, je verifie la liste, si l'id d'un nouveau becons est deja present dans la liste ,
                  je le suprime et dans le cas contraire , je l'ajoute imediatement
                     */

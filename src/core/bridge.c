@@ -4,6 +4,7 @@
 
 #include "bridge.h"
 #include "app.h"
+#include "file_transfert.h"
 
 // Hello le BOP, ici on garde un petit objet bridge pour relier Python et le coeur C
 struct toole_bridge {
@@ -153,13 +154,72 @@ int toole_bridge_get_peers(const toole_bridge_t *bridge, toole_bridge_peer *out,
     return TOOLE_BRIDGE_OK;
 }
 
-int toole_bridge_send_file(toole_bridge_t *bridge, const char *path, const char *new_name)
+int toole_bridge_connect(toole_bridge_t *bridge, const char *ip, int tcp_port, const char *cluster_id)
 {
-    if (!bridge || !path || !new_name) return TOOLE_BRIDGE_ERR_INVALID_ARG;
+    if (!bridge || !ip || tcp_port <= 0) return TOOLE_BRIDGE_ERR_INVALID_ARG;
+    if (!bridge->initialized || !bridge->running) {
+        bridge_set_error(bridge, "bridge non demarre");
+        return TOOLE_BRIDGE_ERR_RUNTIME;
+    }
 
-    // Hello la BOP, pour l'instant le transfert n'est pas encore branche au runtime
-    bridge_set_error(bridge, "send_file pas encore branche au bridge");
-    return TOOLE_BRIDGE_ERR_RUNTIME;
+    if (app_connect_to_master(&bridge->app, ip, tcp_port, cluster_id) < 0) {
+        bridge_set_error(bridge, "connexion TCP au pair echouee");
+        return TOOLE_BRIDGE_ERR_RUNTIME;
+    }
+
+    bridge_set_error(bridge, "");
+    return TOOLE_BRIDGE_OK;
+}
+
+int toole_bridge_send_file(toole_bridge_t *bridge, const char *path, const char *new_name, const char *dest_ip, int dest_port)
+{
+    if (!bridge || !path) return TOOLE_BRIDGE_ERR_INVALID_ARG;
+    if (!bridge->initialized || !bridge->running) {
+        bridge_set_error(bridge, "bridge non demarre");
+        return TOOLE_BRIDGE_ERR_RUNTIME;
+    }
+
+    const char *name = new_name;
+    if (!name || name[0] == '\0') {
+        const char *slash = strrchr(path, '/');
+        const char *bslash = strrchr(path, '\\');
+        const char *base = slash;
+        if (!base || (bslash && bslash > base)) base = bslash;
+        name = base ? (base + 1) : path;
+    }
+
+    int fd = -1;
+    int is_temp_socket = 0;
+
+    if (dest_ip && dest_ip[0] != '\0' && dest_port > 0) {
+        // Hello la BOP, on se connecte directement à l'ip/port du destinataire
+        // pour faire du client à client direct sans passer par le master
+        fd = connect_to(dest_ip, (uint16_t)dest_port);
+        if (fd < 0) {
+            bridge_set_error(bridge, "echec de la connexion directe au destinataire");
+            return TOOLE_BRIDGE_ERR_IO;
+        }
+        is_temp_socket = 1;
+    } else {
+        fd = bridge->app.control_socket;
+        if (fd < 0) {
+            bridge_set_error(bridge, "aucune connexion master active (attendre l'etat CLIENT)");
+            return TOOLE_BRIDGE_ERR_RUNTIME;
+        }
+    }
+
+    if (send_file(fd, path, name) < 0) {
+        bridge_set_error(bridge, "echec send_file (verifier la connexion distante)");
+        if (is_temp_socket) network_close(fd);
+        return TOOLE_BRIDGE_ERR_IO;
+    }
+
+    if (is_temp_socket) {
+        network_close(fd);
+    }
+
+    bridge_set_error(bridge, "");
+    return TOOLE_BRIDGE_OK;
 }
 
 int toole_bridge_get_last_error(const toole_bridge_t *bridge, char *out, size_t cap)

@@ -82,7 +82,7 @@ int main(void)
 
     device list[100];
     int nb = 0;
-    hear(recv_sock, list, &nb);
+    hear(recv_sock, list, &nb, NULL);
     close(recv_sock);
     step_ok("parsing beacon + mise a jour liste devices");
 

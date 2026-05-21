@@ -14,5 +14,5 @@ int presence_socket(void);
 int hear_socket(void);
 int presence(int socket_udp, const info *self, const char *message);
 void cleaner(device *liste, int *nb);
-void hear(int socket_udp, device *liste, int *nb);
+void hear(int socket_udp, device *liste, int *nb, const char *self_id);
 #endif
