@@ -8,7 +8,7 @@ set(CMAKE_C_STANDARD_REQUIRED ON)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
 if(WIN32)
-  # Hello la BOP, backend Windows (experimental)
+  # backend Windows
   set(TOOLE_PLATFORM_SOURCES
     src/platform/windows/discovery.c
     src/platform/windows/network.c
@@ -37,7 +37,7 @@ if(WIN32)
   target_link_libraries(toole_platform PUBLIC ws2_32)
 endif()
 
-# coeur applicatif (state machine)
+# coeur applicatif
 add_library(toole_core STATIC src/core/app.c)
 target_include_directories(toole_core PUBLIC includes)
 target_link_libraries(toole_core PUBLIC toole_platform)
