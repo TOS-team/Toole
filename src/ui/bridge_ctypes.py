@@ -5,7 +5,7 @@ from ctypes import POINTER, Structure, c_char, c_char_p, c_int, c_size_t, c_uint
 from typing import List, Optional, Tuple
 
 # ==================== CONSTANTES (bridge.h) ====================
-TOOLE_BRIDGE_API_VERSION = 1
+TOOLE_BRIDGE_API_VERSION = 2
 TOOLE_BRIDGE_ERROR_MAX = 256
 TOOLE_BRIDGE_MESSAGE_MAX = 128
 
@@ -60,6 +60,16 @@ class TooleBridgeSnapshot(Structure):
         ("cluster_id", c_char * 37),
         ("master_ip", c_char * 16),
         ("master_port", c_int),
+    ]
+
+
+class TooleBridgeTransferStatus(Structure):
+    _fields_ = [
+        ("active", c_int),
+        ("status", c_int),
+        ("sent", ctypes.c_uint64),
+        ("total", ctypes.c_uint64),
+        ("filename", c_char * 256),
     ]
 
 
@@ -132,8 +142,30 @@ def _configure_api(lib: ctypes.CDLL) -> ctypes.CDLL:
     lib.toole_bridge_connect.argtypes = [TooleBridgePtr, c_char_p, c_int, c_char_p]
     lib.toole_bridge_connect.restype = c_int
 
-    lib.toole_bridge_send_file.argtypes = [TooleBridgePtr, c_char_p, c_char_p, c_char_p, c_int]
+    lib.toole_bridge_send_file.argtypes = [
+        TooleBridgePtr,
+        c_char_p,
+        c_char_p,
+        c_char_p,
+        c_int,
+    ]
     lib.toole_bridge_send_file.restype = c_int
+
+    lib.toole_bridge_get_transfer_status.argtypes = [
+        TooleBridgePtr,
+        POINTER(TooleBridgeTransferStatus),
+    ]
+    lib.toole_bridge_get_transfer_status.restype = c_int
+
+    lib.toole_bridge_set_receive_dir.argtypes = [TooleBridgePtr, c_char_p]
+    lib.toole_bridge_set_receive_dir.restype = c_int
+
+    lib.toole_bridge_get_receive_dir.argtypes = [
+        TooleBridgePtr,
+        POINTER(c_char),
+        c_size_t,
+    ]
+    lib.toole_bridge_get_receive_dir.restype = c_int
 
     lib.toole_bridge_get_last_error.argtypes = [
         TooleBridgePtr,
@@ -148,7 +180,13 @@ def _configure_api(lib: ctypes.CDLL) -> ctypes.CDLL:
 def load_bridge(lib_path: Optional[str] = None) -> ctypes.CDLL:
     # Charger la lib et déclarer les signatures C
     path = _resolve_lib_path(lib_path)
-    return _configure_api(ctypes.CDLL(path))
+    lib = _configure_api(ctypes.CDLL(path))
+    runtime_version = int(lib.toole_bridge_api_version())
+    if runtime_version != TOOLE_BRIDGE_API_VERSION:
+        raise RuntimeError(
+            f"Version bridge incompatible: Python={TOOLE_BRIDGE_API_VERSION}, C={runtime_version}"
+        )
+    return lib
 
 
 # ==================== WRAPPER HAUT NIVEAU ====================
@@ -199,11 +237,36 @@ class Bridge:
             self._handle, ip_bytes, tcp_port, cluster_bytes
         )
 
-    def send_file(self, path: str, new_name: Optional[str] = None, dest_ip: Optional[str] = None, dest_port: int = 0) -> int:
+    def send_file(
+        self,
+        path: str,
+        new_name: Optional[str] = None,
+        dest_ip: Optional[str] = None,
+        dest_port: int = 0,
+    ) -> int:
         path_bytes = path.encode("utf-8")
         name_bytes = new_name.encode("utf-8") if new_name else None
         dest_ip_bytes = dest_ip.encode("utf-8") if dest_ip else None
-        return self._lib.toole_bridge_send_file(self._handle, path_bytes, name_bytes, dest_ip_bytes, dest_port)
+        return self._lib.toole_bridge_send_file(
+            self._handle, path_bytes, name_bytes, dest_ip_bytes, dest_port
+        )
+
+    def get_transfer_status(self) -> Tuple[int, TooleBridgeTransferStatus]:
+        status = TooleBridgeTransferStatus()
+        rc = self._lib.toole_bridge_get_transfer_status(
+            self._handle, ctypes.byref(status)
+        )
+        return rc, status
+
+    def set_receive_dir(self, receive_dir: str) -> int:
+        return self._lib.toole_bridge_set_receive_dir(
+            self._handle, receive_dir.encode("utf-8")
+        )
+
+    def get_receive_dir(self) -> Tuple[int, str]:
+        buf = ctypes.create_string_buffer(256)
+        rc = self._lib.toole_bridge_get_receive_dir(self._handle, buf, 256)
+        return rc, buf.value.decode("utf-8", errors="replace")
 
     def get_last_error(self) -> str:
         buf = ctypes.create_string_buffer(TOOLE_BRIDGE_ERROR_MAX)

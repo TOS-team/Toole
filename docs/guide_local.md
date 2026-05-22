@@ -1,44 +1,61 @@
 # Guide Local (dev rapide)
 
-Hello le BOP, ici on met les commandes minimales pour lancer le projet en local.
+Hello le BOP, ici on met les commandes minimales pour compiler le bridge C et lancer l'UI Python.
 
-## 1) Lancer l'UI Python
+## 1) Installer les dependances Python
 
 ```bash
 python3 -m venv .venv
 .venv/bin/pip install -r requirements.txt
+```
+
+## 2) Compiler le coeur C et le bridge UI (Linux)
+
+```bash
+cmake -S . -B build
+cmake --build build
+```
+
+La compilation genere notamment:
+
+```text
+build/libtoole_bridge.so
+```
+
+C'est cette bibliotheque que `src/ui/bridge_ctypes.py` charge via `ctypes`.
+
+## 3) Lancer l'UI Python
+
+```bash
 .venv/bin/python src/ui/app.py
 ```
 
-## 2) Compiler le coeur C (Linux)
+## 4) Lancer les tests Linux + bridge Python
 
 ```bash
-gcc -std=c11 -Wall -Wextra -Iincludes \
-  src/core/main.c src/core/app.c \
-  src/platform/linux/discovery.c \
-  src/platform/linux/network.c \
-  src/platform/linux/file_transfert.c \
-  src/platform/linux/server_runtime.c \
-  -lpthread -o toole_core
+ctest --test-dir build --output-on-failure
 ```
 
-## 3) Lancer le coeur C
+La suite couvre actuellement:
 
-```bash
-./toole_core [id] [username] [ip] [tcp_port] [master|client]
-```
+- discovery UDP Linux
+- controle TCP Linux
+- transfert fichier Linux avec CRC32 et rejet de nom dangereux
+- failover runtime Linux
+- chargement Python `ctypes` de `build/libtoole_bridge.so` avec verification de version API
 
-Exemple:
+## 5) Capacites UI actuelles
 
-```bash
-./toole_core N-010 gerard 127.0.0.1 43210 client
-```
+- L'ecran Transfert affiche les fichiers recus depuis le dossier `received/`.
+- L'UI maintient une liste d'evenements: pairs detectes/perdus, fichiers recus, envois termines ou partiels.
+- Le bridge expose une progression d'envoi en octets via `toole_bridge_get_transfer_status`.
+- La barre de progression UI affiche le fichier courant avec octets envoyes / total quand le backend remonte l'information.
 
-## 4) Pourquoi ce mode est important
+## 6) Notes importantes
 
-- Le coeur C tourne deja en boucle runtime.
-- Le mode CLI est un socle de debug.
-- Ce socle sera raccorde ensuite a l'UI Python via une couche bridge.
+- Le mode principal actuel passe par l'UI Python + le bridge C.
+- Le theme UI est centralise dans `src/ui/theme.py`.
+- La partie Windows existe dans le code mais n'est pas la cible stabilisee de ce guide local.
 
 ---
 

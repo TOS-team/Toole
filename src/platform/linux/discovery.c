@@ -7,7 +7,6 @@
 #include <unistd.h>
 #include <sys/time.h>
 #include <stdio.h>
-#include <errno.h>
 
 #include "discovery.h"
 
@@ -23,7 +22,7 @@ void hear(int socket_udp, device *liste, int *nb, const char *self_id);
 
 int presence_socket()
 {
-    //Hello le BOP,sur cette section , je creer le socket qui retourne un nombre negatif si echec et  un nombre positif si succès
+    // Creation du socket UDP d'emission; retour negatif si echec.
     int socket_udp;
     socket_udp=socket(AF_INET, SOCK_DGRAM,0);
     if (socket_udp < 0)
@@ -74,7 +73,7 @@ int presence(int socket_udp, const info *self, const char *message)
 //-------------------------------------------------------------------------
 
 int hear_socket(){
-    //Hello le BOP ici je cree un socket UDP pour la fonction hear()
+    // Creation du socket UDP d'ecoute pour la fonction hear().
     int socket_udp;
     socket_udp = socket(AF_INET, SOCK_DGRAM, 0);
     if (socket_udp<0){
@@ -114,7 +113,7 @@ int hear_socket(){
 
 
 
-//Hello le BOP, cette focntion permet de suprimer les appareils s'ils n'envoie de beacon pendant 10 second
+// Cette fonction supprime les appareils muets depuis plus de 10 secondes.
 void cleaner(device *liste ,int *nb){
     time_t now=time(NULL);
     for (int i = 0; i < *nb; i++) {

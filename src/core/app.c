@@ -440,6 +440,19 @@ int app_snapshot_devices(const toole_app *app, device *out, size_t cap, size_t *
     return 0;
 }
 
+int app_set_receive_dir(toole_app *app, const char *receive_dir)
+{
+    if (!app || !receive_dir || receive_dir[0] == '\0') return -1;
+    int n = snprintf(app->receive_dir, sizeof(app->receive_dir), "%s", receive_dir);
+    if (n < 0 || (size_t)n >= sizeof(app->receive_dir)) return -1;
+
+    if (mkdir(app->receive_dir, 0755) < 0 && errno != EEXIST) {
+        perror("[APP] mkdir receive_dir");
+        return -1;
+    }
+    return 0;
+}
+
 int app_connect_to_master(toole_app *app, const char *ip, int tcp_port, const char *cluster_id)
 {
     if (!app || !ip || tcp_port <= 0 || tcp_port > 65535) return -1;

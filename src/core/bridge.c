@@ -12,12 +12,23 @@ struct toole_bridge {
     int initialized;
     int running;
     char last_error[TOOLE_BRIDGE_ERROR_MAX];
+    toole_bridge_transfer_status transfer;
 };
 
 static void bridge_set_error(toole_bridge_t *bridge, const char *msg)
 {
     if (!bridge) return;
     snprintf(bridge->last_error, sizeof(bridge->last_error), "%s", msg ? msg : "");
+}
+
+static void bridge_progress_cb(uint64_t sent, uint64_t total, void *user_data)
+{
+    toole_bridge_t *bridge = (toole_bridge_t *)user_data;
+    if (!bridge) return;
+    bridge->transfer.active = 1;
+    bridge->transfer.status = 1;
+    bridge->transfer.sent = sent;
+    bridge->transfer.total = total;
 }
 
 uint32_t toole_bridge_api_version(void)
@@ -68,6 +79,7 @@ int toole_bridge_init(toole_bridge_t *bridge, const toole_bridge_config *config)
         return TOOLE_BRIDGE_ERR_INIT;
     }
 
+    memset(&bridge->transfer, 0, sizeof(bridge->transfer));
     bridge->initialized = 1;
     bridge->running = 0;
     bridge_set_error(bridge, "");
@@ -208,17 +220,58 @@ int toole_bridge_send_file(toole_bridge_t *bridge, const char *path, const char 
         }
     }
 
-    if (send_file(fd, path, name) < 0) {
+    memset(&bridge->transfer, 0, sizeof(bridge->transfer));
+    bridge->transfer.active = 1;
+    bridge->transfer.status = 1;
+    snprintf(bridge->transfer.filename, sizeof(bridge->transfer.filename), "%s", name);
+
+#if defined(_WIN32)
+    int send_rc = send_file(fd, path, name);
+#else
+    int send_rc = send_file_with_progress(fd, path, name, bridge_progress_cb, bridge);
+#endif
+    if (send_rc < 0) {
+        bridge->transfer.active = 0;
+        bridge->transfer.status = -1;
         bridge_set_error(bridge, "echec send_file (verifier la connexion distante)");
         if (is_temp_socket) network_close(fd);
         return TOOLE_BRIDGE_ERR_IO;
     }
+
+    bridge->transfer.active = 0;
+    bridge->transfer.status = 2;
 
     if (is_temp_socket) {
         network_close(fd);
     }
 
     bridge_set_error(bridge, "");
+    return TOOLE_BRIDGE_OK;
+}
+
+int toole_bridge_get_transfer_status(const toole_bridge_t *bridge, toole_bridge_transfer_status *out)
+{
+    if (!bridge || !out) return TOOLE_BRIDGE_ERR_INVALID_ARG;
+    *out = bridge->transfer;
+    return TOOLE_BRIDGE_OK;
+}
+
+int toole_bridge_set_receive_dir(toole_bridge_t *bridge, const char *receive_dir)
+{
+    if (!bridge || !receive_dir) return TOOLE_BRIDGE_ERR_INVALID_ARG;
+    if (!bridge->initialized) return TOOLE_BRIDGE_ERR_INVALID_ARG;
+    if (app_set_receive_dir(&bridge->app, receive_dir) < 0) {
+        bridge_set_error(bridge, "dossier de reception invalide");
+        return TOOLE_BRIDGE_ERR_IO;
+    }
+    bridge_set_error(bridge, "");
+    return TOOLE_BRIDGE_OK;
+}
+
+int toole_bridge_get_receive_dir(const toole_bridge_t *bridge, char *out, size_t cap)
+{
+    if (!bridge || !out || cap == 0) return TOOLE_BRIDGE_ERR_INVALID_ARG;
+    snprintf(out, cap, "%s", bridge->app.receive_dir);
     return TOOLE_BRIDGE_OK;
 }
 

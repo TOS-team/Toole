@@ -47,5 +47,6 @@ void app_shutdown(toole_app *app);
 const char *app_state_name(state s);
 int app_snapshot_devices(const toole_app *app, device *out, size_t cap, size_t *written);
 int app_connect_to_master(toole_app *app, const char *ip, int tcp_port, const char *cluster_id);
+int app_set_receive_dir(toole_app *app, const char *receive_dir);
 
 #endif

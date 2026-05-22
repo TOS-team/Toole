@@ -73,6 +73,10 @@ int main(void)
     mkdir("tests", 0755);
     mkdir(src_dir, 0755);
     mkdir(dst_dir, 0755);
+    unlink(src);
+    unlink(dst);
+    unlink("tests/tmp_recv/test_1.txt");
+    unlink("tests/evil.txt");
     step_ok("preparation dossiers de test");
 
     FILE *f = fopen(src, "wb");
@@ -80,6 +84,14 @@ int main(void)
     fputs("Hello le BOP, ceci est un test transfert fichier.\n", f);
     fclose(f);
     step_ok("creation fichier source");
+
+    if (send_file(-1, src, "../evil.txt") >= 0) {
+        return step_ko("rejet nom dangereux a l'envoi", 10);
+    }
+    if (file_size_of("tests/evil.txt") >= 0) {
+        return step_ko("absence fichier traversal", 11);
+    }
+    step_ok("rejet nom dangereux a l'envoi");
 
     int server_fd = init_server_on(port);
     if (server_fd < 0) return step_ko("init serveur TCP", 2);
