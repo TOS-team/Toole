@@ -99,6 +99,9 @@ def _resolve_lib_path(lib_path: Optional[str]) -> str:
         os.path.join(root_dir, lib_name),
         os.path.join(os.path.dirname(__file__), lib_name),
     ]
+    meipass = getattr(sys, '_MEIPASS', None)
+    if meipass:
+        candidates.insert(0, os.path.join(meipass, lib_name))
 
     for candidate in candidates:
         if candidate and os.path.isfile(candidate):

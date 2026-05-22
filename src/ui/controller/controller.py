@@ -1,7 +1,6 @@
 import os
 import random
 import socket
-import sys
 import time
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -11,10 +10,6 @@ from bridge_ctypes import (
     Bridge,
     TooleBridgeConfig,
 )
-
-if sys.platform.startswith("win"):
-    # Rien de bloquant ici: on évite juste les warnings de typage liés à reconfigure.
-    pass
 
 
 def _decode_cstr(raw: Any) -> str:
@@ -447,12 +442,4 @@ class Controller:
 
         return True, f"{sent} fichier(s) envoyé(s)"
 
-    # Compat methods (utilisées par popup.py)
-    def accept_connection(self, username, ip):
-        print(f"[OK] Connexion acceptée avec {username} ({ip})")
 
-    def decline_connection(self, username):
-        print(f"[REFUS] Connexion refusée avec {username}")
-
-    def accept_file_transfer(self, sender, filename, size):
-        print(f"[OK] Transfert accepté : {filename} ({size}) de {sender}")

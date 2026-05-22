@@ -1,8 +1,8 @@
 /build
-/src/ui/controller/__pycache__
-/src/ui/screens/__pycache__
-
-# Python
 __pycache__/
 .venv/
 /dist
+received/
+releases/
+compile_commands.json
+*.spec

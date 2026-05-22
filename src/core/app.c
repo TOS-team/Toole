@@ -149,7 +149,8 @@ static int step_client(toole_app *app)
     return 0;
 }
 
-static void manage_server_socket(toole_app *app) {
+static void manage_server_socket(toole_app *app)
+{
     if (app->server_socket < 0) {
         app->server_socket = init_server_on((uint16_t)app->self.tcp_port);
         if (app->server_socket < 0) return;

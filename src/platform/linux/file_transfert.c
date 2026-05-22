@@ -131,109 +131,108 @@ static int build_unique_path(char *out, size_t out_len, const char *directory, c
 }
 
 /* Là maintenant , c'est la logique de transfere du fichier qui servira à envoyer et à recevoir les fichiers */
-typedef struct __attribute__((packed)){
+typedef struct __attribute__((packed)) {
     uint32_t name_len;
     uint64_t file_size;
-    } file_struct;
+} file_struct;
 
 // Dans cette fonction, j'envoie une structure avec les infos des fichiers qui permettra de les reassemblé apres envoie
-int send_struct(int socket_tcp,const char *filename,uint64_t file_size){
-    if(!filename)return -1;
-    size_t name_len_size=strlen(filename);
-    if(name_len_size==0 ||name_len_size> UINT32_MAX) return -1;
+int send_struct(int socket_tcp, const char *filename, uint64_t file_size) {
+    if (!filename) return -1;
+    size_t name_len_size = strlen(filename);
+    if (name_len_size == 0 || name_len_size > UINT32_MAX) return -1;
 
     file_struct one;
     one.name_len  = htonl((uint32_t)name_len_size);
     one.file_size = htonll(file_size);
 
-    //let's go envoyons l'en tete
-    if(write_n(socket_tcp,&one,sizeof(one))<0) return -1;
+    if (write_n(socket_tcp, &one, sizeof(one)) < 0) return -1;
     if (write_n(socket_tcp, filename, name_len_size) < 0) return -1;
     return 0;
 }
-// Hello le BOP, envoi de fichier sur un socket TCP existant.
-// Le CRC32 est calcule chunk par chunk puis envoye en fin de flux.
-int send_file_with_progress(int socket_tcp,const char *path,const char *new_name,file_transfer_progress_cb cb,void *user_data){
-    if (!path || !new_name) return -1;//verification des parametres
+int send_file_with_progress(int socket_tcp, const char *path, const char *new_name,
+                            file_transfer_progress_cb cb, void *user_data)
+{
+    if (!path || !new_name) return -1;
     if (!is_safe_filename(new_name)) {
         fprintf(stderr, "[FILE] nom de fichier refuse a l'envoi: %s\n", new_name);
         return -1;
     }
 
-    int file = open(path, O_RDONLY); // ouverture du fcihier en lecture seule
-        if (file < 0) {
-            perror("Erreur d'ouverture avec open");
-            return -1;
-        }
-        // cette structure contiendra les metadonnées de chaque fichier
-        struct stat st;
-        if (fstat(file, &st) < 0) {
-            perror("Erreur de fstat");
-            close(file);
-            return -1;
-        }
-        if (!S_ISREG(st.st_mode)) {
-            fprintf(stderr, "[FILE] chemin refuse: ce n'est pas un fichier regulier\n");
-            close(file);
-            return -1;
-        }
+    int file = open(path, O_RDONLY);
+    if (file < 0) {
+        perror("Erreur d'ouverture avec open");
+        return -1;
+    }
 
-        uint64_t file_size = (uint64_t)st.st_size;
-
-        if (send_struct(socket_tcp, new_name, file_size) < 0) {
-                close(file);
-                return -1;
-            }
-
-        uint32_t crc = crc32_init();
-        uint64_t sent_total = 0;
-        if (cb) cb(0, file_size, user_data);
-
-        uint8_t buf[CHUNK_SIZE];
-        // eh  ben là , for(;;) permet de lancer une boucle infini,équivalent à while(1)
-        for (;;) {
-                ssize_t r = read(file, buf, sizeof(buf));
-                if (r < 0) {
-                    perror("read");
-                    close(file);
-                    return -1;
-                }
-                if (r == 0) break;
-
-                crc = crc32_update(crc, buf, (size_t)r);
-
-                if (write_n(socket_tcp, buf, (size_t)r) < 0) {
-                    close(file);
-                    return -1;
-                }
-                sent_total += (uint64_t)r;
-                if (cb) cb(sent_total, file_size, user_data);
-        }
+    struct stat st;
+    if (fstat(file, &st) < 0) {
+        perror("Erreur de fstat");
         close(file);
+        return -1;
+    }
+    if (!S_ISREG(st.st_mode)) {
+        fprintf(stderr, "[FILE] chemin refuse: ce n'est pas un fichier regulier\n");
+        close(file);
+        return -1;
+    }
 
-        uint32_t final_crc = htonl(crc32_finalize(crc));
-        if (write_n(socket_tcp, &final_crc, sizeof(final_crc)) < 0) return -1;
+    uint64_t file_size = (uint64_t)st.st_size;
 
-        if (cb) cb(file_size, file_size, user_data);
-        return 0;
+    if (send_struct(socket_tcp, new_name, file_size) < 0) {
+        close(file);
+        return -1;
+    }
+
+    uint32_t crc = crc32_init();
+    uint64_t sent_total = 0;
+    if (cb) cb(0, file_size, user_data);
+
+    uint8_t buf[CHUNK_SIZE];
+    for (;;) {
+        ssize_t r = read(file, buf, sizeof(buf));
+        if (r < 0) {
+            perror("read");
+            close(file);
+            return -1;
+        }
+        if (r == 0) break;
+
+        crc = crc32_update(crc, buf, (size_t)r);
+
+        if (write_n(socket_tcp, buf, (size_t)r) < 0) {
+            close(file);
+            return -1;
+        }
+        sent_total += (uint64_t)r;
+        if (cb) cb(sent_total, file_size, user_data);
+    }
+    close(file);
+
+    uint32_t final_crc = htonl(crc32_finalize(crc));
+    if (write_n(socket_tcp, &final_crc, sizeof(final_crc)) < 0) return -1;
+
+    if (cb) cb(file_size, file_size, user_data);
+    return 0;
 }
 
-int send_file(int socket_tcp,const char *path,const char *new_name){
+int send_file(int socket_tcp, const char *path, const char *new_name)
+{
     return send_file_with_progress(socket_tcp, path, new_name, NULL, NULL);
 }
 
-// là cette focntion est l'equivalent de send_struct à la reception
-int recv_struct(int socket_tcp,char *filename_out,size_t max_len,uint64_t *file_size_out){
+int recv_struct(int socket_tcp, char *filename_out, size_t max_len, uint64_t *file_size_out)
+{
     if (!filename_out || !file_size_out || max_len == 0) return -1;
 
     file_struct one;
-    if (read_n(socket_tcp,&one, sizeof(one))<0) return -1;
+    if (read_n(socket_tcp, &one, sizeof(one)) < 0) return -1;
 
     uint32_t name_len = ntohl(one.name_len);
     *file_size_out = ntohll(one.file_size);
 
-    if(name_len == 0 || name_len >= max_len) return -1;
-    if(read_n(socket_tcp, filename_out, name_len) < 0) return -1;
+    if (name_len == 0 || name_len >= max_len) return -1;
+    if (read_n(socket_tcp, filename_out, name_len) < 0) return -1;
 
     filename_out[name_len] = '\0';
     if (!is_safe_filename(filename_out)) {
@@ -243,10 +242,8 @@ int recv_struct(int socket_tcp,char *filename_out,size_t max_len,uint64_t *file_
     return 0;
 }
 
-// ici, c'est la focntion qui permettra de recevoir le fichier envoyé
-// Elle verifie aussi le CRC32 apres reception; si le CRC ne correspond pas,
-// le fichier partiel est supprime et la fonction retourne -2.
-int recv_file(int socket_tcp,const char *destination){
+int recv_file(int socket_tcp, const char *destination)
+{
     if (ensure_directory(destination) < 0) {
         fprintf(stderr, "[FILE] destination invalide: %s\n", destination ? destination : "(null)");
         return -1;
@@ -254,21 +251,21 @@ int recv_file(int socket_tcp,const char *destination){
 
     char filename[256];
     uint64_t file_size;
-    if(recv_struct(socket_tcp, filename, sizeof(filename), &file_size) < 0) return -1;
+    if (recv_struct(socket_tcp, filename, sizeof(filename), &file_size) < 0) return -1;
 
     char path[MAX_RECEIVE_PATH];
     if (build_unique_path(path, sizeof(path), destination, filename) < 0) return -1;
 
     int file = open(path, O_WRONLY | O_CREAT | O_EXCL, 0644);
-    if(file < 0) return -1;
+    if (file < 0) return -1;
 
     uint32_t crc = crc32_init();
 
     uint8_t buffer[CHUNK_SIZE];
     uint64_t total = 0;
-    while(total < file_size) {
+    while (total < file_size) {
         size_t to_read = (file_size - total > CHUNK_SIZE) ? CHUNK_SIZE : (size_t)(file_size - total);
-        if(read_n(socket_tcp, buffer, to_read) < 0) {
+        if (read_n(socket_tcp, buffer, to_read) < 0) {
             close(file);
             unlink(path);
             return -1;
@@ -287,7 +284,7 @@ int recv_file(int socket_tcp,const char *destination){
             }
             written += (size_t)w;
         }
-        total+=to_read;
+        total += to_read;
     }
     close(file);
 

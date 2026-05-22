@@ -1,3 +1,5 @@
+import os
+import sys
 import time
 from tkinter import messagebox
 
@@ -19,6 +21,15 @@ class App(ctk.CTk):
 
         ctk.set_appearance_mode("dark")
         self.configure(fg_color=THEME["bg_dark"])
+
+        _base = getattr(sys, '_MEIPASS', os.path.dirname(__file__))
+        icon_png = os.path.join(_base, "logo.png")
+        if os.path.isfile(icon_png):
+            try:
+                from tkinter import PhotoImage
+                self.iconphoto(True, PhotoImage(file=icon_png))
+            except Exception:
+                pass
 
         self.controller = Controller()
         self._runtime_tick_ms = 250

@@ -158,34 +158,4 @@ int presence(char *ip,int port_tcp,char *message,char *username,int id){
     return 0;
     }
 
-char * id_generertor(){
-    int nombre;
-    char chaine[10];
-    char computerName[MAX_COMPUTERNAME_LENGTH + 1];
-    DWORD size = sizeof(computerName);
-    char *namepc = malloc(MAX_COMPUTERNAME_LENGTH * sizeof(char));
-    if(namepc == NULL){
-        fprintf(stderr,"erreur de l'allocstion de namepc");
-        return "INCONNU";
-    }
 
-    //Avec cette fonction{GetComputerName} je recupere le nom de ta machine et avec {strcpy} je copie le nom de tas machine dans la variable computerName
-    if (GetComputerName(computerName,&size))
-    {
-        strcpy(namepc,computerName);
-
-    }else {
-        printf("Erreur lors de la recuperation du nom (code : %lu)\n", GetLastError());
-        return "INCONNU";
-    }
-    srand(time(NULL));
-    nombre = rand() % 1001;//generation d'un nombre alleatoire pour faire l'id
-    sprintf(chaine, "%d", nombre);
-        //  Copier computerName dans namepc
-    strcpy(namepc, computerName);
-
-    //  Concaténer chaine à la suite de namepc
-    strcat(namepc, chaine);
-
-    return namepc;//je retourne l'id avec ce format {NOMPCNOMBRE} EX:DELL57665555 NB:5555 est le nombre generer et DELL5766 nom de la machine.
-}

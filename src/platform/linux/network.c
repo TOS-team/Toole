@@ -18,18 +18,17 @@
 int create_socket(void);
 int init_server(void);
 int accept_client(int socket_tcp);
-int denied_client(int socket_tcp);
+int reject_client(int socket_tcp);
 int connect_to(const char *ip, uint16_t port);
 
 // cette creé juste des sockets
-int create_socket(){
+int create_socket(void) {
     int socket_tcp;
-    socket_tcp=socket(AF_INET, SOCK_STREAM,0);
-    if (socket_tcp<0)
-        {
-            perror("La création du socket server a échouer");
-            return -1;
-        }
+    socket_tcp = socket(AF_INET, SOCK_STREAM, 0);
+    if (socket_tcp < 0) {
+        perror("La creation du socket server a echoue");
+        return -1;
+    }
     return socket_tcp;
 }
 
@@ -74,49 +73,46 @@ int init_server_on(uint16_t port)
 }
 
 // Cette focntion est là dans l'eventualité ou un appareil doit se connecter à nous , donc on peut l'accepter
-int accept_client(int socket_tcp){
-    int client_socket=accept(socket_tcp,NULL,NULL);// je ne renvoie  ici que le socket du client, c'est pour cette raison que l'ip et le port sont à NULL
+int accept_client(int socket_tcp) {
+    int client_socket = accept(socket_tcp, NULL, NULL);
     if (client_socket < 0) {
-            perror("erreur d'acceptation");
-            return -1;
-        }
-        return client_socket;
+        perror("erreur d'acceptation");
+        return -1;
+    }
+    return client_socket;
     // la fonction va retouner -1 , si le  server accept la connexion
 }
 
 // là on permet au serveur de refuser une connection entrante,en acceptant et en coupant la connexion imediatement
-int denied_client(int socket_tcp){
-    int client_socket=accept(socket_tcp,NULL,NULL);// je ne renvoie  ici que le socket du client, c'est pour cette raison que l'ip et le port sont à NULL
-    if (client_socket>=0) {
+int reject_client(int socket_tcp) {
+    int client_socket = accept(socket_tcp, NULL, NULL);
+    if (client_socket >= 0) {
         fprintf(stderr, "[NETWORK] connexion refusee (fd=%d)\n", client_socket);
         close(client_socket);
     }
-        return 0;
-    // la focntion return une valeur >=0 car la connection sera fermé à la fin
+    return 0;
 }
 
 // ici c'est dans le cas on veut se connecter à un autre server
-int connect_to(const char *ip,uint16_t port){
-    int socket_tcp=create_socket();
+int connect_to(const char *ip, uint16_t port) {
+    int socket_tcp = create_socket();
     struct sockaddr_in tunnel;
-    memset(&tunnel,0,sizeof(tunnel));// ici j'initialise le structure tunnel à 0 avant d'y mettre quoi que ca soit
+    memset(&tunnel, 0, sizeof(tunnel));
 
-    tunnel.sin_family=AF_INET;
-    tunnel.sin_port=htons(port);
+    tunnel.sin_family = AF_INET;
+    tunnel.sin_port = htons(port);
 
-    // je convetit l'adresse IP qui vient sous forme de chaine de caractère en binaire
     if (inet_pton(AF_INET, ip, &tunnel.sin_addr) != 1) {
-            perror("Erreur de conversion de l'adresse IP en binaire");
-            close(socket_tcp);
-            return -1;
-        }
+        perror("Erreur de conversion de l'adresse IP en binaire");
+        close(socket_tcp);
+        return -1;
+    }
 
-    // initialisation de la connexion avec un server tcp distant
     if (connect(socket_tcp, (struct sockaddr *)&tunnel, sizeof(tunnel)) < 0) {
-            perror("Erreur dans la tentative de connexion");
-            close(socket_tcp);
-            return -1;
-        }
+        perror("Erreur dans la tentative de connexion");
+        close(socket_tcp);
+        return -1;
+    }
 
     return socket_tcp;
 }

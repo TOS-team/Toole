@@ -34,7 +34,7 @@ int create_socket(void);
 int init_server(void);
 int init_server_on(uint16_t port);
 int accept_client(int socket_tcp);
-int denied_client(int socket_tcp);
+int reject_client(int socket_tcp);
 int connect_to(const char *ip, uint16_t port);
 int set_socket_timeouts(int socket_tcp, int recv_ms, int send_ms);
 

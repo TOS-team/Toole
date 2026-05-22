@@ -64,7 +64,7 @@ int accept_client(SOCKET fd){
 }
 
 // là on permet au serveur de refuser une connection entrante,en acceptant et en coupant la connexion imediatement
-int denied_client(SOCKET socket_tcp){
+int reject_client(SOCKET socket_tcp){
     SOCKET client_socket=accept(socket_tcp,NULL,NULL);// je ne renvoie  ici que le socket du client, c'est pour cette raison que l'ip et le port sont à NULL
     if (client_socket>=0) closesocket(client_socket);
         return 0;

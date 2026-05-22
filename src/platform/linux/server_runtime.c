@@ -52,17 +52,15 @@ void toole_mutex_unlock(toole_mutex_t *m)
 //Hello le BOP , ici dans ce fichier ,je creér des fonctions pour gérer le logique
 //concurente  de nos differentes composantes
 
-// cette fonction prend des repères(timespec) dans le temps et renvoit la dureé ecoulé entre ses deux reperes
 static int duration(struct timespec a, struct timespec b)
 {
     long sec = b.tv_sec - a.tv_sec;
     long nsec = b.tv_nsec - a.tv_nsec;
-    if (nsec < 0)
-    {
+    if (nsec < 0) {
         sec--;
         nsec += 1000000000L;
     }
-    int d=(sec * 1000 + nsec / 1000000);
+    int d = (sec * 1000 + nsec / 1000000);
     return d;
 }
 
@@ -79,53 +77,49 @@ int discovery_multiplex(presence_fn presence_cb, hear_fn hear_cb, context *ctx)
         return -1;
     }
 
-struct pollfd wait_beacon = {
-    .fd = sock_h,
-    .events = POLLIN //pour les données qui entrent
-};
-// j'enregistre le dernier envoie de beacons
-struct timespec last;
-clock_gettime(CLOCK_MONOTONIC,&last);
+    struct pollfd wait_beacon = {
+        .fd = sock_h,
+        .events = POLLIN
+    };
+    struct timespec last;
+    clock_gettime(CLOCK_MONOTONIC, &last);
 
-//là c'est une condition ternaire pour definir l'interval de temp entre deux beacons en ms bien sur
-int interval= ctx->beacon_interval >0 ? ctx->beacon_interval:1000;
+    int interval = ctx->beacon_interval > 0 ? ctx->beacon_interval : 1000;
 
-for (;;) {
-    if (ctx->stop_flag && *ctx->stop_flag) {
-        break;
-    }
+    for (;;) {
+        if (ctx->stop_flag && *ctx->stop_flag) {
+            break;
+        }
 
-    struct timespec now;
-    clock_gettime(CLOCK_MONOTONIC, &now);
+        struct timespec now;
+        clock_gettime(CLOCK_MONOTONIC, &now);
 
-    int d=duration(last,now);
-    int timeout=interval-d;
-    if (timeout<0) timeout=0;
+        int d = duration(last, now);
+        int timeout = interval - d;
+        if (timeout < 0) timeout = 0;
 
-    int r=poll(&wait_beacon,1,timeout);
-    if (r>0 && (wait_beacon.revents & POLLIN)) {
-        // Hello le BOP, ici on lock avant de toucher à la liste des devices
-        // le thread principal lit cette liste en parallele, sans ca c'est data race
+        int r = poll(&wait_beacon, 1, timeout);
+        if (r > 0 && (wait_beacon.revents & POLLIN)) {
+            // Hello le BOP, ici on lock avant de toucher à la liste des devices
+            // le thread principal lit cette liste en parallele, sans ca c'est data race
+            if (ctx->devices_lock) toole_mutex_lock(ctx->devices_lock);
+            hear_cb(sock_h, ctx->liste, ctx->nb, ctx->self.id);
+            if (ctx->devices_lock) toole_mutex_unlock(ctx->devices_lock);
+        } else if (r < 0 && errno != EINTR) {
+            break;
+        }
+
+        clock_gettime(CLOCK_MONOTONIC, &now);
+        d = duration(last, now);
+        if (d >= interval) {
+            presence_cb(sock_p, &ctx->self, ctx->message);
+            last = now;
+        }
+        // pareil ici, cleaner modifie la liste donc on protege
         if (ctx->devices_lock) toole_mutex_lock(ctx->devices_lock);
-        hear_cb(sock_h, ctx->liste, ctx->nb, ctx->self.id);
+        cleaner(ctx->liste, ctx->nb);
         if (ctx->devices_lock) toole_mutex_unlock(ctx->devices_lock);
     }
-    else if (r<0 && errno != EINTR) {
-        break;
-    }
-
-    clock_gettime(CLOCK_MONOTONIC, &now);
-    d=duration(last,now);
-    if (d >= interval)
-    {
-        presence_cb(sock_p, &ctx->self, ctx->message);
-        last = now;
-    }
-    // pareil ici, cleaner modifie la liste donc on protege
-    if (ctx->devices_lock) toole_mutex_lock(ctx->devices_lock);
-    cleaner(ctx->liste, ctx->nb);
-    if (ctx->devices_lock) toole_mutex_unlock(ctx->devices_lock);
-}
     close(sock_p);
     close(sock_h);
     return 0;
@@ -167,13 +161,6 @@ struct thread_runtime{
      free(thread);
  }
 
-// Hello la BOP, ici c'est un wrapper simple pour envoyer un heartbeat(battement de coeur) avec notre protocole
-int runtime_send_heartbeat_once(int socket_tcp, const info *self)
-{
-    if (!self) return -1;
-    return network_send_heartbeat(socket_tcp, self);
-}
-
 // là on attend un message de controle TCP, avec timeout en milliseconde
 // return:
 // 0  -> message reçu
@@ -208,7 +195,7 @@ int runtime_client_step(int socket_tcp, const info *self, int timeout_ms, int *m
     if (!self || !master_lost || timeout_ms < 0) return -1;
     *master_lost = 0;
 
-    if (runtime_send_heartbeat_once(socket_tcp, self) < 0) {
+    if (network_send_heartbeat(socket_tcp, self) < 0) {
         *master_lost = 1;
         return -1;
     }
