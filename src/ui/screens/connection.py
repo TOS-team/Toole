@@ -14,6 +14,7 @@ def _state_name(value: int) -> str:
     }.get(value, str(value))
 
 
+
 class ConnectionScreen(ctk.CTkFrame):
     def __init__(self, master, controller: Controller):
         super().__init__(master, fg_color="transparent")

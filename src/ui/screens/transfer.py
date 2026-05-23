@@ -414,16 +414,9 @@ class TransferScreen(ctk.CTkFrame):
 
         self._update_send_state()
 
-    def remove_file(self, path: str):
-        if path in self.selected_files:
-            self.selected_files.remove(path)
-            self.refresh_selected_files()
+    # ==================== START TRANSFER ====================
 
-    def clear_selection(self):
-        self.selected_files.clear()
-        self.refresh_selected_files()
-
-    def send_files(self):
+    def start_transfer(self):
         if not self.selected_files:
             CTkMessagebox(
                 title="Erreur", message="Aucun fichier selectionne.", icon="warning"
