@@ -15,7 +15,7 @@ Toolé est un système de transfert de fichiers pair-à-pair sur réseau local. 
 
 ## Releases
 
-Les archives pré-compilées sont disponibles dans la section [Releases](https://github.com/anomalyco/Toole/releases).
+Les archives pré-compilées sont disponibles dans la section [Releases](https://github.com/Burkina-Open-Place/Toole/releases).
 
 ## Contribuer
 
