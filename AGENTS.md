@@ -141,8 +141,8 @@ PYTHONPATH=src/ui .venv/bin/python src/ui/app.py
 pip install pyinstaller
 cmake -S . -B build && cmake --build build
 pyinstaller --onefile --name toole \
-  --add-data "$(pwd)/src/ui/logo.png:." \
-  --add-data "$(pwd)/src/ui/logo.ico:." \
+  --add-data "$(pwd)/assets/logo.png:assets" \
+  --add-data "$(pwd)/assets/logo.ico:assets" \
   --add-data "$(pwd)/build/libtoole_bridge.so:." \
   --distpath dist src/ui/app.py
 mkdir -p releases/toole-$VERSION-linux
@@ -302,8 +302,8 @@ PYTHONPATH=src/ui .venv/bin/python src/ui/app.py
 
 # Build standalone release binary
 pyinstaller --onefile --name toole \
-  --add-data "$(pwd)/src/ui/logo.png:." \
-  --add-data "$(pwd)/src/ui/logo.ico:." \
+  --add-data "$(pwd)/assets/logo.png:assets" \
+  --add-data "$(pwd)/assets/logo.ico:assets" \
   --add-data "$(pwd)/build/libtoole_bridge.so:." \
   --distpath dist src/ui/app.py
 ```

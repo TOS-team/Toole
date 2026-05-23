@@ -1,6 +1,6 @@
 # Toolé
 
-![Toolé](logo.png)
+![Toolé](assets/logo.png)
 
 **Transfert de fichiers P2P en réseau local, sans internet.**
 

@@ -23,7 +23,7 @@ class App(ctk.CTk):
         self.configure(fg_color=THEME["bg_dark"])
 
         _base = getattr(sys, '_MEIPASS', os.path.dirname(__file__))
-        icon_png = os.path.join(_base, "logo.png")
+        icon_png = os.path.join(_base, "assets", "logo.png")
         if os.path.isfile(icon_png):
             try:
                 from tkinter import PhotoImage
