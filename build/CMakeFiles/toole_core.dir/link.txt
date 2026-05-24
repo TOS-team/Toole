@@ -1,0 +1,2 @@
+/usr/bin/ar qc libtoole_core.a CMakeFiles/toole_core.dir/src/core/app.c.o
+/usr/bin/ranlib libtoole_core.a

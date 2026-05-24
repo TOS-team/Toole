@@ -1,0 +1,1 @@
+/usr/bin/cc -Wl,--dependency-file=CMakeFiles/network_test.dir/link.d CMakeFiles/network_test.dir/network_test.c.o -o network_test  libtoole_platform_test.a -lpthread

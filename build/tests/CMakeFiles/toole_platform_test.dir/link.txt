@@ -1,0 +1,2 @@
+/usr/bin/ar qc libtoole_platform_test.a "CMakeFiles/toole_platform_test.dir/home/gerard/Documents/Burkina-Open-Place/Toole/src/platform/linux/discovery.c.o" "CMakeFiles/toole_platform_test.dir/home/gerard/Documents/Burkina-Open-Place/Toole/src/platform/linux/network.c.o" "CMakeFiles/toole_platform_test.dir/home/gerard/Documents/Burkina-Open-Place/Toole/src/platform/linux/file_transfert.c.o" "CMakeFiles/toole_platform_test.dir/home/gerard/Documents/Burkina-Open-Place/Toole/src/platform/linux/server_runtime.c.o"
+/usr/bin/ranlib libtoole_platform_test.a

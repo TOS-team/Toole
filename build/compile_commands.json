@@ -1,0 +1,38 @@
+[
+{
+  "directory": "/home/gerard/Documents/Burkina-Open-Place/Toole/build",
+  "command": "/usr/bin/cc  -I/home/gerard/Documents/Burkina-Open-Place/Toole/includes -std=gnu11 -fPIC -o CMakeFiles/toole_platform.dir/src/platform/linux/discovery.c.o -c /home/gerard/Documents/Burkina-Open-Place/Toole/src/platform/linux/discovery.c",
+  "file": "/home/gerard/Documents/Burkina-Open-Place/Toole/src/platform/linux/discovery.c",
+  "output": "CMakeFiles/toole_platform.dir/src/platform/linux/discovery.c.o"
+},
+{
+  "directory": "/home/gerard/Documents/Burkina-Open-Place/Toole/build",
+  "command": "/usr/bin/cc  -I/home/gerard/Documents/Burkina-Open-Place/Toole/includes -std=gnu11 -fPIC -o CMakeFiles/toole_platform.dir/src/platform/linux/network.c.o -c /home/gerard/Documents/Burkina-Open-Place/Toole/src/platform/linux/network.c",
+  "file": "/home/gerard/Documents/Burkina-Open-Place/Toole/src/platform/linux/network.c",
+  "output": "CMakeFiles/toole_platform.dir/src/platform/linux/network.c.o"
+},
+{
+  "directory": "/home/gerard/Documents/Burkina-Open-Place/Toole/build",
+  "command": "/usr/bin/cc  -I/home/gerard/Documents/Burkina-Open-Place/Toole/includes -std=gnu11 -fPIC -o CMakeFiles/toole_platform.dir/src/platform/linux/file_transfert.c.o -c /home/gerard/Documents/Burkina-Open-Place/Toole/src/platform/linux/file_transfert.c",
+  "file": "/home/gerard/Documents/Burkina-Open-Place/Toole/src/platform/linux/file_transfert.c",
+  "output": "CMakeFiles/toole_platform.dir/src/platform/linux/file_transfert.c.o"
+},
+{
+  "directory": "/home/gerard/Documents/Burkina-Open-Place/Toole/build",
+  "command": "/usr/bin/cc  -I/home/gerard/Documents/Burkina-Open-Place/Toole/includes -std=gnu11 -fPIC -o CMakeFiles/toole_platform.dir/src/platform/linux/server_runtime.c.o -c /home/gerard/Documents/Burkina-Open-Place/Toole/src/platform/linux/server_runtime.c",
+  "file": "/home/gerard/Documents/Burkina-Open-Place/Toole/src/platform/linux/server_runtime.c",
+  "output": "CMakeFiles/toole_platform.dir/src/platform/linux/server_runtime.c.o"
+},
+{
+  "directory": "/home/gerard/Documents/Burkina-Open-Place/Toole/build",
+  "command": "/usr/bin/cc  -I/home/gerard/Documents/Burkina-Open-Place/Toole/includes -std=gnu11 -fPIC -o CMakeFiles/toole_core.dir/src/core/app.c.o -c /home/gerard/Documents/Burkina-Open-Place/Toole/src/core/app.c",
+  "file": "/home/gerard/Documents/Burkina-Open-Place/Toole/src/core/app.c",
+  "output": "CMakeFiles/toole_core.dir/src/core/app.c.o"
+},
+{
+  "directory": "/home/gerard/Documents/Burkina-Open-Place/Toole/build",
+  "command": "/usr/bin/cc -Dtoole_bridge_EXPORTS -I/home/gerard/Documents/Burkina-Open-Place/Toole/includes -std=gnu11 -fPIC -o CMakeFiles/toole_bridge.dir/src/core/bridge.c.o -c /home/gerard/Documents/Burkina-Open-Place/Toole/src/core/bridge.c",
+  "file": "/home/gerard/Documents/Burkina-Open-Place/Toole/src/core/bridge.c",
+  "output": "CMakeFiles/toole_bridge.dir/src/core/bridge.c.o"
+}
+]

@@ -1,0 +1,5 @@
+/home/gerard/Documents/Burkina-Open-Place/Toole/build/CMakeFiles/toole_platform.dir
+/home/gerard/Documents/Burkina-Open-Place/Toole/build/CMakeFiles/toole_core.dir
+/home/gerard/Documents/Burkina-Open-Place/Toole/build/CMakeFiles/toole_bridge.dir
+/home/gerard/Documents/Burkina-Open-Place/Toole/build/CMakeFiles/edit_cache.dir
+/home/gerard/Documents/Burkina-Open-Place/Toole/build/CMakeFiles/rebuild_cache.dir

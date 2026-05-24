@@ -1,0 +1,1 @@
+/usr/bin/cc -Wl,--dependency-file=CMakeFiles/discovery_test.dir/link.d CMakeFiles/discovery_test.dir/discovery_test.c.o -o discovery_test  libtoole_platform_test.a -lpthread

@@ -1,0 +1,5 @@
+discovery_test 2 0.501759
+network_test 2 0.501319
+file_transfer_test 2 0.501763
+server_runtime_test 2 2.00227
+---

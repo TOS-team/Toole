@@ -1,0 +1,8 @@
+/home/gerard/Documents/Burkina-Open-Place/Toole/build/tests/CMakeFiles/toole_platform_test.dir
+/home/gerard/Documents/Burkina-Open-Place/Toole/build/tests/CMakeFiles/discovery_test.dir
+/home/gerard/Documents/Burkina-Open-Place/Toole/build/tests/CMakeFiles/network_test.dir
+/home/gerard/Documents/Burkina-Open-Place/Toole/build/tests/CMakeFiles/file_transfer_test.dir
+/home/gerard/Documents/Burkina-Open-Place/Toole/build/tests/CMakeFiles/server_runtime_test.dir
+/home/gerard/Documents/Burkina-Open-Place/Toole/build/tests/CMakeFiles/test.dir
+/home/gerard/Documents/Burkina-Open-Place/Toole/build/tests/CMakeFiles/edit_cache.dir
+/home/gerard/Documents/Burkina-Open-Place/Toole/build/tests/CMakeFiles/rebuild_cache.dir

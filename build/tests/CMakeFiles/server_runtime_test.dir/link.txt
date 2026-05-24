@@ -1,0 +1,1 @@
+/usr/bin/cc -Wl,--dependency-file=CMakeFiles/server_runtime_test.dir/link.d CMakeFiles/server_runtime_test.dir/server_runtime_test.c.o -o server_runtime_test  libtoole_platform_test.a -lpthread
