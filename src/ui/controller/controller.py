@@ -1,8 +1,10 @@
 import os
 import random
 import socket
+import subprocess
+import sys
 import time
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Set, Tuple
 
 from bridge_ctypes import (
     CLIENT,
@@ -16,6 +18,37 @@ def _decode_cstr(raw: Any) -> str:
     if isinstance(raw, (bytes, bytearray)):
         return raw.split(b"\x00", 1)[0].decode("utf-8", errors="replace")
     return str(raw)
+
+
+def _default_downloads_dir() -> str:
+    if sys.platform == "win32":
+        try:
+            import ctypes
+            from ctypes import wintypes
+            FOLDERID_Downloads = "{374DE290-123F-4565-9164-39C4925E467B}"
+            SHGetKnownFolderPath = ctypes.windll.shell32.SHGetKnownFolderPath
+            SHGetKnownFolderPath.restype = wintypes.HRESULT
+            SHGetKnownFolderPath.argtypes = [
+                ctypes.c_char_p, wintypes.DWORD, wintypes.HANDLE,
+                ctypes.POINTER(ctypes.c_wchar_p),
+            ]
+            pPath = ctypes.c_wchar_p()
+            if SHGetKnownFolderPath(FOLDERID_Downloads.encode("utf-8"), 0, None, ctypes.byref(pPath)) == 0:
+                return pPath.value
+        except Exception:
+            pass
+        return os.path.join(os.path.expanduser("~"), "Downloads")
+    try:
+        result = subprocess.run(
+            ["xdg-user-dir", "DOWNLOAD"],
+            capture_output=True, text=True, timeout=2,
+        )
+        path = result.stdout.strip()
+        if path and os.path.isabs(path):
+            return path
+    except Exception:
+        pass
+    return os.path.expanduser("~/Downloads")
 
 
 class Controller:
@@ -35,7 +68,8 @@ class Controller:
         self._received_files: List[Dict[str, Any]] = []
         self._known_peer_ids = set()
         self._known_received_paths = set()
-        self.receive_dir = os.path.abspath("received")
+        self._baseline_received_paths: Set[str] = set()
+        self.receive_dir = _default_downloads_dir()
 
     def _guess_local_ip(self) -> str:
         try:
@@ -127,6 +161,7 @@ class Controller:
                 self._bridge = None
                 return False
 
+            self._snapshot_baseline_received()
             self._running = True
             self._last_error = ""
             return True
@@ -162,12 +197,24 @@ class Controller:
         )
         self._events = self._events[-100:]
 
+    def _snapshot_baseline_received(self):
+        self._baseline_received_paths = set()
+        try:
+            for name in os.listdir(self.receive_dir):
+                path = os.path.join(self.receive_dir, name)
+                if os.path.isfile(path):
+                    self._baseline_received_paths.add(os.path.normpath(path))
+        except OSError:
+            pass
+
     def _scan_received_files(self):
         os.makedirs(self.receive_dir, exist_ok=True)
         files: List[Dict[str, Any]] = []
         for name in sorted(os.listdir(self.receive_dir)):
             path = os.path.join(self.receive_dir, name)
             if not os.path.isfile(path):
+                continue
+            if os.path.normpath(path) in self._baseline_received_paths:
                 continue
             try:
                 st = os.stat(path)
@@ -270,14 +317,18 @@ class Controller:
 
     def set_receive_dir(self, receive_dir: str) -> Tuple[bool, str]:
         receive_dir = os.path.abspath(receive_dir)
-        os.makedirs(receive_dir, exist_ok=True)
-        self.receive_dir = receive_dir
-        self._known_received_paths.clear()
         if self._bridge:
             st = self._bridge.set_receive_dir(receive_dir)
             if st != TOOLE_BRIDGE_OK:
                 return False, self._bridge.get_last_error()
-        self._scan_received_files()
+        self.receive_dir = receive_dir
+        self._known_received_paths.clear()
+        self._snapshot_baseline_received()
+        try:
+            os.makedirs(self.receive_dir, exist_ok=True)
+            self._scan_received_files()
+        except OSError as e:
+            return False, f"Erreur acces dossier: {e}"
         return True, f"Dossier de reception: {receive_dir}"
 
     def restart_backend(self) -> Tuple[bool, str]:

@@ -4,8 +4,7 @@ from typing import List
 
 import customtkinter as ctk
 from controller.controller import Controller
-from CTkMessagebox import CTkMessagebox
-from theme import FONT_FAMILY, THEME
+from theme import FONT_FAMILY, THEME, msgbox
 
 
 class TransferScreen(ctk.CTkFrame):
@@ -66,18 +65,6 @@ class TransferScreen(ctk.CTkFrame):
             hover_color=THEME["border"],
             command=self.select_files,
         ).pack(side="left", padx=4)
-
-        ctk.CTkButton(
-            self.file_actions,
-            text="Ajouter Dossier",
-            width=110,
-            height=30,
-            font=ctk.CTkFont(family=FONT_FAMILY, size=11, weight="bold"),
-            fg_color=THEME["bg_subcard"],
-            text_color=THEME["text_main"],
-            hover_color=THEME["border"],
-            command=self.select_folder,
-        ).pack(side="left")
 
         meta_card = ctk.CTkFrame(
             self.left_panel, fg_color=THEME["bg_subcard"], corner_radius=8
@@ -328,12 +315,6 @@ class TransferScreen(ctk.CTkFrame):
                     self.selected_files.append(path)
             self.refresh_selected_files()
 
-    def select_folder(self):
-        folder = filedialog.askdirectory(title="Selectionner un dossier")
-        if folder and folder not in self.selected_files:
-            self.selected_files.append(folder)
-            self.refresh_selected_files()
-
     def refresh_selected_files(self):
         for widget in self.files_list.winfo_children():
             widget.destroy()
@@ -414,18 +395,27 @@ class TransferScreen(ctk.CTkFrame):
 
         self._update_send_state()
 
+    def clear_selection(self):
+        self.selected_files.clear()
+        self.refresh_selected_files()
+
+    def remove_file(self, path: str):
+        if path in self.selected_files:
+            self.selected_files.remove(path)
+        self.refresh_selected_files()
+
     # ==================== START TRANSFER ====================
 
-    def start_transfer(self):
+    def send_files(self):
         if not self.selected_files:
-            CTkMessagebox(
+            msgbox(
                 title="Erreur", message="Aucun fichier selectionne.", icon="warning"
             )
             return
 
         can_transfer, reason = self.controller.can_transfer(self.recipient_var.get())
         if not can_transfer:
-            CTkMessagebox(title="Connexion requise", message=reason, icon="warning")
+            msgbox(title="Connexion requise", message=reason, icon="warning")
             return
 
         self._is_sending = True
@@ -501,14 +491,14 @@ class TransferScreen(ctk.CTkFrame):
                     self._update_send_state()
 
                     if failed:
-                        CTkMessagebox(
+                        msgbox(
                             title="Transfert partiel",
                             message=f"{sent}/{total} envoye(s).\n\n"
                             + "\n".join(failed[:8]),
                             icon="warning",
                         )
                     else:
-                        CTkMessagebox(
+                        msgbox(
                             title="Succes",
                             message=f"{sent}/{total} fichier(s) envoye(s).",
                             icon="check",

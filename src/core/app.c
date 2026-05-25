@@ -240,6 +240,39 @@ static void process_incoming_traffic(toole_app *app) {
 // en mode master, on gere les annonces periodiques aux clients
 static int step_master(toole_app *app)
 {
+    // Hello la BOP, on verifie si un autre master avec un plus petit ID existe
+    // pour eviter la situation ou deux noeuds s'auto-elisent en parallele
+    info other_master;
+    int found_other = 0;
+    toole_mutex_lock(app->devices_lock);
+    for (int i = 0; i < app->device_count; i++) {
+        const info *node = &app->devices[i].node_info;
+        if (node->r == ROLE_MASTER && strcmp(node->id, app->self.id) != 0) {
+            other_master = *node;
+            found_other = 1;
+            break;
+        }
+    }
+    toole_mutex_unlock(app->devices_lock);
+
+    if (found_other && strcmp(other_master.id, app->self.id) < 0) {
+        fprintf(stderr, "[MASTER] autre master detecte (%s), ID plus petit -> demote\n", other_master.id);
+        int fd = connect_to(other_master.ip, (uint16_t)other_master.tcp_port);
+        if (fd >= 0) {
+            app->control_socket = fd;
+            app->self.r = ROLE_CLIENT;
+            if (other_master.cluster_id[0] != '\0') {
+                snprintf(app->self.cluster_id, sizeof(app->self.cluster_id), "%s", other_master.cluster_id);
+            }
+            snprintf(app->self.master_ip, sizeof(app->self.master_ip), "%s", other_master.ip);
+            app->self.master_port = other_master.tcp_port;
+            sync_presence_fields(app);
+            network_send_hello(app->control_socket, &app->self);
+            app->current_state = CLIENT;
+        }
+        return 0;
+    }
+
     long long t = now_ms();
     if (t - app->last_master_announce_ms >= 1000) {
         for (size_t i = 0; i < app->client_count;) {

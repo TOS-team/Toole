@@ -1,7 +1,6 @@
 import customtkinter as ctk
 from controller.controller import Controller
-from CTkMessagebox import CTkMessagebox
-from theme import FONT_FAMILY, THEME
+from theme import FONT_FAMILY, THEME, msgbox
 
 
 def _state_name(value: int) -> str:
@@ -241,7 +240,7 @@ class ConnectionScreen(ctk.CTkFrame):
 
         ok, msg = self.controller.update_username(new_name)
         if not ok:
-            CTkMessagebox(title="Profil", message=msg, icon="warning")
+            msgbox(title="Profil", message=msg, icon="warning")
             self.username_entry.delete(0, "end")
             self.username_entry.insert(0, self.controller.current_user)
         self.refresh_users(force=True)
@@ -261,7 +260,7 @@ class ConnectionScreen(ctk.CTkFrame):
 
     def _connect_to_peer(self, peer):
         ok, msg = self.controller.connect_to_peer(peer)
-        CTkMessagebox(
+        msgbox(
             title="Connexion" if ok else "Erreur",
             message=msg,
             icon="check" if ok else "warning",

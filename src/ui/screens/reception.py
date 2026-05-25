@@ -3,8 +3,7 @@ from tkinter import filedialog
 
 import customtkinter as ctk
 from controller.controller import Controller
-from CTkMessagebox import CTkMessagebox
-from theme import FONT_FAMILY, THEME
+from theme import FONT_FAMILY, THEME, msgbox
 
 
 class ReceptionScreen(ctk.CTkFrame):
@@ -111,7 +110,7 @@ class ReceptionScreen(ctk.CTkFrame):
         if not folder:
             return
         ok, msg = self.controller.set_receive_dir(folder)
-        CTkMessagebox(
+        msgbox(
             title="Reception" if ok else "Erreur",
             message=msg,
             icon="check" if ok else "warning",
