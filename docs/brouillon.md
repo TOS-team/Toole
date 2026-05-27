@@ -1,11 +1,8 @@
 # Brouillon Produit (vision initiale)
 
-Hello le BOP, ce document garde la vision simple d'origine avant les specs techniques.
-
 ## 1) Le problème
 
-Transférer des fichiers hors ligne entre deux ordinateurs est encore compliqué pour beaucoup de personnes.  
-Les méthodes physiques (clé USB) ou les dépendances internet ralentissent les échanges.
+Transférer des fichiers hors ligne entre deux ordinateurs est encore compliqué pour beaucoup de personnes. Les méthodes physiques (clé USB) ou les dépendances Internet ralentissent les échanges.
 
 ## 2) Les utilisateurs
 
@@ -15,30 +12,28 @@ La solution cible les personnes qui ont un ordinateur et veulent partager rapide
 
 ### En ligne de mire
 
-- Une expérience de transfert simple.
+- Une expérience de transfert simple (boutons Send / Receive).
 - Une découverte automatique des appareils proches.
-- Un transfert d’un fichier à la fois (scope initial).
-- Support Linux et Windows (Linux prioritaire en implémentation).
+- Un transfert sécurisé sans intervention réseau complexe.
+- Support Linux, Windows et macOS.
 
 ### Hors champ
 
-- Application mobile.
-- Support macOS.
-- Multi-fichiers avancé dans la première version.
+- Application mobile (scope initial desktop).
+- Cloud ou relais Internet (100% local).
 
 ## 4) KPIs
 
 - Retours utilisateurs sur la simplicité de prise en main.
 - Exécutions de tests réels de transfert.
-- Stabilité observée lors des scénarios de coupure/reconnexion.
+- Stabilité observée lors des scénarios de coupure réseau.
 
 ## 5) Risques principaux
 
-- Retards d’intégration entre modules.
+- Retards d'intégration entre modules.
 - Complexité réseau sous-estimée.
 - Dé-synchronisation entre doc et code.
 
 ---
 
->[Etude de faisabilite](faisabilite.md)  
->[PRD](PRD.md)
+> [PRD](PRD.md) — [ARCHITECTURE.md](ARCHITECTURE.md)

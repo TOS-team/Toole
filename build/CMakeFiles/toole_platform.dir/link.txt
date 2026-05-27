@@ -1,2 +1,0 @@
-/usr/bin/ar qc libtoole_platform.a CMakeFiles/toole_platform.dir/src/platform/linux/discovery.c.o CMakeFiles/toole_platform.dir/src/platform/linux/network.c.o CMakeFiles/toole_platform.dir/src/platform/linux/file_transfert.c.o CMakeFiles/toole_platform.dir/src/platform/linux/server_runtime.c.o
-/usr/bin/ranlib libtoole_platform.a

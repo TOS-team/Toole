@@ -1,1 +1,0 @@
-/usr/bin/cc -Wl,--dependency-file=CMakeFiles/file_transfer_test.dir/link.d CMakeFiles/file_transfer_test.dir/file_transfer_test.c.o -o file_transfer_test  libtoole_platform_test.a -lpthread

@@ -1,63 +1,54 @@
 # Software Requirement Specifications (SRS)
 
-Hello le BOP, ici on pose les exigences logicielles détaillées de Toolé.
-
 ## 1) Introduction
 
-Toolé est un système P2P local qui permet de transférer des fichiers entre ordinateurs, avec découverte automatique, contrôle TCP et reprise après panne Master.
+Toolé est un système P2P local qui permet de transférer des fichiers entre ordinateurs avec découverte automatique, transfert sécurisé TLS et vérification d'intégrité.
 
-> Contexte produit: [PRD.md](PRD.md)  
-> Vision initiale: [brouillon.md](brouillon.md)
+> Contexte produit : [PRD.md](PRD.md)
+> Vision initiale : [brouillon.md](brouillon.md)
 
 ## 2) Description générale du système
 
 ### Contraintes de conception
 
-- Cœur réseau en **C**.
-- Cible OS: **Linux** (priorité actuelle), puis Windows.
-- Discovery en UDP, contrôle et transfert en TCP.
-- Architecture cluster: 1 Master logique + clients.
+- Backend en **Rust** avec Tokio async.
+- Interface **Tauri** (React + TypeScript).
+- Découverte en UDP broadcast, transfert en TCP + TLS.
+- Architecture sender / receiver (pas de cluster).
 
 ## 3) Exigences fonctionnelles
 
-### Appairage et discovery (F-001)
+### Découverte (F-001)
 
-- **E-001**: Le système envoie périodiquement un beacon UDP.
-- **E-002**: Le beacon contient `id`, `username`, `ip`, `tcp_port`, `role`, `cluster_id`, `master_ip`, `master_port`.
-- **E-003**: Le système écoute en continu les beacons sur le port de discovery.
-- **E-004**: Les nœuds non vus depuis un délai défini sont retirés de la liste active.
+- **E-001** : Le sender diffuse périodiquement un packet discovery en UDP broadcast.
+- **E-002** : Le packet contient `device_name`, `port`, `protocol_version`.
+- **E-003** : Le receiver écoute les packets discovery et affiche la liste des senders.
 
-### Contrôle cluster et failover (F-002)
+### Transfert sécurisé (F-002)
 
-- **E-005**: Le client envoie un `HELLO` à l’établissement du lien TCP.
-- **E-006**: Le client envoie des `HEARTBEAT` pour signaler sa présence.
-- **E-007**: En cas de perte Master (timeout/fermeture), le client passe en état `ELECTION`.
-- **E-008**: L’élection suit une règle déterministe (plus petit `id` gagnant).
-- **E-009**: Le gagnant devient `MASTER`, les autres se reconnectent.
-- **E-010**: Si connexion directe impossible, un nœud peut récupérer le Master via voisin (`RELAY_REQUEST/RELAY_RESPONSE`).
+- **E-004** : Le receiver initie une connexion TCP vers le sender.
+- **E-005** : Le sender génère un certificat TLS temporaire.
+- **E-006** : Handshake TLS obligatoire avant tout transfert.
+- **E-007** : Le sender envoie les métadonnées (nom, taille, SHA-256, chunk_size).
+- **E-008** : Le fichier est transféré par chunks de taille fixe.
+- **E-009** : Chaque chunk est accompagné de son CRC32 pour validation rapide.
+- **E-010** : Un packet `Complete` est envoyé après le dernier chunk.
+- **E-011** : Le receiver vérifie le SHA-256 final et rejette le fichier en cas d'échec.
 
-### Transfert de fichier (F-002)
+### Interface (F-003)
 
-- **E-011**: Le système envoie une metadata (`nom`, `taille`) avant le flux.
-- **E-012**: Le récepteur reconstruit le fichier avec vérification de taille attendue.
-
-### Interface opérable (F-003)
-
-- **E-013**: L’interface expose la connexion, les pairs disponibles et l’envoi.
-- **E-014**: L’utilisateur reçoit des retours explicites sur le statut transfert.
+- **E-012** : L'utilisateur voit deux boutons : Send et Receive.
+- **E-013** : En mode Receive, la liste des senders détectés s'affiche.
+- **E-014** : Une barre de progression indique l'avancement du transfert.
+- **E-015** : L'utilisateur valide manuellement la connexion après handshake TLS.
 
 ## 4) Exigences non fonctionnelles
 
-- Discovery rapide et stable.
-- Contrats réseau lisibles (`network.h`, `server_runtime.h`, `file_transfert.h`).
-- Gestion d’erreur explicite côté sockets/fichiers.
-- Compatibilité d’évolution vers une liaison propre entre coeur C (`app.c/main.c`) et UI Python.
-
-## 5) Interface externe (maquettes)
-
-
+- Découverte rapide et stable.
+- Streaming mémoire : pas de chargement complet en RAM.
+- Gestion d'erreur explicite (CRC32, SHA-256, timeouts).
+- Architecture modulaire (crates Rust séparés).
 
 ---
 
->[Architecture et schemas](diagram.md)  
->[Architecture technique detaillee](architecture.md)  
+> [ARCHITECTURE.md](ARCHITECTURE.md) — [PROTOCOL.md](PROTOCOL.md) — [SECURITY.md](SECURITY.md)

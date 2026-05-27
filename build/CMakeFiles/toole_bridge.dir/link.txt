@@ -1,1 +1,0 @@
-/usr/bin/cc -fPIC -shared -Wl,--dependency-file=CMakeFiles/toole_bridge.dir/link.d -Wl,-soname,libtoole_bridge.so -o libtoole_bridge.so CMakeFiles/toole_bridge.dir/src/core/bridge.c.o  libtoole_core.a libtoole_platform.a -lpthread

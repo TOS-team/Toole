@@ -1,53 +1,50 @@
 # PRD (Product Requirement Document)
 
-Hello le BOP, ici on pose le besoin produit de Toolé en version claire.
-
 ## 1) Contexte
 
-Le transfert de fichiers hors ligne entre ordinateurs reste souvent lent ou compliqué (clé USB, manipulations manuelles, dépendance internet).  
-**Toolé** veut rendre ça simple avec un réseau local auto-organisé.
+Le transfert de fichiers hors ligne entre ordinateurs reste souvent lent ou compliqué (clé USB, manipulations manuelles, dépendance Internet). **Toolé** veut rendre ça simple avec un transfert pair-à-pair en réseau local.
 
-> Vue problème détaillée: [brouillon.md](brouillon.md)
+> Vue problème détaillée : [brouillon.md](brouillon.md)
 
 ## 2) Personnes concernées
 
-- **Noaga**: étudiant qui veut partager rapidement des documents dans un environnement avec réseau faible.
-- **Tinbnooma**: profil cybersécurité qui veut transférer des fichiers sensibles sans support physique.
+- **Noaga** : étudiant qui veut partager rapidement des documents dans un environnement avec réseau faible.
+- **Tinbnooma** : profil cybersécurité qui veut transférer des fichiers sensibles sans support physique.
 
 ## 3) Inventaire des fonctionnalités
 
-- **F-001**: Appairage à proximité (découverte automatique des appareils).
-- **F-002**: Transfert de fichier sécurisé et fiable.
-- **F-003**: Interface de contrôle simple (TUI cible, UI Python provisoire pendant le dev).
+- **F-001** : Découverte automatique des appareils sur le LAN.
+- **F-002** : Transfert de fichier sécurisé et fiable avec TLS.
+- **F-003** : Interface simple (Send / Receive).
 
 ## 4) Spécifications détaillées
 
-### F-001 — Appairage à proximité
+### F-001 — Découverte automatique
 
-- Le système détecte les appareils en LAN via discovery UDP.
-- L'utilisateur peut accepter ou refuser une demande de connexion.
-- L'appairage automatique peut être activé/désactivé.
+- Le système détecte les appareils en LAN via UDP broadcast.
+- Les senders diffusent leur présence, les receivers les découvrent.
+- L'utilisateur voit la liste des appareils disponibles.
 
-### F-002 — Transfert et continuité de service
+### F-002 — Transfert sécurisé
 
-- Le système établit une connexion TCP stable entre nœuds.
-- Le cluster s'organise autour d'un Master logique.
-- Si le Master tombe, une élection automatique relance le cluster.
-- Un nœud peut rejoindre le Master directement ou via un voisin relay.
+- Connexion TCP établie entre sender et receiver.
+- Chiffrement TLS obligatoire avec certificat temporaire.
+- Vérification d'intégrité : CRC32 par chunk + SHA-256 fichier final.
+- Transfert par chunks sans charger le fichier en RAM.
 
-### F-003 — Interface opérable
+### F-003 — Interface simple
 
-- L'interface doit rester simple pour envoyer/recevoir un fichier.
-- L'utilisateur doit avoir des retours clairs (connexion, progression, statut).
+- Deux boutons principaux : Send / Receive.
+- Affichage de la progression en temps réel.
+- Liste des appareils détectés avec choix du sender.
 
 ## 5) Exigences non fonctionnelles
 
 - Découverte réseau rapide.
 - Transfert fiable sans corruption de fichier.
-- Comportement prévisible en cas de panne (failover).
-- Lisibilité du code et des logs techniques.
+- Faible consommation mémoire (streaming).
+- Support Linux, Windows, macOS.
 
 ---
 
->[Software Requirement Specifications (SRS)](SRS.md)  
->[Architecture technique](architecture.md)
+> [ARCHITECTURE.md](ARCHITECTURE.md) — [PROTOCOL.md](PROTOCOL.md) — [SECURITY.md](SECURITY.md)
