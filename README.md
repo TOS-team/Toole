@@ -61,4 +61,4 @@ Le projet permet à plusieurs appareils présents sur le même réseau de se dé
 
 ## Licence
 
-[MIT](LICENSE)
+Licence MIT — voir le fichier LICENSE pour plus de détails.[Licence MIT](LICENSE)

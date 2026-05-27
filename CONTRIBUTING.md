@@ -11,6 +11,8 @@
    - [SECURITY.md](docs/SECURITY.md) — sécurité et TLS
    - [ROADMAP.md](docs/ROADMAP.md) — roadmap
 
+2. *(Optionnel)* Consulter l'ancienne version C/Python : [v1](https://github.com/Burkina-Open-Place/Toole/tree/v1)
+
 2. Configurer l'environnement :
    - Installer Rust : `curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh`
    - Installer Node.js
