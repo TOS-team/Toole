@@ -69,10 +69,10 @@
 
 ## Difficultés techniques
 
-- [ ] **Concurrence async** : gestion des tâches Tokio, channels, état partagé
-- [ ] **Architecture protocole** : le protocole est le cœur du projet, une mauvaise conception rendra le projet difficile à maintenir
-- [ ] **Sécurité** : TLS ajoute complexité, gestion des certificats, validation
-- [ ] **Cross-platform** : Linux/Windows/macOS ont des firewalls et comportements réseau différents
+- **Concurrence async** : gestion des tâches Tokio, channels, état partagé
+- **Architecture protocole** : le protocole est le cœur du projet, une mauvaise conception rendra le projet difficile à maintenir
+- **Sécurité** : TLS ajoute complexité, gestion des certificats, validation
+- **Cross-platform** : Linux/Windows/macOS ont des firewalls et comportements réseau différents
 
 ---
 
