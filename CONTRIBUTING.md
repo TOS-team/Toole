@@ -2,7 +2,10 @@
 
 ## Commencer
 
-1. Lire la documentation :
+1. Lire la documentation dans cet ordre :
+   - [brouillon.md](docs/brouillon.md) — vision initiale du produit
+   - [PRD.md](docs/PRD.md) — les exigences produit
+   - [SRS.md](docs/SRS.md) — les spécifications logicielles
    - [ARCHITECTURE.md](docs/ARCHITECTURE.md) — architecture technique
    - [PROTOCOL.md](docs/PROTOCOL.md) — protocole réseau
    - [SECURITY.md](docs/SECURITY.md) — sécurité et TLS

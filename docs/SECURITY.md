@@ -40,3 +40,7 @@ Utilisé pour la validation rapide des chunks. Avantages : très rapide, faible 
 ### SHA-256
 
 Utilisé pour la validation finale du fichier. Avantages : très fiable, sécurisé, pratiquement impossible à falsifier.
+
+---
+
+> Revoir l'architecture : [ARCHITECTURE.md](ARCHITECTURE.md) · Voir la roadmap : [ROADMAP.md](ROADMAP.md)

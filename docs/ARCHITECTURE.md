@@ -169,3 +169,7 @@ Optimisations futures possibles : mmap, io_uring, sendfile, vectored IO, tokio-u
 | `core` | Logique métier, orchestration |
 | `app-state` | État global : appareils connectés, transferts actifs, statistiques, sessions |
 | `ui-bridge` | Communication Tauri, invoke, emit events |
+
+---
+
+> Voir aussi : [PROTOCOL.md](PROTOCOL.md) — le protocole réseau · [SECURITY.md](SECURITY.md) — la sécurité

@@ -4,7 +4,7 @@
 
 Toolé est un système P2P local qui permet de transférer des fichiers entre ordinateurs avec découverte automatique, transfert sécurisé TLS et vérification d'intégrité.
 
-> Contexte produit : [PRD.md](PRD.md)
+> Besoin produit : [PRD.md](PRD.md)
 > Vision initiale : [brouillon.md](brouillon.md)
 
 ## 2) Description générale du système
@@ -51,4 +51,4 @@ Toolé est un système P2P local qui permet de transférer des fichiers entre or
 
 ---
 
-> [ARCHITECTURE.md](ARCHITECTURE.md) — [PROTOCOL.md](PROTOCOL.md) — [SECURITY.md](SECURITY.md)
+> Lire ensuite : [ARCHITECTURE.md](ARCHITECTURE.md) — l'architecture technique

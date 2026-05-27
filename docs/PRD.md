@@ -4,7 +4,7 @@
 
 Le transfert de fichiers hors ligne entre ordinateurs reste souvent lent ou compliqué (clé USB, manipulations manuelles, dépendance Internet). **Toolé** veut rendre ça simple avec un transfert pair-à-pair en réseau local.
 
-> Vue problème détaillée : [brouillon.md](brouillon.md)
+> Vision initiale : [brouillon.md](brouillon.md)
 
 ## 2) Personnes concernées
 
@@ -47,4 +47,4 @@ Le transfert de fichiers hors ligne entre ordinateurs reste souvent lent ou comp
 
 ---
 
-> [ARCHITECTURE.md](ARCHITECTURE.md) — [PROTOCOL.md](PROTOCOL.md) — [SECURITY.md](SECURITY.md)
+> Lire ensuite : [SRS.md](SRS.md) — les exigences logicielles détaillées

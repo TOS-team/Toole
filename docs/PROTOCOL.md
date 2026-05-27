@@ -72,3 +72,7 @@ Envoyé après le dernier chunk.
   "file_id": "uuid"
 }
 ```
+
+---
+
+> Voir aussi : [SECURITY.md](SECURITY.md) — chiffrement et vérification d'intégrité

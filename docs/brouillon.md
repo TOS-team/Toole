@@ -36,4 +36,4 @@ La solution cible les personnes qui ont un ordinateur et veulent partager rapide
 
 ---
 
-> [PRD](PRD.md) — [ARCHITECTURE.md](ARCHITECTURE.md)
+> Lire ensuite : [PRD.md](PRD.md) — les exigences produit détaillées
