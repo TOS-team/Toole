@@ -4,7 +4,7 @@
 
 **Transfert de fichiers P2P en réseau local, sans Internet.**
 
-Toolé est une application open source de transfert de fichiers pair-à-pair (P2P) fonctionnant entièrement sur réseau local, sans Internet.
+Toolé est un logiciel open source de transfert de fichiers pair-à-pair (P2P) fonctionnant entièrement sur réseau local, sans Internet.
 
 Le projet permet à plusieurs appareils présents sur le même réseau de se découvrir automatiquement, de communiquer directement, d'échanger des fichiers de manière sécurisée, de vérifier l'intégrité des données, et d'envoyer des fichiers à plusieurs utilisateurs simultanément.
 
