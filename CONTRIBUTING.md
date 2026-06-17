@@ -67,19 +67,6 @@ toole/
 
 ---
 
-## Conventions de branches
-
-```
-main
-develop
-feature/network
-feature/discovery
-feature/transfer
-feature/security
-```
-
----
-
 ## Conventions de commits
 
 Utiliser le format suivant :

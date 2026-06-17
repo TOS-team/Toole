@@ -52,3 +52,7 @@ Toolé est un système P2P qui permet de transférer des fichiers entre ordinate
 - Streaming mémoire : pas de chargement complet en RAM.
 - Gestion d'erreur explicite (SHA-256, timeouts, chunks perdus).
 - Architecture modulaire : `core/` (bibliothèque pure) + `app/` (Tauri).
+
+---
+
+> [PRD — vision produit](prd.md) | Lire ensuite : [Architecture technique](architecture.md)

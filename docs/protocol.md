@@ -84,4 +84,4 @@ Sender                              Receiver
 
 ---
 
-> Voir aussi : [crypto.md](crypto.md) — chiffrement TLS · [architecture.md](architecture.md) — architecture
+> [Architecture technique](architecture.md) | Lire ensuite : [Chiffrement et intégrité](crypto.md)

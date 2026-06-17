@@ -61,4 +61,4 @@ Le transfert utilise **TLS 1.3 via rustls**. Il assure :
 
 ---
 
-> Voir l'architecture : [architecture.md](architecture.md) · Voir le protocole : [protocol.md](protocol.md) · Voir la roadmap : [roadmap.md](roadmap.md)
+> [Protocole réseau](protocol.md) | Lire ensuite : [Roadmap](roadmap.md)

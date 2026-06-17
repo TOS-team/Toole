@@ -44,3 +44,7 @@ Le transfert de fichiers hors ligne entre ordinateurs reste souvent lent ou comp
 - Transfert fiable sans corruption de fichier (SHA-256).
 - Faible consommation mémoire (streaming).
 - Support Linux (Phase 1), Windows (Phase 2).
+
+---
+
+> Lire ensuite : [SRS — exigences logicielles](srs.md)

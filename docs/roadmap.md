@@ -36,3 +36,7 @@
 - [ ] Historique local des transferts
 - [ ] Nom appareil personnalisable
 - [ ] Support Windows
+
+---
+
+> [Chiffrement et intégrité](crypto.md)
