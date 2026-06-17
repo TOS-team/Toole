@@ -3,20 +3,16 @@
 ## Commencer
 
 1. Lire la documentation dans cet ordre :
-   - [brouillon.md](docs/brouillon.md) — vision initiale du produit
-   - [PRD.md](docs/PRD.md) — les exigences produit
-   - [SRS.md](docs/SRS.md) — les spécifications logicielles
-   - [ARCHITECTURE.md](docs/ARCHITECTURE.md) — architecture technique
-   - [PROTOCOL.md](docs/PROTOCOL.md) — protocole réseau
-   - [SECURITY.md](docs/SECURITY.md) — sécurité et TLS
-   - [ROADMAP.md](docs/ROADMAP.md) — roadmap
-
-2. *(Optionnel)* Consulter l'ancienne version C/Python : [v1](https://github.com/Burkina-Open-Place/Toole/tree/v1)
+   - [prd.md](docs/prd.md) — les exigences produit
+   - [srs.md](docs/srs.md) — les spécifications logicielles
+   - [architecture.md](docs/architecture.md) — architecture technique
+   - [protocol.md](docs/protocol.md) — protocole réseau
+   - [security.md](docs/security.md) — sécurité et TLS
+   - [roadmap.md](docs/roadmap.md) — roadmap
 
 2. Configurer l'environnement :
    - Installer Rust : `curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh`
-   - Installer Node.js
-   - Installer les dépendances Tauri (voir README.md)
+   - Installer Tauri CLI : `cargo install tauri-cli`
 
 3. Builder le projet :
 
@@ -36,22 +32,37 @@ cargo test
 
 ```
 toole/
-├── apps/
-│   ├── desktop-ui/         # Interface Tauri (React + TypeScript)
-│   └── cli/                # CLI (optionnel)
-├── crates/
-│   ├── discovery/          # UDP broadcast, découverte réseau
-│   ├── transport/          # TCP, connexions multiples
-│   ├── protocol/           # Packets, messages, sérialisation (serde)
-│   ├── security/           # TLS (rustls), certificats, hash
-│   ├── transfer/           # Chunking, progression, écriture disque
-│   ├── core/               # Logique métier, orchestration
-│   ├── app-state/          # État global (appareils, transferts, sessions)
-│   └── ui-bridge/          # Communication Tauri (invoke / events)
+├── core/                       # Bibliothèque Rust pure
+│   ├── Cargo.toml
+│   └── src/
+│       ├── lib.rs              # Trait UI + types
+│       ├── error.rs            # ToolError
+│       ├── utils.rs            # Fonctions utilitaires
+│       ├── discovery.rs        # UDP broadcast
+│       ├── transfer.rs         # TCP + TLS + chunks + SHA-256
+│       └── network.rs          # nmcli hotspot / scan / connexion
+│
+├── app/                        # Application Tauri
+│   ├── Cargo.toml
+│   ├── src/
+│   │   ├── index.html
+│   │   ├── main.js
+│   │   └── style.css
+│   └── src-tauri/
+│       ├── Cargo.toml
+│       ├── tauri.conf.json
+│       ├── capabilities/default.json
+│       ├── build.rs
+│       ├── icons/
+│       └── src/
+│           ├── main.rs
+│           └── commands.rs
+│
 ├── docs/
-├── tests/
-├── scripts/
-└── Cargo.toml
+├── assets/
+├── README.md
+├── LICENSE
+└── CONTRIBUTING.md
 ```
 
 ---
@@ -61,9 +72,10 @@ toole/
 ```
 main
 develop
+feature/network
 feature/discovery
-feature/tls
 feature/transfer
+feature/security
 ```
 
 ---
@@ -73,7 +85,7 @@ feature/transfer
 Utiliser le format suivant :
 
 ```
-feat(discovery): add udp broadcast listener
+feat(network): add hotspot creation via nmcli
 ```
 
 ---
