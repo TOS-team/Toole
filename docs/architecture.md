@@ -196,4 +196,4 @@ Avantages : faible consommation RAM, transferts de gros fichiers, reprise future
 
 ---
 
-> Voir aussi : [protocol.md](protocol.md) — le protocole réseau · [security.md](security.md) — la sécurité
+> Voir aussi : [protocol.md](protocol.md) — le protocole réseau · [crypto.md](crypto.md) — le chiffrement

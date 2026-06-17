@@ -7,7 +7,7 @@
    - [srs.md](docs/srs.md) — les spécifications logicielles
    - [architecture.md](docs/architecture.md) — architecture technique
    - [protocol.md](docs/protocol.md) — protocole réseau
-   - [security.md](docs/security.md) — sécurité et TLS
+   - [crypto.md](docs/crypto.md) — chiffrement et TLS
    - [roadmap.md](docs/roadmap.md) — roadmap
 
 2. Configurer l'environnement :
