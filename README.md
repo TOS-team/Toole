@@ -36,4 +36,4 @@ L'application crée un réseau WiFi ad hoc entre les deux appareils. Aucun rése
 
 ## Licence
 
-[Licence MIT](LICENSE)
+[GNU GPLv3](LICENSE)

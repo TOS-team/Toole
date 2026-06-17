@@ -98,4 +98,4 @@ Chaque fonctionnalité doit avoir :
 
 ## Licence
 
-En contribuant, vous acceptez que votre code soit distribué sous [LICENCE MIT](LICENSE).
+En contribuant, vous acceptez que votre code soit distribué sous [GNU GPLv3](LICENSE).
