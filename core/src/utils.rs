@@ -1,10 +1,11 @@
-// Fonctions utilitaires.
-//
-// format_size(bytes: u64) -> String
-//   Formate un nombre d'octets en chaîne lisible ("12.4 Mo", "1.2 Go"…).
-//
-// gen_ssid() -> String
-//   Génère un SSID aléatoire du format "Toole-XXXX" (4 chiffres).
-//
-// current_hostname() -> String
-//   Retourne le hostname de la machine (variable HOSTNAME ou COMPUTERNAME).
+use gethostname::gethostname;
+
+//ic je recupère le nom de la machine hote
+pub fn current_hostname()-> String{
+    gethostname().to_string_lossy().to_string()
+}
+
+//je vais me servir de ce nom pour generer le SSID du hotspot
+pub fn gen_ssid()-> String{
+    format!("Toole-{}",current_hostname())
+}
