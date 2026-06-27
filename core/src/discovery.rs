@@ -1,6 +1,4 @@
 use crate::{Peer, ToolError};
-use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::Arc;
 use tokio::net::UdpSocket;
 use tokio::time::{interval, Duration};
 
@@ -14,42 +12,41 @@ pub async fn start_discovery() -> Result<(), ToolError> {
     let socket = UdpSocket::bind(BIND_ADDR).await?;
     socket.set_broadcast(true)?;
 
-    println!("Dicovery start on {}...", BIND_ADDR);
+    println!("Discovery start on {}...", BIND_ADDR);
 
     //on initialise un buffer pour recevoir les messages
     let mut buf = vec![0u8; 1024];
     let mut ticker = interval(Duration::from_secs(5));
 
-    loop{
-        tokio::select!{
-            _=ticker.tick()=>{
+    loop {
+        tokio::select! {
+            _ = ticker.tick() => {
                 // j'envoie le message de discovery sur le reseau
                 socket.send_to(DISCOVERY_MSG, BROADCAST_ADDR).await?;
             }
-            Ok((len, addr)) = socket.recv_from(&mut buf)=>{
+            Ok((len, addr)) = socket.recv_from(&mut buf) => {
                 // je recupere le message recu et je le converti en string
                 let msg = String::from_utf8_lossy(&buf[..len]);
-                if msg.as_bytes()==DISCOVERY_MSG{
-                    let reponse= format!("TOOLE_HERE:{}",get_hostname());
+                if msg.as_bytes() == DISCOVERY_MSG{
+                    let reponse = format!("TOOLE_HERE:{}", get_hostname());
                     socket.send_to(reponse.as_bytes(), addr).await?;
                 }
                 // je recupere le message recu et je le converti en string
-                else if let Ok(text)=std::str::from_utf8(msg.as_bytes()){
+                else if let Ok(text) = std::str::from_utf8(msg.as_bytes()){
                     // je verifie si le message commence par "TOOLE_HERE:"
                     if let Some(h) = text.strip_prefix(HERE_PREFIX){
-                        let peer=Peer{
-                            hostname:h.to_string(),
-                            addr:addr.ip().to_string(),
+                        let peer = Peer{
+                            hostname: h.to_string(),
+                            addr: addr.ip().to_string(),
                         };
-                        println!("Peer found: {} ({})",peer.hostname,peer.addr);
+                        println!("Peer found: {} ({})", peer.hostname, peer.addr);
                     }
                 }
             }
         }
-
     }
 }
 
-fn get_hostname()->String{
+fn get_hostname() -> String {
     crate::utils::current_hostname()
 }

@@ -1,9 +1,9 @@
 [package]
-name = "core"
+name = "toole_core"
 version = "0.1.0"
 edition = "2021"
 
 [dependencies]
 gethostname = "1.1.0"
 thiserror = "^2"
-tokio = { version = "1.52.3", features = ["net", "time", "sync", "macros"] }
+tokio = { version = "1.52.3", features = ["net", "time", "sync", "macros", "rt-multi-thread"] }
