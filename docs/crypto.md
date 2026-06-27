@@ -1,4 +1,4 @@
-# Sécurité — Toolé
+# Chiffrement et intégrité — Toolé
 
 ## Objectifs
 
@@ -25,8 +25,6 @@ Le transfert utilise **TLS 1.3 via rustls**. Il assure :
 3. Handshake TLS 1.3 automatique
 4. La session sécurisée démarre — **aucune intervention utilisateur**
 
-> Le certificat étant auto-signé, un attaquant MITM sur le même réseau ad hoc pourrait en théorie intercepter la connexion. Dans la pratique, le réseau ad hoc étant créé spécifiquement pour le transfert et utilisé uniquement entre les deux pairs, la surface d'attaque est quasi inexistante.
-
 ---
 
 ## Vérification d'intégrité
@@ -46,8 +44,8 @@ Le transfert utilise **TLS 1.3 via rustls**. Il assure :
 |---|---|---|
 | Interception passive (écoute) | TLS 1.3 | ✅ Fort |
 | Modification d'un chunk | TLS 1.3 (MAC) + SHA-256 final | ✅ Fort |
-| Connexion non autorisée | Réseau ad hoc isolé (pas d'IP routeable) | ✅ Fort |
-| MITM actif | TLS + réseau ad hoc pair-à-pair | ✅ Négligeable |
+| Connexion non autorisée | TLS + réseau local | ✅ Fort |
+| MITM actif | TLS 1.3 | ✅ Fort |
 | Corruption réseau | TLS 1.3 | ✅ Fort |
 | Reverse du fichier reçu sur disque | ❌ Non traité (hors scope V1) | — |
 

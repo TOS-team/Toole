@@ -1,3 +1,4 @@
+mod utils;
 fn main() {
-    println!("Hello, World!");
+    println!("Hostname: {}", utils::current_hostname());
 }

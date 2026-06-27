@@ -10,12 +10,11 @@
 │  │       core/           │  │      app/           │ │
 │  │  (bibliothèque pure)  │  │  (application Tauri)│ │
 │  │                       │  │                     │ │
-│  │  - error.rs           │  │  - commands.rs      │ │
-│  │  - lib.rs (trait UI)  │  │    (TauriUI impl)   │ │
-│  │  - utils.rs           │  │  - index.html       │ │
-│  │  - discovery.rs       │  │  - main.js          │ │
-│  │  - transfer.rs        │  │  - style.css        │ │
-│  │  - network.rs         │  │                     │ │
+│  │  - lib.rs (trait UI)  │  │  - commands.rs      │ │
+│  │  - error.rs           │  │  - index.html       │ │
+│  │  - utils.rs           │  │  - main.js          │ │
+│  │  - discovery.rs       │  │  - style.css        │ │
+│  │  - transfer.rs        │  │                     │ │
 │  └──────────┬────────────┘  └──────────┬─────────┘ │
 │             │                           │           │
 │             └───────────┬───────────────┘           │
@@ -34,7 +33,7 @@
 
 Cette séparation permet :
 - De tester `core/` sans Tauri (`cargo test`)
-- De réutiliser `core/` pour d'autres interfaces (CLI, Android via JNI...)
+- De réutiliser `core/` pour d'autres interfaces (CLI, Android...)
 - De découpler la logique métier de l'interface
 
 ---
@@ -75,12 +74,11 @@ impl UI for TauriUI {
                     ┌──────────────┐
                     │  Sender      │
                     │              │
-                    │  1. Crée     │
-                    │  hotspot     │
-                    │  Toole-XXXX  │
+                    │  Broadcast   │
+                    │  UDP toutes  │
+                    │  les 2s      │
                     └──────┬───────┘
-                           │ WiFi ad hoc
-                           │ (hotspot ouvert)
+                           │ Réseau local (LAN)
                            │
               ┌────────────┴────────────┐
               │                         │
@@ -91,42 +89,10 @@ impl UI for TauriUI {
        │   seul)      │        │              │
        └──────────────┘        └──────────────┘
 
-       1. Sender crée hotspot + serveur TCP
-       2. Receiver scanne en boucle → trouve Toole-* → se connecte
-       3. Broadcast UDP sur le réseau ad hoc
-       4. Connexion TCP + TLS → transfert
+       1. Sender broadcast TOOLE_DISCOVER en UDP
+       2. Receiver répond TOOLE_HERE:<hostname>
+       3. Connexion TCP + TLS → transfert
 ```
-
----
-
-## Gestion du réseau (nmcli)
-
-Le module `network.rs` utilise `nmcli` via `std::process::Command`.
-
-### Commandes
-
-```bash
-# Créer hotspot ouvert
-nmcli device wifi hotspot ifname <interface> ssid "Toole-XXXX"
-
-# Scanner les réseaux
-nmcli device wifi list --rescan yes
-
-# Connexion
-nmcli device wifi connect "Toole-XXXX"
-
-# Déconnexion
-nmcli device disconnect <interface>
-
-# Détruire hotspot
-nmcli connection delete "Toole-XXXX"
-```
-
-### Privilèges
-
-1. Tenter `nmcli` directement
-2. Si échec → `pkexec nmcli`
-3. Si échec → instruction à l'écran
 
 ---
 
@@ -135,8 +101,6 @@ nmcli connection delete "Toole-XXXX"
 ```
 Tokio Runtime
 │
-├── Tâche hotspot          (création / destruction réseau)
-├── Tâche scan boucle      (scan WiFi côté receiver)
 ├── Tâche broadcast UDP    (envoi TOOLE_DISCOVER toutes les 2s)
 ├── Tâche écoute UDP       (réception TOOLE_HERE)
 ├── Tâche listener TCP     (connexion entrante)
@@ -180,10 +144,9 @@ Avantages : faible consommation RAM, transferts de gros fichiers, reprise future
 |---|---|
 | `lib.rs` | Trait UI, types (Peer, Mode, TransferStatus) |
 | `error.rs` | ToolError (tous les types d'erreurs) |
-| `utils.rs` | format_size, gen_ssid, current_hostname |
+| `utils.rs` | current_hostname |
 | `discovery.rs` | UDP broadcast (TOOLE_DISCOVER / TOOLE_HERE) |
 | `transfer.rs` | TCP + TLS + chunks 1 Mo + Ack + SHA-256 |
-| `network.rs` | nmcli hotspot, scan boucle, connexion, destruction |
 
 ### app/
 

@@ -4,17 +4,16 @@
 
 - [ ] error.rs — types d'erreurs ToolError
 - [ ] lib.rs — trait UI, types (Peer, Mode, TransferStatus)
-- [ ] utils.rs — format_size, gen_ssid, hostname
+- [ ] utils.rs — current_hostname
 - [ ] discovery.rs — UDP broadcast (TOOLE_DISCOVER / TOOLE_HERE)
 - [ ] transfer.rs — TCP + TLS + chunks 1 Mo + Ack + SHA-256
-- [ ] network.rs — nmcli hotspot (création, scan, connexion, destruction, scan_loop)
 
 ---
 
 ## Phase 2 — App Tauri (app/)
 
 - [ ] commands.rs — TauriUI + invoke handlers
-- [ ] index.html — structure UI (2 boutons, liste hotspots, progression)
+- [ ] index.html — structure UI (2 boutons, liste appareils, progression)
 - [ ] main.js — events Tauri + invoke + logique frontend
 - [ ] style.css — minimaliste, responsive
 
@@ -24,7 +23,7 @@
 
 - [ ] Timeouts et reconnexion
 - [ ] Barre progression avec vitesse + temps restant
-- [ ] Gestion des erreurs (hotspot perdu, chunk corrompu, annulation)
+- [ ] Gestion des erreurs
 - [ ] Tests
 
 ---

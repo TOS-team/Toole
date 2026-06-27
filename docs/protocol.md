@@ -2,7 +2,7 @@
 
 ## UDP — Découverte (port 5199)
 
-L'UDP est utilisé pour l'échange de présence une fois que le receiver est connecté au hotspot.
+L'UDP est utilisé pour la découverte des appareils sur le réseau local.
 
 | Direction | Paquet | Description |
 |---|---|---|

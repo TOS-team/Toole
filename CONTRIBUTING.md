@@ -39,8 +39,7 @@ toole/
 │       ├── error.rs            # ToolError
 │       ├── utils.rs            # Fonctions utilitaires
 │       ├── discovery.rs        # UDP broadcast
-│       ├── transfer.rs         # TCP + TLS + chunks + SHA-256
-│       └── network.rs          # nmcli hotspot / scan / connexion
+│       └── transfer.rs         # TCP + TLS + chunks + SHA-256
 │
 ├── app/                        # Application Tauri
 │   ├── Cargo.toml
@@ -72,7 +71,7 @@ toole/
 Utiliser le format suivant :
 
 ```
-feat(network): add hotspot creation via nmcli
+feat(discovery): add UDP broadcast peer discovery
 ```
 
 ---
