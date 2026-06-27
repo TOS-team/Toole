@@ -3790,7 +3790,7 @@ name = "toole_core"
 version = "0.1.0"
 dependencies = [
  "gethostname",
- "thiserror 2.0.18",
+ "serde",
  "tokio",
 ]
 
