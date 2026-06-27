@@ -12,7 +12,11 @@ pub fn local_ip()->String{
         Ok(s) => s,
         Err(_) => return "127.0.0.1".to_string(),
     };
-    // puis on tente la connexion à 127.0.0.1 qui est quelconque
+    // il faut activer le broadcast avant de connect à 255.255.255.255
+    if socket.set_broadcast(true).is_err(){
+        return "127.0.0.1".to_string();
+    }
+    // puis on tente la connexion
     if socket.connect("255.255.255.255:1").is_err(){
         return "127.0.0.1".to_string();
     }

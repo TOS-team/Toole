@@ -42,7 +42,7 @@ pub async fn start_discovery(local_ip: String,stop: Arc<AtomicBool>,) -> Result<
                 else if let Ok(text) = std::str::from_utf8(msg.as_bytes()){
                     // je verifie si le message commence par "TOOLE_HERE:"
                     if let Some(h) = text.strip_prefix(HERE_PREFIX){
-                        if addr.ip().to_string() != local_ip{
+                        if h != get_hostname() && addr.ip().to_string() != local_ip{
                             let peer = Peer{
                                 hostname: h.to_string(),
                                 addr: addr.ip().to_string(),
