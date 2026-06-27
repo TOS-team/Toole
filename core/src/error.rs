@@ -2,7 +2,7 @@ use std::fmt;
 
 // ici c'est la liste des error specifique à toolé
 #[derive(Debug)]
-enum ToolError {
+pub enum ToolError {
     IoError(std::io::Error),
     Canceled,
 }
@@ -23,6 +23,6 @@ impl fmt::Display for ToolError {
 // je redirige les erreurs <std::io::Error> vers ToolError
 impl From<std::io::Error> for ToolError {
     fn from(err: std::io::Error) -> Self {
-        ToolError::Io(err)
+        ToolError::IoError(err)
     }
 }
