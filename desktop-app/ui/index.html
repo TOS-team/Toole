@@ -3,21 +3,41 @@
 <head>
 	<meta charset="UTF-8">
 	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<link rel="stylesheet" href="css/index.css">
 	<title>Transfere</title>
 </head>
 <body>
-    <h2><img src="" alt="Toolé logo"> Welcome [hostname]</h2>
-    <div class="file-list">
-
-        <div class="adder">
-            
-        </div>
+    <div class="welcome">
+        <img src="img/sticker.png" alt="Toolé logo">
+        <h2>Bienvenue [hostname]</h2>
+        <button class="btn-apropos btn-about" id="btn-about" type="button" aria-label="À propos">✨</button>
+    </div>
+    <div class="file-list" id="drop-zone">
+        <div class="drop-hint">Déposez vos fichiers ici</div>
+        <div class="adder"></div>
+        <button class="btn-add" id="btn-add">+</button>
     </div>
     <div class="devices-list">
-
-        <div class="sender">
-            
+        <div class="devices-header">
+            <div class="panel-label">Appareils disponibles</div>
+            <label class="select-all">
+                <input type="checkbox" id="select-all-peers">
+            </label>
+        </div>
+        <ul class="peer-list" id="peer-list">
+            <li class="no-peers" id="no-peers">Aucun appareil détecté</li>
+        </ul>
+    </div>
+    <div class="about-modal" id="about-modal">
+        <div class="about-card" role="dialog" aria-modal="true" aria-labelledby="about-title">
+            <div class="about-header">
+                <h3 id="about-title">À propos de Toolé</h3>
+                <button class="about-close" id="about-close" type="button" aria-label="Fermer">×</button>
+            </div>
+            <p>Toolé permet de détecter et préparer le transfert de fichiers entre appareils du réseau local.</p>
+            <p class="about-meta">Version 0.2.0 • Interface locale</p>
         </div>
     </div>
+    <script src="js/main.js"></script>
 </body>
 </html>
