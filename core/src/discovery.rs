@@ -1,11 +1,9 @@
-// Découverte des appareils sur le réseau ad hoc via UDP broadcast (port 5199).
-//
-// start_discovery_broadcast(ui, stop)
-//   - Sender envoie "TOOLE_DISCOVER" en broadcast toutes les 2s
-//   - Les Receivers répondent "TOOLE_HERE:<hostname>"
-//   - Chaque réponse → ui.on_peer_found()
-//   - Timeout 10s si aucun Receiver
-//
-// listen_for_discovery(ui, stop)
-//   - Receiver écoute les paquets "TOOLE_DISCOVER"
-//   - Répond avec "TOOLE_HERE:<hostname>" à l'expéditeur
+use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
+use tokio::net::UdpSocket;
+use tokio::time::{interval, Duration};
+use crate::{Peer,ToolError};
+
+const BROADCAST_ADDR: &str = "255.255.255.255:58199";
+const BIND_ADDR: &str = "0.0.0.0:58199";
+const DISCOVERY_MSG: &[u8] = b"TOOLE_DISCOVERY";
