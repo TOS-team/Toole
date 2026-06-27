@@ -21,18 +21,22 @@ pub async fn start_discovery(local_ip: String,stop: Arc<AtomicBool>,) -> Result<
     let mut buf = vec![0u8; 1024];
     let mut ticker = interval(Duration::from_secs(3));
 
-    loop {
+    while !stop.load(Ordering::Relaxed) {
         tokio::select! {
             _ = ticker.tick() => {
                 // j'envoie le message de discovery sur le reseau
-                socket.send_to(DISCOVERY_MSG, BROADCAST_ADDR).await?;
+                if let Err(e) = socket.send_to(DISCOVERY_MSG, BROADCAST_ADDR).await {
+                    eprintln!("Erreur envoi broadcast : {}", e);
+                }
             }
             Ok((len, addr)) = socket.recv_from(&mut buf) => {
                 // je recupere le message recu et je le converti en string
                 let msg = String::from_utf8_lossy(&buf[..len]);
                 if msg.as_bytes() == DISCOVERY_MSG{
                     let reponse = format!("TOOLE_HERE:{}", get_hostname());
-                    socket.send_to(reponse.as_bytes(), addr).await?;
+                    if let Err(e) = socket.send_to(reponse.as_bytes(), addr).await {
+                        eprintln!("Erreur envoi réponse : {}", e);
+                    }
                 }
                 // je recupere le message recu et je le converti en string
                 else if let Ok(text) = std::str::from_utf8(msg.as_bytes()){
@@ -49,11 +53,9 @@ pub async fn start_discovery(local_ip: String,stop: Arc<AtomicBool>,) -> Result<
                 }
             }
         }
-
-        if stop.load(Ordering::Relaxed) {
-            break Ok(());
-        }
     }
+
+    Ok(())
 }
 
 fn get_hostname() -> String {
