@@ -1,0 +1,63 @@
+body {
+  font-family: sans-serif;
+  margin: 0;
+  padding: 20px;
+  background: #1a1a2e;
+  color: #eee;
+}
+
+h1 {
+  color: #e94560;
+}
+
+#controls {
+  margin: 20px 0;
+}
+
+button {
+  padding: 10px 20px;
+  margin-right: 10px;
+  border: none;
+  border-radius: 6px;
+  font-size: 16px;
+  cursor: pointer;
+}
+
+#btn-start {
+  background: #0f3460;
+  color: #eee;
+}
+
+#btn-stop {
+  background: #e94560;
+  color: #eee;
+}
+
+#peers {
+  margin: 20px 0;
+}
+
+#peer-list {
+  list-style: none;
+  padding: 0;
+}
+
+#peer-list li {
+  padding: 8px 12px;
+  margin: 4px 0;
+  background: #16213e;
+  border-radius: 4px;
+}
+
+#log {
+  margin: 20px 0;
+}
+
+#log-content {
+  background: #0a0a1a;
+  padding: 10px;
+  border-radius: 4px;
+  max-height: 200px;
+  overflow-y: auto;
+  font-size: 12px;
+}
