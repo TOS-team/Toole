@@ -4,6 +4,7 @@ use tokio::net::UdpSocket;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use tokio::time::{interval, Duration, Instant};
+use socket2::{Domain, Type, Socket};
 
 const BROADCAST_ADDR: &str = "255.255.255.255:58199";
 const BIND_ADDR: &str = "0.0.0.0:58199";
@@ -16,9 +17,18 @@ pub async fn start_discovery(
     stop: Arc<AtomicBool>,
     ui: Arc<dyn UI>,
 ) -> Result<(), ToolError> {
-    // j'attache là le socket à une addresse qui permet de d'ecouter tout le reseau
-    let socket = UdpSocket::bind(BIND_ADDR).await?;
-    socket.set_broadcast(true)?;
+    // j'utilise socket2 pour pouvoir passer SO_REUSEADDR et SO_REUSEPORT avant le bind
+    // ca evite le conflit quand l'ancienne tache n'a pas encore libere le port
+    let s = Socket::new(Domain::IPV4, Type::DGRAM, None)?;
+    s.set_reuse_address(true)?;
+    s.set_reuse_port(true)?;
+    s.set_broadcast(true)?;
+    let addr: std::net::SocketAddr = BIND_ADDR.parse().map_err(|e| {
+        std::io::Error::new(std::io::ErrorKind::InvalidInput, e)
+    })?;
+    s.bind(&addr.into())?;
+    s.set_nonblocking(true)?;
+    let socket = UdpSocket::from_std(s.into())?;
 
     ui.log(&format!("Discovery start on {}...", BIND_ADDR));
 
