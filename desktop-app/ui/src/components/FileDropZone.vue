@@ -5,17 +5,11 @@ import { listen } from "@tauri-apps/api/event";
 import { invoke } from "../tauri";
 import { useFilesStore } from "../stores/files";
 import type { FileEntry } from "../types";
+import { formatSize } from "../utils";
 
 const filesStore = useFilesStore();
 const isDragOver = ref(false);
 const dropHint = ref(true);
-
-function formatSize(bytes: number): string {
-  if (bytes < 1024) return `${bytes} o`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} Ko`;
-  if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} Mo`;
-  return `${(bytes / (1024 * 1024 * 1024)).toFixed(1)} Go`;
-}
 
 async function pickFiles() {
   try {
