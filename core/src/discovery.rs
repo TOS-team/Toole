@@ -1,4 +1,4 @@
-use crate::{Peer, ToolError};
+use crate::{Peer, ToolError, UI};
 use tokio::net::UdpSocket;
 use tokio::time::{interval, Duration};
 use std::sync::Arc;
@@ -10,12 +10,12 @@ const BIND_ADDR: &str = "0.0.0.0:58199";
 const DISCOVERY_MSG: &[u8] = b"TOOLE_DISCOVERY";
 const HERE_PREFIX: &str = "TOOLE_HERE:";
 
-pub async fn start_discovery(local_ip: String,stop: Arc<AtomicBool>,) -> Result<(), ToolError> {
+pub async fn start_discovery(local_ip: String,stop: Arc<AtomicBool>,ui:Arc<dyn UI>) -> Result<(), ToolError> {
     // j'attache là le socket à une addresse qui permet de d'ecouter tout le reseau
     let socket = UdpSocket::bind(BIND_ADDR).await?;
     socket.set_broadcast(true)?;
 
-    println!("Discovery start on {}...", BIND_ADDR);
+    ui.log(&format!("Discovery start on {}...", BIND_ADDR));
 
     //on initialise un buffer pour recevoir les messages
     let mut buf = vec![0u8; 1024];
@@ -26,7 +26,7 @@ pub async fn start_discovery(local_ip: String,stop: Arc<AtomicBool>,) -> Result<
             _ = ticker.tick() => {
                 // j'envoie le message de discovery sur le reseau
                 if let Err(e) = socket.send_to(DISCOVERY_MSG, BROADCAST_ADDR).await {
-                    eprintln!("Erreur envoi broadcast : {}", e);
+                    ui.log(&format!("Broadcast send error: {}", e));
                 }
             }
             Ok((len, addr)) = socket.recv_from(&mut buf) => {
@@ -35,7 +35,7 @@ pub async fn start_discovery(local_ip: String,stop: Arc<AtomicBool>,) -> Result<
                 if msg.as_bytes() == DISCOVERY_MSG{
                     let reponse = format!("TOOLE_HERE:{}", get_hostname());
                     if let Err(e) = socket.send_to(reponse.as_bytes(), addr).await {
-                        eprintln!("Erreur envoi réponse : {}", e);
+                        ui.log(&format!("Reponse send error: {}", e));
                     }
                 }
                 // je recupere le message recu et je le converti en string
@@ -47,7 +47,7 @@ pub async fn start_discovery(local_ip: String,stop: Arc<AtomicBool>,) -> Result<
                                 hostname: h.to_string(),
                                 addr: addr.ip().to_string(),
                             };
-                            println!("Peer found: {} ({})", peer.hostname, peer.addr);
+                            ui.peer_found(&peer);
                         }
                     }
                 }

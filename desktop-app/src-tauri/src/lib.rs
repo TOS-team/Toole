@@ -3,6 +3,11 @@ pub mod commands;
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        .manage(commands::DiscoveryState {
+            stop_flag: std::sync::Mutex::new(std::sync::Arc::new(
+                std::sync::atomic::AtomicBool::new(false),
+            )),
+        })
         .setup(|app| {
             if cfg!(debug_assertions) {
                 app.handle().plugin(
@@ -14,7 +19,8 @@ pub fn run() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
-            commands::ping,
+            commands::start_discovery,
+            commands::stop_discovery,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
