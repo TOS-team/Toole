@@ -10,11 +10,6 @@ const btnStop = document.getElementById("btn-stop");
 const btnAbout = document.getElementById("btn-about");
 const aboutModal = document.getElementById("about-modal");
 const aboutClose = document.getElementById("about-close");
-const demoPeers = [
-  { hostname: "Laptop-Atelier", addr: "192.168.1.24" },
-  { hostname: "Téléphone-Amina", addr: "192.168.1.31" },
-  { hostname: "PC-Salle-02", addr: "192.168.1.42" },
-];
 
 function log(msg) {
   if (!logContent) return;
@@ -154,22 +149,6 @@ function updatePeerEmptyState() {
   }
 }
 
-function clearDemoPeers() {
-  if (!peerList) return;
-  peerList.querySelectorAll('[data-demo="true"]').forEach((item) => item.remove());
-}
-
-function seedDemoPeers() {
-  if (!peerList) return;
-  if (peerList.querySelector(".peer-item")) return;
-  demoPeers.forEach(({ hostname, addr }) => {
-    const card = makePeerCard(hostname, addr);
-    card.dataset.demo = "true";
-    peerList.appendChild(card);
-  });
-  updatePeerEmptyState();
-}
-
 if (peerList) {
   peerList.addEventListener("click", (event) => {
     const card = event.target.closest(".peer-item");
@@ -199,7 +178,6 @@ if (listen) {
   listen("peer-found", (event) => {
     const { hostname, addr } = event.payload;
     if (!peerList) return;
-    clearDemoPeers();
     const existing = findPeerCard(hostname);
     if (existing) existing.remove();
     if (peerEmptyState && peerEmptyState.parentElement === peerList) {
@@ -225,6 +203,9 @@ if (listen) {
   });
 }
 
-seedDemoPeers();
 updatePeerEmptyState();
 syncSelectAllState();
+
+if (invoke) {
+  invoke("start_discovery").catch(console.error);
+}
