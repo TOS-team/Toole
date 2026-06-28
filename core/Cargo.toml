@@ -1,8 +1,10 @@
 [package]
-name = "core"
+name = "toole_core"
 version = "0.1.0"
 edition = "2021"
 
 [dependencies]
 gethostname = "1.1.0"
-thiserror = "^2"
+serde = { version = "1", features = ["derive"] }
+socket2 = { version = "0.5", features = ["all"] }
+tokio = { version = "1.52.3", features = ["net", "time", "sync", "macros", "rt-multi-thread"] }

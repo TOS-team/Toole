@@ -1,4 +1,4 @@
-# Sécurité — Toolé
+# Chiffrement et intégrité — Toolé
 
 ## Objectifs
 
@@ -10,33 +10,29 @@ Le système doit protéger contre :
 
 ---
 
-## TLS 1.3 — Chiffrement obligatoire
+## QUIC + TLS 1.3 — Chiffrement intégré
 
-Le transfert utilise **TLS 1.3 via rustls**. Il assure :
-- **Chiffrement** : les données sont illisibles pour un tiers
-- **Authentification** : le receiver s'authentifie via le handshake TLS
-- **Intégrité par chunk** : TLS inclut un MAC qui détecte toute modification en transit
-- **Perfect Forward Secrecy (PFS)** : même si la clé privée est compromise plus tard, les sessions passées restent protégées
+Le transfert utilise **QUIC via Quinn**. QUIC intègre **TLS 1.3 nativement** :
+- **Chiffrement** : toutes les données sont chiffrées, aucun paquet en clair sur le réseau
+- **Authentification** : handshake TLS 1.3 automatique à l'établissement de la connexion
+- **Intégrité par paquet** : chaque paquet QUIC est authentifié (aucune modification possible en transit)
+- **Perfect Forward Secrecy (PFS)** : même si une clé privée est compromise ultérieurement, les sessions passées restent protégées
+- **Multiplexage sécurisé** : chaque stream QUIC est indépendamment chiffré
 
 ### Fonctionnement
 
-1. Le sender génère un **certificat auto-signé temporaire** (unique par session)
-2. Le receiver initie une connexion TCP
-3. Handshake TLS 1.3 automatique
-4. La session sécurisée démarre — **aucune intervention utilisateur**
+1. Un pair agit comme **serveur QUIC** (écoute sur le port 5200)
+2. L'autre pair initie une **connexion QUIC** (handshake TLS 1.3 automatique)
+3. Aucune intervention utilisateur requise pour le chiffrement
+4. Les certificats sont auto-signés et générés à la volée (unique par session)
 
-> Le certificat étant auto-signé, un attaquant MITM sur le même réseau ad hoc pourrait en théorie intercepter la connexion. Dans la pratique, le réseau ad hoc étant créé spécifiquement pour le transfert et utilisé uniquement entre les deux pairs, la surface d'attaque est quasi inexistante.
+### Vérification d'intégrité
 
----
-
-## Vérification d'intégrité
-
-### SHA-256 (fichier final)
-
+**SHA-256 (fichier final)**
 - Hash du fichier complet calculé côté sender avant transfert
 - Transmis dans le paquet `Metadata`
 - Le receiver recalcule progressivement pendant la réception et compare à la fin
-- **Protège contre la modification intentionnelle** et la corruption non détectée par TLS
+- **Double protection** : QUIC (intégrité paquet) + SHA-256 (intégrité fichier)
 
 ---
 
@@ -44,11 +40,12 @@ Le transfert utilise **TLS 1.3 via rustls**. Il assure :
 
 | Attaque | Protégé par | Niveau |
 |---|---|---|
-| Interception passive (écoute) | TLS 1.3 | ✅ Fort |
-| Modification d'un chunk | TLS 1.3 (MAC) + SHA-256 final | ✅ Fort |
-| Connexion non autorisée | Réseau ad hoc isolé (pas d'IP routeable) | ✅ Fort |
-| MITM actif | TLS + réseau ad hoc pair-à-pair | ✅ Négligeable |
-| Corruption réseau | TLS 1.3 | ✅ Fort |
+| Interception passive (écoute) | QUIC + TLS 1.3 | ✅ Fort |
+| Modification d'un paquet | QUIC (authentification paquet) | ✅ Fort |
+| Modification d'un fichier | SHA-256 final | ✅ Fort |
+| Connexion non autorisée | TLS 1.3 + réseau local | ✅ Fort |
+| MITM actif | TLS 1.3 | ✅ Fort |
+| Corruption réseau | QUIC (contrôle congestion + renvoi automatique) | ✅ Fort |
 | Reverse du fichier reçu sur disque | ❌ Non traité (hors scope V1) | — |
 
 ---
@@ -57,7 +54,8 @@ Le transfert utilise **TLS 1.3 via rustls**. Il assure :
 
 - Les fichiers reçus sont stockés en clair sur le disque (pas de chiffrement au repos)
 - Pas de révocation de certificat
-- Pas de validation d'empreinte par l'utilisateur (TLS automatique)
+- Pas de validation d'empreinte par l'utilisateur (TLS automatique via QUIC)
+- Les certificats auto-signés suffisent pour un réseau local de confiance
 
 ---
 

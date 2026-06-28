@@ -1,9 +1,25 @@
-// Point d'entrée de la bibliothèque core.
-//
-// Réexporte tous les modules publics : error, utils, discovery, transfer, network.
-//
-// Définit aussi :
-//   - Trait UI          : pont entre core et le frontend (log, set_progress, on_peer_found, on_transfer_done, on_error)
-//   - struct Peer       : nom + adresse d'un appareil détecté
-//   - enum Mode         : Send / Receive
-//   - struct TransferStatus : filename, total_bytes, received_bytes, speed
+// modules internes de Toolé
+pub mod error;
+pub use error::ToolError;
+pub mod utils;
+pub mod discovery;
+use serde::Serialize;
+
+// ici je defini la structure d'un pair sur le reseau
+// chaque pair a un hostname et une addresse IP
+#[derive(Debug,Clone,Serialize)]
+pub struct Peer{
+    pub hostname:String,
+    pub addr:String,
+}
+
+// trait UI pour communiquer avec l'interface utilisateur
+// chaque implementation (Tauri, Null, etc.) doit fournir ces methodes
+pub trait UI: Send + Sync {
+    // je log un message dans l'interface
+    fn log(&self, msg: &str);
+    // je signale qu'un nouveau pair est trouve
+    fn peer_found(&self,peer:&Peer);
+    // je signale qu'un pair a ete perdu
+    fn peer_lost(&self,hostname:&str);
+}

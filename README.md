@@ -4,7 +4,7 @@
 
 Toolé est un outil de transfert de fichiers entre deux machines proches, sans Internet, sans clé USB, sans compte cloud. Un clique sur **Envoyer**, un clique sur **Recevoir**, et le transfert démarre.
 
-L'application crée un réseau WiFi ad hoc entre les deux appareils. Aucun réseau existant n'est nécessaire.
+Le transfert se fait sur le réseau local (LAN). Aucun hotspot ni connexion Internet nécessaire.
 
 ---
 
