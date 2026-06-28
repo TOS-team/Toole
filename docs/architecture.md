@@ -14,7 +14,7 @@
 │  │  - error.rs           │  │  ├─ commands.rs     │ │
 │  │  - utils.rs           │  │  ├─ lib.rs          │ │
 │  │  - discovery.rs       │  │  └─ build.rs        │ │
-│  │  - transfer.rs (plan) │  │  ui/                │ │
+│  │  - transfer.rs        │  │  ui/                │ │
 │  └──────────┬────────────┘  │  ├─ index.html      │ │
 │             │               │  ├─ css/index.css   │ │
 │             │               │  └─ js/main.js      │ │
@@ -48,72 +48,63 @@ pub trait UI: Send + Sync {
     fn log(&self, msg: &str);
     fn peer_found(&self, peer: &Peer);
     fn peer_lost(&self, hostname: &str);
+    fn transfer_progress(&self, peer_addr: &str, rel_path: &str, percent: u8, speed: &str);
+    fn transfer_done(&self, peer_addr: &str, rel_path: &str, success: bool);
+    fn transfer_error(&self, peer_addr: &str, rel_path: &str, err: &str);
 }
 ```
 
-Dans `desktop-app/src-tauri/src/commands.rs`, la structure `TauriUI` implémente ce trait en mettant à jour une liste partagée `Arc<Mutex<Vec<Peer>>>` :
+Dans `desktop-app/src-tauri/src/commands.rs`, la structure `TauriUI` implémente ce trait :
+- `log`, `peer_found`, `peer_lost` mettent à jour une liste partagée `Arc<Mutex<Vec<Peer>>>`
+- `transfer_progress`, `transfer_done`, `transfer_error` sont relayés au frontend par polling ou events
 
-```rust
-impl UI for TauriUI {
-    fn log(&self, _msg: &str) { }
-    fn peer_found(&self, peer: &Peer) {
-        self.peers.lock().unwrap().push(peer.clone());
-    }
-    fn peer_lost(&self, hostname: &str) {
-        self.peers.lock().unwrap().retain(|p| p.hostname != hostname);
-    }
-}
-```
-
-Le frontend récupère la liste via la commande `get_peers` appelée toutes les 2s.
+Le frontend récupère la liste des pairs via la commande `get_peers` appelée toutes les 2s.
 
 ---
 
-## Architecture réseau (actuelle)
+## Architecture réseau
 
 ```
-                  ┌──────────────┐
-                  │  Appareil    │
-                  │              │
-                  │  Broadcast   │
-                  │  UDP toutes  │
-                  │  les 3s      │
-                  └──────┬───────┘
-                         │ Réseau local (LAN)
-                         │
-            ┌────────────┴────────────┐
-            │                         │
-            ▼                         ▼
-     ┌──────────────┐        ┌──────────────┐
-     │  Pair 1      │        │  Pair 2      │
-     │  (Toolé)     │        │  (Toolé)     │
-     └──────────────┘        └──────────────┘
+                   ┌──────────────┐
+                   │  Appareil    │
+                   │              │
+                   │  Broadcast   │
+                   │  UDP toutes  │
+                   │  les 3s      │
+                   └──────┬───────┘
+                          │ Réseau local (LAN)
+                          │
+             ┌────────────┴────────────┐
+             │                         │
+             ▼                         ▼
+      ┌──────────────┐        ┌──────────────┐
+      │  Pair 1      │        │  Pair 2      │
+      │  (Toolé)     │        │  (Toolé)     │
+      └──────────────┘        └──────────────┘
 
-     1. Chaque app broadcast TOOLE_DISCOVERY en UDP
-     2. Les autres répondent TOOLE_HERE:<hostname>
-     3. La liste des pairs s'affiche dans l'interface
+      1. Chaque app broadcast TOOLE_DISCOVERY en UDP
+      2. Les autres répondent TOOLE_HERE:<hostname>
+      3. La liste des pairs s'affiche dans l'interface
 ```
-
-**Note :** Le transfert de fichiers (QUIC) n'est pas encore implémenté. Voir `transfer.rs`.
 
 ---
 
-## Architecture transfert QUIC (planifiée)
+## Architecture transfert QUIC
 
 ```
 Connexion QUIC (TLS 1.3 intégré)
 │
 ├── Stream 1 : fichier "rapport.pdf"
-│   ├── Metadata JSON
-│   ├── Chunks 1 Mo + Ack
-│   └── Complete + FinalAck
+│   ├── Metadata JSON (rel_path, size, sha256, is_dir)
+│   ├── Chunks 1 Mo + Ack (chunk_index u32 BE)
+│   └── Complete JSON + FinalAck
 │
 ├── Stream 2 : fichier "photos/vacances/img1.jpg"
 │   ├── Metadata JSON
 │   ├── Chunks 1 Mo + Ack
 │   └── Complete + FinalAck
 │
-├── Stream 3 : fichier "photos/vacances/img2.jpg"  (en parallèle)
+├── Stream 3 : fichier "photos/vacances/img2.jpg" (en parallèle)
 │   └── ...
 │
 └── Tous les streams circulent simultanément
@@ -141,11 +132,11 @@ Tokio Runtime
 
 | Module | Responsabilité |
 |---|---|
-| `lib.rs` | Trait UI, type Peer |
-| `error.rs` | ToolError (IoError, Canceled) |
+| `lib.rs` | Trait UI, type Peer, types TransferStatus |
+| `error.rs` | ToolError (IoError, Canceled, TransferError) |
 | `utils.rs` | current_hostname, local_ip |
 | `discovery.rs` | UDP broadcast (TOOLE_DISCOVERY / TOOLE_HERE), port 58199 |
-| `transfer.rs` | Plan du protocole QUIC (non implémenté) |
+| `transfer.rs` | Transfert QUIC : serveur, client, streams, chunks, SHA-256 |
 
 ### desktop-app/src-tauri/src/
 
@@ -153,15 +144,15 @@ Tokio Runtime
 |---|---|
 | `main.rs` | Point d'entrée, appelle `app_lib::run()` |
 | `lib.rs` | Builder Tauri : manage state, on_window_event, invoke_handler |
-| `commands.rs` | Implémentation TauriUI + commandes : start_discovery, stop_discovery, get_hostname, get_peers |
+| `commands.rs` | TauriUI + commandes : start_discovery, stop_discovery, get_hostname, get_peers, start_transfer, cancel_transfer |
 
 ### desktop-app/ui/
 
 | Fichier | Responsabilité |
 |---|---|
-| `index.html` | Structure de l'interface : header, zone dépôt, liste appareils, modale |
+| `index.html` | Structure : header, zone dépôt, liste appareils, progression, modale |
 | `css/index.css` | Thème glassmorphism dark |
-| `js/main.js` | Polling get_peers, affichage liste, sélection, init auto |
+| `js/main.js` | Polling get_peers, drag & drop, sélection, upload, barres progression |
 
 ---
 

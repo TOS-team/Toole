@@ -19,7 +19,7 @@ L'UDP est utilisé pour la découverte des appareils sur le réseau local.
 
 ---
 
-## QUIC — Transfert (port 5200) — NON IMPLÉMENTÉ
+## QUIC — Transfert (port 5200)
 
 Le transfert utilise **QUIC via Quinn** pour le transport.
 
@@ -30,42 +30,57 @@ Le transfert utilise **QUIC via Quinn** pour le transport.
 - **TLS 1.3 intégré** : chiffrement obligatoire, sans configuration manuelle
 - **Contrôle de congestion et renvoi** : géré automatiquement par QUIC
 
-### Principe
+### Établissement de connexion
 
-1. Connexion QUIC établie entre les deux pairs (client bootstrap / serveur)
-2. Chaque fichier = un **stream bidirectionnel QUIC** dédié
-3. Les streams circulent en **parallèle** sur la même connexion
-4. Les dossiers sont transférés récursivement (un stream par fichier)
+1. Chaque pair démarre un **serveur QUIC** sur le port 5200
+2. Pour envoyer des fichiers, le pair initiateur ouvre une **connexion QUIC** vers l'adresse du destinataire
+3. Le handshake TLS 1.3 s'effectue automatiquement
+4. La connexion est réutilisable pour plusieurs transferts
 
 ### Protocole applicatif (par stream)
 
+Chaque fichier est transféré sur un **stream bidirectionnel QUIC** dédié :
+
 | Étape | Direction | Contenu |
 |---|---|---|
-| 1. Metadata | Sender → Receiver | JSON : `rel_path`, `size`, `sha256`, `is_dir` |
+| 1. Metadata | Sender → Receiver | JSON : `{ rel_path, size, sha256, is_dir }` terminé par `\n` |
 | 2. Ack | Receiver → Sender | `0x01` |
-| 3. Chunks | Sender → Receiver | `chunk_index` (u32 BE) + data (1 Mo) |
-| 4. Ack chunk | Receiver → Sender | `chunk_index` (u32 BE) |
-| 5. Complete | Sender → Receiver | JSON : `{ sha256 }` |
+| 3. Chunks | Sender → Receiver | `chunk_index` (u32 big-endian) + data (1 Mo) |
+| 4. Ack chunk | Receiver → Sender | `chunk_index` (u32 big-endian) |
+| ... | ... | Répéter 3-4 jusqu'au dernier chunk |
+| 5. Complete | Sender → Receiver | JSON : `{ sha256 }` terminé par `\n` |
 | 6. FinalAck | Receiver → Sender | `0x01` (OK) ou `0x00` (REJET) |
+
+### Metadata (JSON)
+
+```json
+{
+  "rel_path": "photos/vacances/img1.jpg",
+  "size": 104857600,
+  "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "is_dir": false
+}
+```
 
 ### Transfert de dossiers
 
 Pour un dossier, le sender :
-- Parcourt récursivement l'arborescence
-- Ouvre un stream QUIC dédié pour **chaque fichier**
-- Le `rel_path` dans Metadata conserve la structure (ex: `photos/vacances/img1.jpg`)
-- Tous les streams sont ouverts en parallèle (multiplexage QUIC)
+1. Parcourt récursivement l'arborescence
+2. Ouvre un stream QUIC dédié pour **chaque fichier**
+3. Le `rel_path` dans Metadata conserve la structure relative (ex: `photos/vacances/img1.jpg`)
+4. Les dossiers vides sont signalés par `{ "rel_path": "dossier_vide", "is_dir": true, "size": 0 }` sans chunks
+5. Tous les streams sont ouverts en parallèle (multiplexage QUIC)
 
-### Détails
+### Gestion des erreurs
 
-- **Port** : 5200
-- **Taille de chunk** : 1 048 576 octets (1 Mo)
-- **Timeout renvoi** : 10s, 3 tentatives max
-- **SHA-256** : calculé progressivement côté récepteur, comparé à la fin
+- **Timeout** : 10s sans Ack, 3 tentatives de renvoi max
+- **Chunk perdu** : renvoyé automatiquement par QUIC + mécanisme applicatif
+- **SHA-256 mismatch** : FinalAck `0x00`, le fichier est supprimé côté récepteur
+- **Annulation** : fermeture du stream QUIC côté sender, le récepteur ignore les chunks résiduels
 
 ---
 
-## Séquence actuelle
+## Séquence complète
 
 ```
 Appareil A                           Appareil B
@@ -73,12 +88,29 @@ Appareil A                           Appareil B
   │─── TOOLE_DISCOVERY (UDP) ──────────►│
   │◄── TOOLE_HERE:PC-B (UDP) ──────────│
   │                                     │
-  │─── TOOLE_DISCOVERY (UDP) ──────────►│
-  │◄── TOOLE_HERE:PC-B (UDP) ──────────│
+  │ (découverte toutes les 3s)          │
   │                                     │
-  │  (toutes les 3s)                    │
-  │  (si pas de réponse pendant 9s,     │
-  │   le pair est retiré de la liste)   │
+  │=== Connexion QUIC (port 5200) ====> │
+  │◄══ Handshake TLS 1.3 ══════════════►│
+  │                                     │
+  │─── Stream 1 : Metadata ────────────►│
+  │◄── Ack 0x01 ───────────────────────│
+  │─── Stream 1 : Chunk(0) ───────────►│
+  │◄── Ack(0) ─────────────────────────│
+  │─── Stream 1 : Chunk(1) ───────────►│
+  │◄── Ack(1) ─────────────────────────│
+  │─── ... en parallèle ───────────────►│
+  │                                     │
+  │─── Stream 2 : Metadata ────────────►│
+  │◄── Ack 0x01 ───────────────────────│
+  │─── Stream 2 : Chunk(0) ───────────►│
+  │◄── Ack(0) ─────────────────────────│
+  │─── ...                             │
+  │                                     │
+  │─── Stream 1 : Complete ───────────►│
+  │◄── FinalAck 0x01 ──────────────────│
+  │─── Stream 2 : Complete ───────────►│
+  │◄── FinalAck 0x01 ──────────────────│
 ```
 
 ---
