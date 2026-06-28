@@ -2,9 +2,7 @@
 
 ![Toolé](assets/banner.png)
 
-Toolé est un outil de transfert de fichiers entre deux machines proches, sans Internet, sans clé USB, sans compte cloud. Un clique sur **Envoyer**, un clique sur **Recevoir**, et le transfert démarre.
-
-Le transfert se fait sur le réseau local (LAN). Aucun hotspot ni connexion Internet nécessaire.
+Toolé est un logiciel de transfert de fichiers entre deux machines sur le même réseau local, sans Internet, sans clé USB, sans compte cloud. Un clic sur **Envoyer**, un clic sur **Recevoir**, et le transfert démarre.
 
 ---
 

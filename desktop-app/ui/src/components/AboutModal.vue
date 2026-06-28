@@ -58,11 +58,12 @@ onUnmounted(() => {
           </button>
         </div>
         <p class="text-[13px] leading-relaxed">
-          Toolé permet de détecter et préparer le transfert de fichiers entre
-          appareils du réseau local.
+          Toolé est un logiciel de transfert de fichiers entre deux
+          machines sur le même réseau local, sans Internet, sans clé USB,
+          sans compte cloud.
         </p>
         <p class="text-[13px] leading-relaxed mt-2.5 text-dim text-[11px]">
-          Version 0.2.0 &bull; Interface locale
+          Version 2.0.0 &bull; Interface locale &bull; Licence GPL-3.0
         </p>
       </div>
     </div>
