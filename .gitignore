@@ -1,3 +1,5 @@
 /core/target
 .zed
 target
+skills-lock.json
+.agents/
