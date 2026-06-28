@@ -1,16 +1,21 @@
 use crate::{Peer, ToolError, UI};
+use std::collections::HashMap;
 use tokio::net::UdpSocket;
-use tokio::time::{interval, Duration};
-use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
-
+use std::sync::Arc;
+use tokio::time::{interval, Duration, Instant};
 
 const BROADCAST_ADDR: &str = "255.255.255.255:58199";
 const BIND_ADDR: &str = "0.0.0.0:58199";
 const DISCOVERY_MSG: &[u8] = b"TOOLE_DISCOVERY";
 const HERE_PREFIX: &str = "TOOLE_HERE:";
+const PEER_TTL: Duration = Duration::from_secs(9);
 
-pub async fn start_discovery(local_ip: String,stop: Arc<AtomicBool>,ui:Arc<dyn UI>) -> Result<(), ToolError> {
+pub async fn start_discovery(
+    local_ip: String,
+    stop: Arc<AtomicBool>,
+    ui: Arc<dyn UI>,
+) -> Result<(), ToolError> {
     // j'attache là le socket à une addresse qui permet de d'ecouter tout le reseau
     let socket = UdpSocket::bind(BIND_ADDR).await?;
     socket.set_broadcast(true)?;
@@ -20,6 +25,7 @@ pub async fn start_discovery(local_ip: String,stop: Arc<AtomicBool>,ui:Arc<dyn U
     //on initialise un buffer pour recevoir les messages
     let mut buf = vec![0u8; 1024];
     let mut ticker = interval(Duration::from_secs(3));
+    let mut peers_seen_at: HashMap<String, Instant> = HashMap::new();
 
     while !stop.load(Ordering::Relaxed) {
         tokio::select! {
@@ -27,6 +33,24 @@ pub async fn start_discovery(local_ip: String,stop: Arc<AtomicBool>,ui:Arc<dyn U
                 // j'envoie le message de discovery sur le reseau
                 if let Err(e) = socket.send_to(DISCOVERY_MSG, BROADCAST_ADDR).await {
                     ui.log(&format!("Broadcast send error: {}", e));
+                }
+
+                // Expire les pairs silencieux.
+                let now = Instant::now();
+                let lost_peers: Vec<String> = peers_seen_at
+                    .iter()
+                    .filter_map(|(hostname, seen_at)| {
+                        if now.duration_since(*seen_at) > PEER_TTL {
+                            Some(hostname.clone())
+                        } else {
+                            None
+                        }
+                    })
+                    .collect();
+
+                for hostname in lost_peers {
+                    peers_seen_at.remove(&hostname);
+                    ui.peer_lost(&hostname);
                 }
             }
             Ok((len, addr)) = socket.recv_from(&mut buf) => {
@@ -43,11 +67,15 @@ pub async fn start_discovery(local_ip: String,stop: Arc<AtomicBool>,ui:Arc<dyn U
                     // je verifie si le message commence par "TOOLE_HERE:"
                     if let Some(h) = text.strip_prefix(HERE_PREFIX){
                         if h != get_hostname() && addr.ip().to_string() != local_ip{
+                            let hostname = h.to_string();
                             let peer = Peer{
-                                hostname: h.to_string(),
+                                hostname: hostname.clone(),
                                 addr: addr.ip().to_string(),
                             };
-                            ui.peer_found(&peer);
+                            let is_new_peer = peers_seen_at.insert(hostname, Instant::now()).is_none();
+                            if is_new_peer {
+                                ui.peer_found(&peer);
+                            }
                         }
                     }
                 }
