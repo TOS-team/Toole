@@ -1,5 +1,29 @@
-const { invoke } = window.__TAURI__?.core ?? {};
-const { listen } = window.__TAURI__?.event ?? {};
+function _invoke(cmd, args = {}) {
+  const { postMessage, transformCallback } = window.__TAURI_INTERNALS__;
+  return new Promise((resolve, reject) => {
+    const cb = transformCallback((res) => resolve(res));
+    const eb = transformCallback((err) => reject(new Error(err)));
+    postMessage(JSON.stringify({
+      cmd: 'invoke',
+      callback: cb,
+      error: eb,
+      invoke: { command: cmd, args },
+    }));
+  });
+}
+
+function _listen(event, handler) {
+  const { postMessage, transformCallback } = window.__TAURI_INTERNALS__;
+  return new Promise((resolve) => {
+    const cb = transformCallback((payload) => handler({ payload }));
+    postMessage(JSON.stringify({
+      cmd: 'listen',
+      event,
+      callback: cb,
+    }));
+    resolve(() => {}); // unlisten placeholder
+  });
+}
 
 const peerList = document.getElementById("peer-list");
 const peerEmptyState = document.getElementById("no-peers");
@@ -22,7 +46,7 @@ if (btnStart) {
   btnStart.addEventListener("click", async () => {
     log("Démarrage...");
     try {
-      await invoke("start_discovery");
+      await _invoke("start_discovery");
       log("Discovery démarré");
     } catch (e) {
       log(`Erreur : ${e}`);
@@ -34,7 +58,7 @@ if (btnStop) {
   btnStop.addEventListener("click", async () => {
     log("Arrêt...");
     try {
-      await invoke("stop_discovery");
+      await _invoke("stop_discovery");
       log("Discovery arrêté");
     } catch (e) {
       log(`Erreur : ${e}`);
@@ -173,9 +197,9 @@ if (selectAllPeers) {
   });
 }
 
-if (listen) {
-  listen("log", (event) => log(event.payload));
-  listen("peer-found", (event) => {
+if (_listen) {
+  _listen("log", (event) => log(event.payload));
+  _listen("peer-found", (event) => {
     const { hostname, addr } = event.payload;
     if (!peerList) return;
     const existing = findPeerCard(hostname);
@@ -192,7 +216,7 @@ if (listen) {
     syncSelectAllState();
     log(`Pair trouvé : ${hostname}`);
   });
-  listen("peer-lost", (event) => {
+  _listen("peer-lost", (event) => {
     const { hostname } = event.payload;
     if (!peerList) return;
     const item = findPeerCard(hostname);
@@ -206,6 +230,6 @@ if (listen) {
 updatePeerEmptyState();
 syncSelectAllState();
 
-if (invoke) {
-  invoke("start_discovery").catch(console.error);
+if (_invoke) {
+  _invoke("start_discovery").catch(console.error);
 }
