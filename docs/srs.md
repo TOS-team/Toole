@@ -11,7 +11,7 @@ Toolé est un système P2P qui permet de **détecter des appareils** sur le rés
 ### Contraintes de conception
 
 - Backend en **Rust** avec Tokio async, séparé en workspace `core/` (biblio pure) + `desktop-app/` (Tauri).
-- Frontend **HTML / CSS / JS vanilla** (pas de framework).
+- Frontend **Vue 3 + Pinia + TypeScript + Tailwind v4**.
 - Découverte en UDP broadcast sur le réseau local (port 58199).
 - Transfert par **QUIC** (port 58200) avec multiplexage de streams.
 - Architecture symétrique (pair-à-pair) : chaque instance joue les deux rôles.
@@ -42,16 +42,21 @@ Toolé est un système P2P qui permet de **détecter des appareils** sur le rés
 
 ### Transfert de fichiers (F-004)
 
-- **E-013** : Le transfert utilise **QUIC** via Quinn, avec multiplexage de streams.
-- **E-014** : Plusieurs fichiers peuvent être transférés **en parallèle** sur une même connexion QUIC.
-- **E-015** : Les **dossiers** sont transférés récursivement (un stream QUIC par fichier).
-- **E-016** : Chaque fichier est découpé en chunks de 1 Mo avec Ack par chunk.
-- **E-017** : L'intégrité est vérifiée par SHA-256 (fichier complet).
-- **E-018** : Le chunk perdu est renvoyé (timeout 10s, 3 tentatives max).
+- **E-013** : Le transfert utilise **QUIC** via Quinn, avec multiplexage de streams. *(TODO: implémenter avec QUIC)*
+- **E-014** : Plusieurs fichiers peuvent être transférés **en parallèle** sur une même connexion QUIC. *(TODO)*
+- **E-015** : Les **dossiers** sont transférés récursivement (un stream QUIC par fichier). *(TODO)*
+- **E-016** : Chaque fichier est découpé en chunks de 1 Mo avec Ack par chunk. *(TODO)*
+- **E-017** : L'intégrité est vérifiée par SHA-256 (fichier complet). *(TODO)*
+- **E-018** : Le chunk perdu est renvoyé (timeout 10s, 3 tentatives max). *(TODO)*
 - **E-019** : Les fichiers peuvent être ajoutés par **glisser-déposer** (fichiers et dossiers).
 - **E-020** : Un **sélecteur de fichiers/dossiers natif** est disponible.
-- **E-021** : Une **barre de progression** avec vitesse et temps restant est affichée pour chaque fichier.
-- **E-022** : Un **bouton Annuler** permet d'interrompre le transfert (par fichier ou global).
+- **E-021** : Une **barre de progression** avec vitesse et temps restant est affichée pour chaque fichier. *(TODO)*
+- **E-022** : Un **bouton Annuler** permet d'interrompre le transfert (par fichier ou global). *(TODO)*
+
+### Interface fichiers (F-005)
+
+- **E-023** : Les fichiers peuvent être ajoutés par **Ctrl+V** depuis le presse-papier (chemins système).
+- **E-024** : La **taille** de chaque fichier est affichée en format lisible (o, Ko, Mo, Go).
 
 ## 4) Exigences non fonctionnelles
 
