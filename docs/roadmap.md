@@ -19,26 +19,33 @@
 
 ---
 
-## 🔜 Phase 3 — Transfert de fichiers
+## 🔜 Phase 3 — Transfert de fichiers (QUIC)
 
-- [ ] Protocole TCP + TLS (rustls)
-- [ ] Envoi par chunks de 1 Mo
-- [ ] Accusé de réception (Ack) par chunk
-- [ ] SHA-256 progressif
-- [ ] Timeouts et renvoi (3 tentatives max)
-- [ ] Sélecteur de fichier natif
+- [ ] **Dépendance** : ajouter `quinn` (QUIC) dans core/Cargo.toml
+- [ ] Serveur QUIC (écoute port 5200, accepte connexions entrantes)
+- [ ] Client QUIC (initie connexion vers un pair)
+- [ ] Metadata JSON par stream (rel_path, size, sha256, is_dir)
+- [ ] Envoi par chunks de 1 Mo avec Ack par chunk
+- [ ] SHA-256 progressif côté récepteur
+- [ ] Timeouts et renvoi (10s, 3 tentatives max)
+- [ ] Transfert parallèle de plusieurs fichiers
+- [ ] Support des dossiers (parcours récursif, un stream par fichier)
+- [ ] Sélecteur de fichiers/dossiers natif
+- [ ] Glisser-déposer de fichiers et dossiers
 - [ ] Barre de progression avec vitesse + temps restant
-- [ ] Bouton Annuler
+- [ ] Bouton Annuler par fichier et global
+- [ ] Rafraîchissement du trait UI (progress, transfer_done, error)
 
 ---
 
 ## 🔮 Phase 4 — Polish & futures versions
 
-- [ ] Plusieurs receivers simultanés
+- [ ] Icône dans la barre des tâches avec progression
+- [ ] Notifications système (transfert terminé)
 - [ ] Reprise de transfert (via index du dernier Ack)
 - [ ] Historique local des transferts
 - [ ] Nom appareil personnalisable
-- [ ] Gestion des erreurs utilisateur
+- [ ] Gestion des erreurs utilisateur (dialogue)
 - [ ] Tests unitaires et d'intégration
 
 ---

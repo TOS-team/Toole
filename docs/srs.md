@@ -40,11 +40,24 @@ Toolé est un système P2P qui permet de **détecter des appareils sur le résea
 - **E-012** : Un message "Aucun appareil détecté" s'affiche quand la liste est vide.
 - **E-013** : Une modale "À propos" avec version et description.
 
+### Transfert (F-004) — PLANIFIÉ
+
+- **E-014** : Le transfert utilise **QUIC** via Quinn, avec multiplexage de streams.
+- **E-015** : Plusieurs fichiers peuvent être transférés **en parallèle** sur une même connexion QUIC.
+- **E-016** : Les **dossiers** sont transférés récursivement (un stream par fichier).
+- **E-017** : Chaque fichier est découpé en chunks de 1 Mo avec Ack par chunk.
+- **E-018** : L'intégrité est vérifiée par SHA-256 (fichier complet).
+- **E-019** : Le chunk perdu est renvoyé (timeout 10s, 3 tentatives max).
+- **E-020** : Une barre de progression avec vitesse et temps restant est affichée.
+- **E-021** : Un bouton Annuler permet d'interrompre le transfert.
+
 ## 4) Exigences non fonctionnelles
 
 - Découverte rapide : broadcast toutes les 3s, timeout 9s.
 - Architecture modulaire : `core/` (bibliothèque pure) + `desktop-app/` (Tauri).
 - Interface glassmorphism dark, responsive.
+- Transfert par streaming mémoire (pas de chargement complet en RAM).
+- Multiplexage : pas de Head-of-Line blocking grâce à QUIC.
 
 ---
 

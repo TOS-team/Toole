@@ -94,7 +94,31 @@ Le frontend récupère la liste via la commande `get_peers` appelée toutes les 
      3. La liste des pairs s'affiche dans l'interface
 ```
 
-**Note :** Le transfert de fichiers (TCP+TLS) n'est pas encore implémenté.
+**Note :** Le transfert de fichiers (QUIC) n'est pas encore implémenté. Voir `transfer.rs`.
+
+---
+
+## Architecture transfert QUIC (planifiée)
+
+```
+Connexion QUIC (TLS 1.3 intégré)
+│
+├── Stream 1 : fichier "rapport.pdf"
+│   ├── Metadata JSON
+│   ├── Chunks 1 Mo + Ack
+│   └── Complete + FinalAck
+│
+├── Stream 2 : fichier "photos/vacances/img1.jpg"
+│   ├── Metadata JSON
+│   ├── Chunks 1 Mo + Ack
+│   └── Complete + FinalAck
+│
+├── Stream 3 : fichier "photos/vacances/img2.jpg"  (en parallèle)
+│   └── ...
+│
+└── Tous les streams circulent simultanément
+    Avantage : pas de Head-of-Line blocking
+```
 
 ---
 
@@ -103,7 +127,10 @@ Le frontend récupère la liste via la commande `get_peers` appelée toutes les 
 ```
 Tokio Runtime
 │
-└── Tâche broadcast + écoute UDP    (envoi TOOLE_DISCOVERY + réponse TOOLE_HERE)
+├── Tâche broadcast + écoute UDP        (envoi TOOLE_DISCOVERY + réponse TOOLE_HERE)
+├── Tâche serveur QUIC (port 5200)      (connexions entrantes)
+├── Tâche client QUIC                   (connexions sortantes)
+└── Tâches streams QUIC (1 par fichier) (transfert en parallèle)
 ```
 
 ---
@@ -118,7 +145,7 @@ Tokio Runtime
 | `error.rs` | ToolError (IoError, Canceled) |
 | `utils.rs` | current_hostname, local_ip |
 | `discovery.rs` | UDP broadcast (TOOLE_DISCOVERY / TOOLE_HERE), port 58199 |
-| `transfer.rs` | Plan du protocole de transfert (non implémenté) |
+| `transfer.rs` | Plan du protocole QUIC (non implémenté) |
 
 ### desktop-app/src-tauri/src/
 

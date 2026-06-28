@@ -10,20 +10,21 @@ La version actuelle (0.2.0) se limite à la **découverte UDP** des appareils su
 
 ## Plan pour le transfert
 
-### TLS 1.3 — Chiffrement obligatoire
+### QUIC + TLS 1.3 — Chiffrement intégré
 
-Le transfert utilisera **TLS 1.3 via rustls** pour assurer :
-- **Chiffrement** : les données sont illisibles pour un tiers
-- **Authentification** : le receiver s'authentifie via le handshake TLS
-- **Intégrité par chunk** : TLS inclut un MAC qui détecte toute modification en transit
-- **Perfect Forward Secrecy (PFS)** : même si la clé privée est compromise plus tard, les sessions passées restent protégées
+Le transfert utilisera **QUIC via Quinn**. QUIC intègre **TLS 1.3 nativement** :
+- **Chiffrement** : toutes les données sont chiffrées, pas de paquet en clair
+- **Authentification** : handshake TLS 1.3 automatique à l'établissement de la connexion
+- **Intégrité par paquet** : chaque paquet QUIC est authentifié (pas de modification possible)
+- **Perfect Forward Secrecy (PFS)** : même si une clé privée est compromise, les sessions passées restent protégées
+- **Multiplexage sécurisé** : chaque stream QUIC est indépendamment chiffré
 
 ### Fonctionnement prévu
 
-1. Le sender génère un **certificat auto-signé temporaire** (unique par session)
-2. Le receiver initie une connexion TCP
-3. Handshake TLS 1.3 automatique
-4. La session sécurisée démarre — **aucune intervention utilisateur**
+1. Un pair agit comme **serveur QUIC** (écoute sur le port 5200)
+2. L'autre pair initie une **connexion QUIC** (handshake TLS 1.3 automatique)
+3. Chaque fichier = un **stream bidirectionnel** dédié
+4. Tous les streams en parallèle — **aucune intervention utilisateur** pour le chiffrement
 
 ### Vérification d'intégrité
 
@@ -31,6 +32,7 @@ Le transfert utilisera **TLS 1.3 via rustls** pour assurer :
 - Hash du fichier complet calculé côté sender avant transfert
 - Transmis dans le paquet `Metadata`
 - Le receiver recalcule progressivement pendant la réception et compare à la fin
+- Double protection : QUIC (intégrité paquet) + SHA-256 (intégrité fichier)
 
 ---
 
@@ -38,11 +40,12 @@ Le transfert utilisera **TLS 1.3 via rustls** pour assurer :
 
 | Attaque | Protégé par | Niveau |
 |---|---|---|
-| Interception passive (écoute) | TLS 1.3 | ✅ Fort |
-| Modification d'un chunk | TLS 1.3 (MAC) + SHA-256 final | ✅ Fort |
-| Connexion non autorisée | TLS + réseau local | ✅ Fort |
+| Interception passive (écoute) | QUIC + TLS 1.3 | ✅ Fort |
+| Modification d'un paquet | QUIC (authentification paquet) | ✅ Fort |
+| Modification d'un fichier | SHA-256 final | ✅ Fort |
+| Connexion non autorisée | TLS 1.3 + réseau local | ✅ Fort |
 | MITM actif | TLS 1.3 | ✅ Fort |
-| Corruption réseau | TLS 1.3 | ✅ Fort |
+| Corruption réseau | QUIC (contrôle congestion + renvoi) | ✅ Fort |
 | Reverse du fichier reçu sur disque | ❌ Non traité (hors scope V1) | — |
 
 ---
@@ -51,7 +54,7 @@ Le transfert utilisera **TLS 1.3 via rustls** pour assurer :
 
 - Les fichiers reçus seront stockés en clair sur le disque (pas de chiffrement au repos)
 - Pas de révocation de certificat
-- Pas de validation d'empreinte par l'utilisateur (TLS automatique)
+- Pas de validation d'empreinte par l'utilisateur (TLS automatique via QUIC)
 
 ---
 

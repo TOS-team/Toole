@@ -19,9 +19,11 @@ Le transfert de fichiers hors ligne entre ordinateurs reste souvent lent ou comp
 
 ## 4) Fonctionnalités prévues
 
-- **F-004** : Transfert de fichier sécurisé avec TLS + SHA-256 (en conception).
-- **F-005** : Barre de progression avec vitesse en temps réel.
-- **F-006** : Mode Send / Receive avec sélecteur de fichier natif.
+- **F-004** : Transfert de fichiers par **QUIC** avec multiplexage et chiffrement TLS 1.3 intégré.
+- **F-005** : Support de **plusieurs fichiers** en parallèle sur une même connexion QUIC.
+- **F-006** : Support des **dossiers** (envoi récursif, conservation de l'arborescence).
+- **F-007** : Barre de progression avec vitesse et temps restant en temps réel.
+- **F-008** : Sélecteur de fichiers/dossiers natif avec glisser-déposer.
 
 ## 5) Exigences non fonctionnelles
 
