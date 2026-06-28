@@ -5,8 +5,7 @@
   "identifier": "com.tauri.dev",
   "build": {
     "frontendDist": "../ui",
-    "devUrl": "http://localhost:5173",
-    "beforeDevCommand": "cd ../ui && python3 -m http.server 5173",
+    "beforeDevCommand": "",
     "beforeBuildCommand": ""
   },
   "app": {

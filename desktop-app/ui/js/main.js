@@ -1,27 +1,7 @@
-function _invoke(cmd, args = {}) {
-  const { postMessage, transformCallback } = window.__TAURI_INTERNALS__;
-  return new Promise((resolve, reject) => {
-    const cb = transformCallback((res) => resolve(res));
-    const eb = transformCallback((err) => reject(new Error(err)));
-    postMessage(JSON.stringify({
-      cmd: 'invoke',
-      callback: cb,
-      error: eb,
-      invoke: { command: cmd, args },
-    }));
-  });
-}
-
+const _invoke = window.__TAURI_INTERNALS__.invoke.bind(window.__TAURI_INTERNALS__);
 function _listen(event, handler) {
-  const { postMessage, transformCallback } = window.__TAURI_INTERNALS__;
-  return new Promise((resolve) => {
-    const cb = transformCallback((payload) => handler({ payload }));
-    postMessage(JSON.stringify({
-      cmd: 'listen',
-      event,
-      callback: cb,
-    }));
-    resolve(() => {}); // unlisten placeholder
+  return window.__TAURI_INTERNALS__.listen(event, null, (payload) => {
+    handler({ payload });
   });
 }
 
