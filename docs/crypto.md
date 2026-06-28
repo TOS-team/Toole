@@ -21,7 +21,7 @@ Le transfert utilise **QUIC via Quinn**. QUIC intègre **TLS 1.3 nativement** :
 
 ### Fonctionnement
 
-1. Un pair agit comme **serveur QUIC** (écoute sur le port 5200)
+1. Un pair agit comme **serveur QUIC** (écoute sur le port 58200)
 2. L'autre pair initie une **connexion QUIC** (handshake TLS 1.3 automatique)
 3. Aucune intervention utilisateur requise pour le chiffrement
 4. Les certificats sont auto-signés et générés à la volée (unique par session)

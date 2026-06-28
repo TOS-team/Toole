@@ -17,9 +17,20 @@
 | Module | Statut |
 |---|---|
 | `commands.rs` — TauriUI, commandes invoke | ✅ |
-| `index.html` — structure UI | ✅ |
-| `js/main.js` — polling, drag & drop, progression | ✅ |
-| `css/index.css` — thème glassmorphism dark | ✅ |
+| `lib.rs` — Builder Tauri, on_window_event, plugins | ✅ |
+| `tauri.conf.json` — config fenêtre + build | ✅ |
+| `capabilities/default.json` — permissions Tauri | ✅ |
+| `App.vue` — root component, titlebar, layout | ✅ |
+| `style.css` — thème glassmorphism dark + Tailwind v4 | ✅ |
+| `main.ts` — bootstrap Vue 3 + Pinia | ✅ |
+| `components/*.vue` — WelcomeHeader, FileDropZone, PeerList, AboutModal | ✅ |
+| `stores/*.ts` — peers (polling), files (sizes) | ✅ |
+| `tauri.ts` — wrapper invoke | ✅ |
+| `utils.ts` — formatSize | ✅ |
+| `types.ts` — Peer, FileEntry | ✅ |
+| `read_clipboard` — commande Ctrl+V | ✅ |
+| `close_window` — commande fallback | ✅ |
+| `get_file_sizes` — commande tailles fichiers | ✅ |
 
 ---
 
@@ -36,18 +47,16 @@
 | Timeouts et renvoi (10s, 3 tentatives max) | 🔜 |
 | Transfert parallèle de plusieurs fichiers (multiplexage QUIC) | 🔜 |
 | Support des dossiers (parcours récursif, un stream par fichier) | 🔜 |
-| Sélecteur de fichiers/dossiers natif | 🔜 |
-| Glisser-déposer de fichiers et dossiers | 🔜 |
-| Barre de progression avec vitesse + temps restant | 🔜 |
-| Bouton Annuler par fichier et global | 🔜 |
 | Méthodes transfer_progress / transfer_done / transfer_error dans le trait UI | 🔜 |
 
 ---
 
-## Phase 4 — Polish & futures versions
+## Phase 4 — Interface & polish
 
 | Tâche | Statut |
 |---|---|
+| Barre de progression avec vitesse + temps restant | 🔜 |
+| Bouton Annuler par fichier et global | 🔜 |
 | Icône dans la barre des tâches avec progression | 🔮 |
 | Notifications système (transfert terminé, erreur) | 🔮 |
 | Reprise de transfert (via index du dernier Ack) | 🔮 |

@@ -14,10 +14,23 @@
 │  │  - error.rs           │  │  ├─ commands.rs     │ │
 │  │  - utils.rs           │  │  ├─ lib.rs          │ │
 │  │  - discovery.rs       │  │  └─ build.rs        │ │
-│  │  - transfer.rs        │  │  ui/                │ │
-│  └──────────┬────────────┘  │  ├─ index.html      │ │
-│             │               │  ├─ css/index.css   │ │
-│             │               │  └─ js/main.js      │ │
+│  │  - transfer.rs        │  │  │  ├─ commands.rs     │ │
+│  │                       │  │  │  ├─ lib.rs          │ │
+│  │                       │  │  │  └─ build.rs        │ │
+│  │                       │  │  ui/                   │ │
+│  │                       │  │  ├─ index.html         │ │
+│  │                       │  │  ├─ package.json       │ │
+│  │                       │  │  ├─ vite.config.ts     │ │
+│  │                       │  │  ├─ tsconfig.json      │ │
+│  │                       │  │  └─ src/               │ │
+│  │                       │  │      ├─ App.vue        │ │
+│  │                       │  │      ├─ style.css      │ │
+│  │                       │  │      ├─ main.ts        │ │
+│  │                       │  │      ├─ types.ts       │ │
+│  │                       │  │      ├─ tauri.ts       │ │
+│  │                       │  │      ├─ utils.ts       │ │
+│  │                       │  │      ├─ components/    │ │
+│  │                       │  │      └─ stores/        │ │
 │             │               └────────────────────┘ │
 │             │                                       │
 │             └───────────┬───────────────┐           │
@@ -32,7 +45,7 @@
 
 `core/` est une bibliothèque Rust pure, **sans aucune dépendance Tauri**. Elle expose un **trait `UI`** générique que n'importe quel frontend peut implémenter.
 
-`desktop-app/src-tauri/` est l'application Tauri qui implémente le trait `UI` en stockant les pairs dans un état partagé. Le frontend HTML/JS interroge le backend par **polling** (toutes les 2s) via la commande `get_peers`.
+`desktop-app/src-tauri/` est l'application Tauri qui implémente le trait `UI` en stockant les pairs dans un état partagé. Le frontend **Vue 3 + Pinia + TypeScript + Tailwind v4** interroge le backend par **polling** (toutes les 2s) via la commande `get_peers`.
 
 Cette séparation permet :
 - De tester `core/` sans Tauri (`cargo run -p toole_core`)
@@ -48,15 +61,13 @@ pub trait UI: Send + Sync {
     fn log(&self, msg: &str);
     fn peer_found(&self, peer: &Peer);
     fn peer_lost(&self, hostname: &str);
-    fn transfer_progress(&self, peer_addr: &str, rel_path: &str, percent: u8, speed: &str);
-    fn transfer_done(&self, peer_addr: &str, rel_path: &str, success: bool);
-    fn transfer_error(&self, peer_addr: &str, rel_path: &str, err: &str);
+    // transfer_progress, transfer_done, transfer_error — à ajouter avec QUIC
 }
 ```
 
 Dans `desktop-app/src-tauri/src/commands.rs`, la structure `TauriUI` implémente ce trait :
 - `log`, `peer_found`, `peer_lost` mettent à jour une liste partagée `Arc<Mutex<Vec<Peer>>>`
-- `transfer_progress`, `transfer_done`, `transfer_error` sont relayés au frontend par polling ou events
+- Les méthodes de progression QUIC (`transfer_progress`, `transfer_done`, `transfer_error`) seront ajoutées lors de l'implémentation du transfert
 
 Le frontend récupère la liste des pairs via la commande `get_peers` appelée toutes les 2s.
 
@@ -149,10 +160,32 @@ Tokio Runtime
 ### desktop-app/ui/
 
 | Fichier | Responsabilité |
+|---|---|---|
+| `index.html` | Point d'entrée Vite |
+| `src/main.ts` | Bootstrap Vue 3 + Pinia |
+| `src/App.vue` | Root component, titlebar, layout, bouton Envoyer |
+| `src/style.css` | Thème glassmorphism dark + Tailwind v4 |
+| `src/types.ts` | Interfaces partagées (Peer, FileEntry) |
+| `src/tauri.ts` | Wrapper invoke Tauri |
+| `src/utils.ts` | Utilitaires (formatSize) |
+| `src/stores/peers.ts` | Store Pinia — liste des pairs + polling 2s |
+| `src/stores/files.ts` | Store Pinia — fichiers sélectionnés + tailles |
+| `src/components/WelcomeHeader.vue` | Logo, hostname, bouton À propos |
+| `src/components/FileDropZone.vue` | Dépôt fichiers, Ctrl+V, sélecteur natif |
+| `src/components/PeerList.vue` | Liste des pairs, sélection individuelle/groupée |
+| `src/components/AboutModal.vue` | Modale À propos glassmorph |
+
+### Fenêtre et permissions
+
+La fenêtre Tauri est configurée sans décoration native (`decorations: false`) avec fond transparent (`transparent: true`) et titlebar personnalisée (zone de drag `data-tauri-drag-region`, boutons Réduire et Fermer). Les permissions Tauri v2 sont déclarées dans `capabilities/default.json` : `core:default`, `core:window:allow-start-dragging`, `core:window:allow-minimize`, `core:window:allow-close`, `dialog:default`.
+
+### Commandes Tauri additionnelles
+
+| Commande | Rôle |
 |---|---|
-| `index.html` | Structure : header, zone dépôt, liste appareils, progression, modale |
-| `css/index.css` | Thème glassmorphism dark |
-| `js/main.js` | Polling get_peers, drag & drop, sélection, upload, barres progression |
+| `read_clipboard` | Lit le presse-papier système via `arboard` (Ctrl+V) |
+| `close_window` | Ferme la fenêtre (fallback) |
+| `get_file_sizes` | Retourne la taille des fichiers en octets |
 
 ---
 
