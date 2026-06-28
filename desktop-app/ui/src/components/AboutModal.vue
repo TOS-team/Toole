@@ -22,13 +22,10 @@ function onKeydown(e: KeyboardEvent) {
 defineExpose({ open, close });
 
 onMounted(() => {
-  const btn = document.getElementById("btn-about");
-  btn?.addEventListener("click", open);
   window.addEventListener("keydown", onKeydown);
 });
 
 onUnmounted(() => {
-  document.getElementById("btn-about")?.removeEventListener("click", open);
   window.removeEventListener("keydown", onKeydown);
 });
 </script>

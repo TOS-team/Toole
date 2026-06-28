@@ -12,6 +12,7 @@ import AboutModal from "./components/AboutModal.vue";
 const hostname = ref("");
 const peersStore = usePeersStore();
 const filesStore = useFilesStore();
+const aboutModal = ref<InstanceType<typeof AboutModal> | null>(null);
 
 const canSend = computed(
   () => filesStore.files.length > 0 && peersStore.selectedHostnames.size > 0,
@@ -89,7 +90,7 @@ window.addEventListener("beforeunload", () => {
       </div>
     </div>
     <div class="flex flex-col gap-2.5 p-4 flex-1 min-h-0 max-w-[600px] mx-auto w-full">
-      <WelcomeHeader :hostname="hostname" />
+      <WelcomeHeader :hostname="hostname" @open-about="aboutModal?.open()" />
       <FileDropZone />
       <PeerList />
       <button
@@ -106,5 +107,5 @@ window.addEventListener("beforeunload", () => {
       </button>
     </div>
   </div>
-  <AboutModal />
+  <AboutModal ref="aboutModal" />
 </template>

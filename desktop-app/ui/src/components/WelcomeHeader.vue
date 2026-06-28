@@ -1,5 +1,6 @@
 <script setup lang="ts">
 defineProps<{ hostname: string }>();
+const emit = defineEmits<{ (e: "open-about"): void }>();
 </script>
 
 <template>
@@ -16,7 +17,6 @@ defineProps<{ hostname: string }>();
       </span>
     </h2>
     <button
-      id="btn-about"
       type="button"
       aria-label="À propos"
       title="À propos"
@@ -26,7 +26,8 @@ defineProps<{ hostname: string }>();
              shadow-[0_2px_8px_rgba(0,0,0,0.15),inset_0_1px_0_rgba(255,255,255,0.25)]
              transition-all duration-150 hover:brightness-125 hover:scale-105 active:scale-95
              flex items-center justify-center"
-    >
+    @click="emit('open-about')"
+>
       <img src="/assets/icons/icone-dinformation.png" alt="À propos" class="w-[18px] h-[18px]" style="filter: brightness(0) invert(1)" />
     </button>
   </div>
