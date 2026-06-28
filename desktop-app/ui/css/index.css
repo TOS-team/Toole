@@ -40,7 +40,7 @@ body {
 .welcome { display: flex; align-items: center; gap: 12px; padding-bottom: 4px; }
 .welcome img { width: 48px; height: 48px; object-fit: contain; }
 .welcome h2 { flex: 1; font-size: 16px; font-weight: 600; letter-spacing: -0.01em; }
-.welcome span { display: block; font-size: 11px; color: var(--muted); margin-top: 2px; }
+.welcome span { display: block; font-size: 11px; color: #d4a017; margin-top: 2px; }
 .btn-about {
     flex: 0 0 auto;
     width: 32px;
@@ -148,6 +148,8 @@ body {
 
 /* DEVICES */
 .devices-header { display: flex; align-items: center; justify-content: space-between; }
+
+/* SELECT ALL */
 .select-all {
     display: flex;
     align-items: center;

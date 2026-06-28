@@ -7,16 +7,21 @@
 	<title>Transfere</title>
 </head>
 <body>
+    <!-- entete avec logo et nom de la machine -->
     <div class="welcome">
         <img src="assets/img/sticker.png" alt="Toolé logo">
-        <h2>Bienvenue [hostname]</h2>
+        <h2>Bienvenue <span id="welcome-hostname">[hostname]</span></h2>
         <button class="btn-apropos btn-about" id="btn-about" type="button" aria-label="À propos">✨</button>
     </div>
+
+    <!-- zone de depot de fichiers -->
     <div class="file-list" id="drop-zone">
         <div class="drop-hint">Déposez vos fichiers ici</div>
         <div class="adder"></div>
         <button class="btn-add" id="btn-add">+</button>
     </div>
+
+    <!-- liste des appareils trouves sur le reseau -->
     <div class="devices-list">
         <div class="devices-header">
             <div class="panel-label">Appareils disponibles</div>
@@ -28,6 +33,8 @@
             <li class="no-peers" id="no-peers">Aucun appareil détecté</li>
         </ul>
     </div>
+
+    <!-- modale a propos -->
     <div class="about-modal" id="about-modal">
         <div class="about-card" role="dialog" aria-modal="true" aria-labelledby="about-title">
             <div class="about-header">
@@ -38,6 +45,7 @@
             <p class="about-meta">Version 0.2.0 • Interface locale</p>
         </div>
     </div>
+
     <script src="js/main.js"></script>
 </body>
 </html>
