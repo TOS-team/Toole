@@ -18,6 +18,8 @@
 
 ```bash
 cargo build
+# ou pour l'app Tauri :
+cd desktop-app/src-tauri && cargo tauri dev
 ```
 
 4. Lancer les tests :
@@ -39,23 +41,39 @@ toole/
 │       ├── error.rs            # ToolError
 │       ├── utils.rs            # Fonctions utilitaires
 │       ├── discovery.rs        # UDP broadcast
-│       └── transfer.rs         # TCP + TLS + chunks + SHA-256
+│       └── transfer.rs         # QUIC (à implémenter)
 │
-├── app/                        # Application Tauri
-│   ├── Cargo.toml
-│   ├── src/
-│   │   ├── index.html
-│   │   ├── main.js
-│   │   └── style.css
-│   └── src-tauri/
-│       ├── Cargo.toml
-│       ├── tauri.conf.json
-│       ├── capabilities/default.json
-│       ├── build.rs
-│       ├── icons/
+├── desktop-app/                # Application Tauri
+│   ├── src-tauri/
+│   │   ├── Cargo.toml
+│   │   ├── tauri.conf.json
+│   │   ├── capabilities/default.json
+│   │   ├── build.rs
+│   │   ├── icons/
+│   │   └── src/
+│   │       ├── main.rs
+│   │       ├── lib.rs          # Builder Tauri + events
+│   │       └── commands.rs     # Commandes IPC
+│   └── ui/                     # Frontend Vue 3
+│       ├── index.html
+│       ├── package.json
+│       ├── vite.config.ts
+│       ├── tsconfig.json
 │       └── src/
-│           ├── main.rs
-│           └── commands.rs
+│           ├── main.ts
+│           ├── App.vue
+│           ├── style.css
+│           ├── types.ts
+│           ├── tauri.ts
+│           ├── utils.ts
+│           ├── components/
+│           │   ├── WelcomeHeader.vue
+│           │   ├── FileDropZone.vue
+│           │   ├── PeerList.vue
+│           │   └── AboutModal.vue
+│           └── stores/
+│               ├── peers.ts
+│               └── files.ts
 │
 ├── docs/
 ├── assets/
