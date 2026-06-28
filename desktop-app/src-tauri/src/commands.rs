@@ -85,4 +85,30 @@ pub fn get_peers(state: State<'_, DiscoveryState>) -> Result<Vec<Peer>, String> 
     Ok(peers.clone())
 }
 
+// je lis le texte du presse-papier (pour le Ctrl+V)
+#[tauri::command]
+pub fn read_clipboard() -> Result<String, String> {
+    let mut cb = arboard::Clipboard::new().map_err(|e| format!("Clipboard error: {e}"))?;
+    cb.get_text().map_err(|e| format!("Clipboard read error: {e}"))
+}
+
+// je ferme la fenetre
+#[tauri::command]
+pub fn close_window(window: tauri::Window) -> Result<(), String> {
+    window.close().map_err(|e| e.to_string())
+}
+
+// je retourne la taille des fichiers en octets
+#[tauri::command]
+pub fn get_file_sizes(paths: Vec<String>) -> Result<Vec<u64>, String> {
+    paths
+        .iter()
+        .map(|p| {
+            std::fs::metadata(p)
+                .map(|m| m.len())
+                .map_err(|e| format!("Erreur lecture {p}: {e}"))
+        })
+        .collect()
+}
+
 
