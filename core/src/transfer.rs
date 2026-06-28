@@ -29,7 +29,7 @@
 // Timeout renvoi : 10s, 3 tentatives max par chunk
 // SHA-256 calcule progressivement cote Receiver, compare a la fin
 //
-// Connexion : QUIC sur le port 5200
+// Connexion : QUIC sur le port 58200
 // - Chaque pair demarre un serveur QUIC au lancement
 // - L'envoi ouvre une connexion sortante vers l'IP du destinataire
 // - Handshake TLS 1.3 automatique via Quinn

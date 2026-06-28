@@ -13,7 +13,7 @@ Toolé est un système P2P qui permet de **détecter des appareils** sur le rés
 - Backend en **Rust** avec Tokio async, séparé en workspace `core/` (biblio pure) + `desktop-app/` (Tauri).
 - Frontend **HTML / CSS / JS vanilla** (pas de framework).
 - Découverte en UDP broadcast sur le réseau local (port 58199).
-- Transfert par **QUIC** (port 5200) avec multiplexage de streams.
+- Transfert par **QUIC** (port 58200) avec multiplexage de streams.
 - Architecture symétrique (pair-à-pair) : chaque instance joue les deux rôles.
 - Communication frontend↔backend par **polling** (découverte) et **events** (progression).
 

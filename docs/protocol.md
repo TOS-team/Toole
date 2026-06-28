@@ -19,7 +19,7 @@ L'UDP est utilisé pour la découverte des appareils sur le réseau local.
 
 ---
 
-## QUIC — Transfert (port 5200)
+## QUIC — Transfert (port 58200)
 
 Le transfert utilise **QUIC via Quinn** pour le transport.
 
@@ -32,7 +32,7 @@ Le transfert utilise **QUIC via Quinn** pour le transport.
 
 ### Établissement de connexion
 
-1. Chaque pair démarre un **serveur QUIC** sur le port 5200
+1. Chaque pair démarre un **serveur QUIC** sur le port 58200
 2. Pour envoyer des fichiers, le pair initiateur ouvre une **connexion QUIC** vers l'adresse du destinataire
 3. Le handshake TLS 1.3 s'effectue automatiquement
 4. La connexion est réutilisable pour plusieurs transferts
@@ -90,7 +90,7 @@ Appareil A                           Appareil B
   │                                     │
   │ (découverte toutes les 3s)          │
   │                                     │
-  │=== Connexion QUIC (port 5200) ====> │
+  │=== Connexion QUIC (port 58200) ===> │
   │◄══ Handshake TLS 1.3 ══════════════►│
   │                                     │
   │─── Stream 1 : Metadata ────────────►│

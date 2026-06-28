@@ -28,7 +28,7 @@
 | Tâche | Statut |
 |---|---|
 | Dépendance `quinn` dans core/Cargo.toml | 🔜 |
-| Serveur QUIC (port 5200, accepte connexions entrantes) | 🔜 |
+| Serveur QUIC (port 58200, accepte connexions entrantes) | 🔜 |
 | Client QUIC (initie connexion vers un pair) | 🔜 |
 | Metadata JSON par stream (rel_path, size, sha256, is_dir) | 🔜 |
 | Envoi par chunks de 1 Mo avec Ack par chunk | 🔜 |

@@ -119,7 +119,7 @@ Connexion QUIC (TLS 1.3 intégré)
 Tokio Runtime
 │
 ├── Tâche broadcast + écoute UDP        (envoi TOOLE_DISCOVERY + réponse TOOLE_HERE)
-├── Tâche serveur QUIC (port 5200)      (connexions entrantes)
+├── Tâche serveur QUIC (port 58200)     (connexions entrantes)
 ├── Tâche client QUIC                   (connexions sortantes)
 └── Tâches streams QUIC (1 par fichier) (transfert en parallèle)
 ```
