@@ -1,85 +1,44 @@
 # Protocole Réseau — Toolé
 
-## UDP — Découverte (port 5199)
+## UDP — Découverte (port 58199)
 
 L'UDP est utilisé pour la découverte des appareils sur le réseau local.
 
 | Direction | Paquet | Description |
 |---|---|---|
-| Sender → broadcast | `TOOLE_DISCOVER` | Diffusé toutes les 2s sur `255.255.255.255:5199` |
-| Receiver → Sender | `TOOLE_HERE:<hostname>` | Réponse unicast, ex: `TOOLE_HERE:PC-Gerard` |
+| Broadcast | `TOOLE_DISCOVERY` | Diffusé toutes les 3s sur `255.255.255.255:58199` |
+| Unicast | `TOOLE_HERE:<hostname>` | Réponse à l'expéditeur, ex: `TOOLE_HERE:PC-Gerard` |
+
+### Détails
+
+- **Port** : 58199
+- **Intervalle de broadcast** : 3 secondes
+- **Timeout d'expiration d'un pair** : 9 secondes sans réponse
+- **Format du hostname** : nom de la machine (via `gethostname`)
+- **Filtrage** : un appareil ne s'ajoute pas lui-même (même hostname + même IP)
 
 ---
 
-## TCP + TLS — Transfert (port 5200)
+## TCP + TLS — Transfert (port 5200) — NON IMPLÉMENTÉ
 
-Tous les paquets suivants transitent par une connexion TCP chiffrée en TLS 1.3.
-
-### Metadata
-
-Envoyé par le sender au receiver. JSON encodé en UTF-8, terminé par `\n`.
-
-```json
-{
-  "filename": "rapport.pdf",
-  "size": 104857600,
-  "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-  "chunk_size": 1048576
-}
-```
-
-### Ack metadata
-
-Le receiver envoie un seul octet : `0x01` (ACK) pour confirmer réception des métadonnées.
-
-### Chunk
-
-Binaire. Format :
-
-| Champ | Taille | Détail |
-|---|---|---|
-| chunk_index | 4 octets | u32 big-endian |
-| data | N octets | Contenu du chunk (N = chunk_size sauf dernier) |
-
-### Ack chunk
-
-Le receiver répond avec l'index du chunk reçu (4 octets, u32 big-endian).
-
-### Complete
-
-Envoyé après le dernier chunk. JSON encodé en UTF-8, terminé par `\n`.
-
-```json
-{
-  "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
-}
-```
-
-### FinalAck
-
-Le receiver répond `0x01` (OK, SHA-256 vérifié) ou `0x00` (REJET, SHA-256 mismatch).
+Le protocole de transfert de fichiers est en phase de conception. Voir `core/src/transfer.rs` pour le plan détaillé.
 
 ---
 
-## Séquence complète
+## Séquence actuelle
 
 ```
-Sender                              Receiver
+Appareil A                           Appareil B
   │                                     │
-  │─── TOOLE_DISCOVER (UDP) ──────────►│
-  │◄── TOOLE_HERE:PC-Gerard (UDP) ─────│
+  │─── TOOLE_DISCOVERY (UDP) ──────────►│
+  │◄── TOOLE_HERE:PC-B (UDP) ──────────│
   │                                     │
-  │=== Connexion TCP + TLS handshake ==>│
+  │─── TOOLE_DISCOVERY (UDP) ──────────►│
+  │◄── TOOLE_HERE:PC-B (UDP) ──────────│
   │                                     │
-  │─── Metadata (JSON) ────────────────►│
-  │◄── Ack (0x01) ─────────────────────│
-  │─── Chunk(0) ──────────────────────►│
-  │◄── Ack(0) ─────────────────────────│
-  │─── Chunk(1) ──────────────────────►│
-  │◄── Ack(1) ─────────────────────────│
-  │─── ... ───────────────────────────►│
-  │─── Complete (JSON) ───────────────►│
-  │◄── FinalAck (0x01) ───────────────│
+  │  (toutes les 3s)                    │
+  │  (si pas de réponse pendant 9s,     │
+  │   le pair est retiré de la liste)   │
 ```
 
 ---

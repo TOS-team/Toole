@@ -7,32 +7,35 @@
 │                  Toolé (workspace)                │
 │                                                    │
 │  ┌──────────────────────┐  ┌────────────────────┐ │
-│  │       core/           │  │      app/           │ │
+│  │       core/           │  │  desktop-app/      │ │
 │  │  (bibliothèque pure)  │  │  (application Tauri)│ │
 │  │                       │  │                     │ │
-│  │  - lib.rs (trait UI)  │  │  - commands.rs      │ │
-│  │  - error.rs           │  │  - index.html       │ │
-│  │  - utils.rs           │  │  - main.js          │ │
-│  │  - discovery.rs       │  │  - style.css        │ │
-│  │  - transfer.rs        │  │                     │ │
-│  └──────────┬────────────┘  └──────────┬─────────┘ │
-│             │                           │           │
-│             └───────────┬───────────────┘           │
-│                         │                           │
-│               Trait UI (IPC)                        │
+│  │  - lib.rs (trait UI)  │  │  src-tauri/        │ │
+│  │  - error.rs           │  │  ├─ commands.rs     │ │
+│  │  - utils.rs           │  │  ├─ lib.rs          │ │
+│  │  - discovery.rs       │  │  └─ build.rs        │ │
+│  │  - transfer.rs (plan) │  │  ui/                │ │
+│  └──────────┬────────────┘  │  ├─ index.html      │ │
+│             │               │  ├─ css/index.css   │ │
+│             │               │  └─ js/main.js      │ │
+│             │               └────────────────────┘ │
+│             │                                       │
+│             └───────────┬───────────────┐           │
+│                         │               │           │
+│                  Trait UI (IPC)    Polling get_peers│
 └─────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## Pourquoi workspace core/ + app/ ?
+## Pourquoi workspace core/ + desktop-app/ ?
 
 `core/` est une bibliothèque Rust pure, **sans aucune dépendance Tauri**. Elle expose un **trait `UI`** générique que n'importe quel frontend peut implémenter.
 
-`app/` est l'application Tauri qui implémente le trait `UI` en émettant des events vers le frontend HTML/JS.
+`desktop-app/src-tauri/` est l'application Tauri qui implémente le trait `UI` en stockant les pairs dans un état partagé. Le frontend HTML/JS interroge le backend par **polling** (toutes les 2s) via la commande `get_peers`.
 
 Cette séparation permet :
-- De tester `core/` sans Tauri (`cargo test`)
+- De tester `core/` sans Tauri (`cargo run -p toole_core`)
 - De réutiliser `core/` pour d'autres interfaces (CLI, Android...)
 - De découpler la logique métier de l'interface
 
@@ -41,58 +44,57 @@ Cette séparation permet :
 ## Trait UI — Le pont entre core et le frontend
 
 ```rust
-pub trait UI: Clone + Send + 'static {
+pub trait UI: Send + Sync {
     fn log(&self, msg: &str);
-    fn set_progress(&self, percent: u8, speed: &str);
-    fn on_peer_found(&self, peer: Peer);
-    fn on_transfer_done(&self, path: &str);
-    fn on_error(&self, err: &str);
+    fn peer_found(&self, peer: &Peer);
+    fn peer_lost(&self, hostname: &str);
 }
 ```
 
-Dans `app/commands.rs`, la structure `TauriUI` implémente ce trait en émettant des events Tauri :
+Dans `desktop-app/src-tauri/src/commands.rs`, la structure `TauriUI` implémente ce trait en mettant à jour une liste partagée `Arc<Mutex<Vec<Peer>>>` :
 
 ```rust
 impl UI for TauriUI {
-    fn log(&self, msg: &str) {
-        self.window.emit("log", msg).unwrap();
+    fn log(&self, _msg: &str) { }
+    fn peer_found(&self, peer: &Peer) {
+        self.peers.lock().unwrap().push(peer.clone());
     }
-    fn set_progress(&self, percent: u8, speed: &str) {
-        self.window.emit("progress", serde_json::json!({
-            "percent": percent, "speed": speed
-        })).unwrap();
+    fn peer_lost(&self, hostname: &str) {
+        self.peers.lock().unwrap().retain(|p| p.hostname != hostname);
     }
-    // ...
 }
 ```
 
+Le frontend récupère la liste via la commande `get_peers` appelée toutes les 2s.
+
 ---
 
-## Architecture réseau
+## Architecture réseau (actuelle)
 
 ```
-                    ┌──────────────┐
-                    │  Sender      │
-                    │              │
-                    │  Broadcast   │
-                    │  UDP toutes  │
-                    │  les 2s      │
-                    └──────┬───────┘
-                           │ Réseau local (LAN)
-                           │
-              ┌────────────┴────────────┐
-              │                         │
-              ▼                         ▼
-       ┌──────────────┐        ┌──────────────┐
-       │  Receiver    │        │  Receiver    │
-       │  (V1 : un    │        │  (V2+)       │
-       │   seul)      │        │              │
-       └──────────────┘        └──────────────┘
+                  ┌──────────────┐
+                  │  Appareil    │
+                  │              │
+                  │  Broadcast   │
+                  │  UDP toutes  │
+                  │  les 3s      │
+                  └──────┬───────┘
+                         │ Réseau local (LAN)
+                         │
+            ┌────────────┴────────────┐
+            │                         │
+            ▼                         ▼
+     ┌──────────────┐        ┌──────────────┐
+     │  Pair 1      │        │  Pair 2      │
+     │  (Toolé)     │        │  (Toolé)     │
+     └──────────────┘        └──────────────┘
 
-       1. Sender broadcast TOOLE_DISCOVER en UDP
-       2. Receiver répond TOOLE_HERE:<hostname>
-       3. Connexion TCP + TLS → transfert
+     1. Chaque app broadcast TOOLE_DISCOVERY en UDP
+     2. Les autres répondent TOOLE_HERE:<hostname>
+     3. La liste des pairs s'affiche dans l'interface
 ```
+
+**Note :** Le transfert de fichiers (TCP+TLS) n'est pas encore implémenté.
 
 ---
 
@@ -101,38 +103,8 @@ impl UI for TauriUI {
 ```
 Tokio Runtime
 │
-├── Tâche broadcast UDP    (envoi TOOLE_DISCOVER toutes les 2s)
-├── Tâche écoute UDP       (réception TOOLE_HERE)
-├── Tâche listener TCP     (connexion entrante)
-├── Tâche transfert        (chunks + Ack + SHA-256)
-└── Tâche UI events        (émission events Tauri)
+└── Tâche broadcast + écoute UDP    (envoi TOOLE_DISCOVERY + réponse TOOLE_HERE)
 ```
-
----
-
-## Architecture transfert par chunks
-
-```
-Fichier
-   ↓
-Buffered Reader (streaming)
-   ↓
-Chunk Producer (découpage 1 Mo)
-   ↓
-TLS Encryptor (rustls)
-   ↓
-TCP Sender
-   ↓
-Receiver
-   ↓
-TLS Decryptor
-   ↓
-Chunk Writer + SHA-256 progressif
-   ↓
-Disque
-```
-
-Avantages : faible consommation RAM, transferts de gros fichiers, reprise future (via index du dernier Ack).
 
 ---
 
@@ -142,20 +114,27 @@ Avantages : faible consommation RAM, transferts de gros fichiers, reprise future
 
 | Module | Responsabilité |
 |---|---|
-| `lib.rs` | Trait UI, types (Peer, Mode, TransferStatus) |
-| `error.rs` | ToolError (tous les types d'erreurs) |
-| `utils.rs` | current_hostname |
-| `discovery.rs` | UDP broadcast (TOOLE_DISCOVER / TOOLE_HERE) |
-| `transfer.rs` | TCP + TLS + chunks 1 Mo + Ack + SHA-256 |
+| `lib.rs` | Trait UI, type Peer |
+| `error.rs` | ToolError (IoError, Canceled) |
+| `utils.rs` | current_hostname, local_ip |
+| `discovery.rs` | UDP broadcast (TOOLE_DISCOVERY / TOOLE_HERE), port 58199 |
+| `transfer.rs` | Plan du protocole de transfert (non implémenté) |
 
-### app/
+### desktop-app/src-tauri/src/
 
 | Fichier | Responsabilité |
 |---|---|
-| `commands.rs` | Implémentation TauriUI + commandes invoke |
-| `index.html` | Interface utilisateur (2 boutons, liste, progression) |
-| `main.js` | Écoute events Tauri, appelle invoke |
-| `style.css` | Styles minimalistes |
+| `main.rs` | Point d'entrée, appelle `app_lib::run()` |
+| `lib.rs` | Builder Tauri : manage state, on_window_event, invoke_handler |
+| `commands.rs` | Implémentation TauriUI + commandes : start_discovery, stop_discovery, get_hostname, get_peers |
+
+### desktop-app/ui/
+
+| Fichier | Responsabilité |
+|---|---|
+| `index.html` | Structure de l'interface : header, zone dépôt, liste appareils, modale |
+| `css/index.css` | Thème glassmorphism dark |
+| `js/main.js` | Polling get_peers, affichage liste, sélection, init auto |
 
 ---
 

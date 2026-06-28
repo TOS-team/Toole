@@ -2,7 +2,7 @@
 
 ## 1) Introduction
 
-Toolé est un système P2P qui permet de transférer des fichiers entre ordinateurs sur un réseau local, avec découverte automatique par UDP broadcast, transfert sécurisé TLS et vérification d'intégrité SHA-256.
+Toolé est un système P2P qui permet de **détecter des appareils sur le réseau local** par UDP broadcast. Le transfert de fichiers est en phase de conception.
 
 > Besoin produit : [prd.md](prd.md)
 
@@ -10,45 +10,41 @@ Toolé est un système P2P qui permet de transférer des fichiers entre ordinate
 
 ### Contraintes de conception
 
-- Backend en **Rust** avec Tokio async, séparé en workspace `core/` (biblio pure) + `app/` (Tauri).
-- Frontend **HTML / CSS / JS vanilla**.
-- Découverte en UDP broadcast sur le réseau local, transfert en TCP + TLS.
-- Architecture sender / receiver (un seul receiver en V1).
+- Backend en **Rust** avec Tokio async, séparé en workspace `core/` (biblio pure) + `desktop-app/` (Tauri).
+- Frontend **HTML / CSS / JS vanilla** (pas de framework).
+- Découverte en UDP broadcast sur le réseau local (port 58199).
+- Architecture symétrique (pair-à-pair) : chaque instance est à la fois émettrice et réceptrice.
+- Communication frontend↔backend par **polling** (pas d'events Tauri).
 
 ## 3) Exigences fonctionnelles
 
 ### Découverte (F-001)
 
-- **E-001** : Le sender diffuse périodiquement un paquet `TOOLE_DISCOVER` en UDP broadcast toutes les 2s sur le port 5199.
-- **E-002** : Le receiver écoute sur le port 5199 et répond `TOOLE_HERE:<hostname>` à l'expéditeur.
-- **E-003** : Le sender affiche la liste des receivers qui ont répondu. Timeout de 10s si aucun receiver.
+- **E-001** : L'application diffuse périodiquement `TOOLE_DISCOVERY` en UDP broadcast toutes les 3s sur le port 58199.
+- **E-002** : L'application écoute sur le port 58199 et répond `TOOLE_HERE:<hostname>` à l'expéditeur.
+- **E-003** : L'application ignore son propre hostname et sa propre IP pour ne pas s'ajouter elle-même.
+- **E-004** : Un pair est retiré de la liste après 9s sans réponse.
+- **E-005** : Le frontend affiche la liste des pairs découverts, mise à jour toutes les 2s par polling.
 
-### Transfert sécurisé (F-002)
+### Démarrage et arrêt (F-002)
 
-- **E-004** : Le receiver initie une connexion TCP vers le sender (port 5200).
-- **E-005** : Le sender génère un certificat TLS temporaire. Handshake TLS 1.3 automatique.
-- **E-006** : Le sender envoie les métadonnées (nom fichier, taille, SHA-256, chunk_size) en JSON.
-- **E-007** : Le receiver accuse réception des métadonnées (Ack `1`).
-- **E-008** : Le fichier est transféré par chunks de taille fixe (1 Mo). Chaque chunk est précédé de son index (u32).
-- **E-009** : Le receiver accuse réception de chaque chunk (Ack avec l'index).
-- **E-010** : En cas de timeout (10s), le sender renvoie le même chunk (3 tentatives max).
-- **E-011** : Un paquet `Complete` avec le SHA-256 final est envoyé après le dernier chunk.
-- **E-012** : Le receiver vérifie le SHA-256 et renvoie `1` (OK) ou `0` (rejet).
+- **E-006** : La découverte démarre automatiquement au lancement de l'application.
+- **E-007** : La découverte s'arrête automatiquement à la fermeture de la fenêtre (via `on_window_event` et `beforeunload`).
 
 ### Interface (F-003)
 
-- **E-013** : L'utilisateur voit deux boutons : Send et Receive.
-- **E-014** : En mode Send, un sélecteur de fichier natif s'ouvre.
-- **E-015** : En mode Receive, la liste des appareils découverts s'affiche.
-- **E-016** : Une barre de progression avec vitesse indique l'avancement du transfert.
-- **E-017** : Un bouton Annuler est toujours visible.
+- **E-008** : Le nom de la machine hôte est affiché dans l'en-tête.
+- **E-009** : La liste des appareils détectés s'affiche avec nom et adresse IP.
+- **E-010** : Chaque pair peut être sélectionné individuellement par clic.
+- **E-011** : Une case "tout sélectionner" permet de sélectionner/désélectionner tous les pairs.
+- **E-012** : Un message "Aucun appareil détecté" s'affiche quand la liste est vide.
+- **E-013** : Une modale "À propos" avec version et description.
 
 ## 4) Exigences non fonctionnelles
 
-- Découverte rapide (broadcast toutes les 2s, timeout 10s).
-- Streaming mémoire : pas de chargement complet en RAM.
-- Gestion d'erreur explicite (SHA-256, timeouts, chunks perdus).
-- Architecture modulaire : `core/` (bibliothèque pure) + `app/` (Tauri).
+- Découverte rapide : broadcast toutes les 3s, timeout 9s.
+- Architecture modulaire : `core/` (bibliothèque pure) + `desktop-app/` (Tauri).
+- Interface glassmorphism dark, responsive.
 
 ---
 

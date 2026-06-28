@@ -1,40 +1,45 @@
 # Roadmap — Toolé
 
-## Phase 1 — Core réseau (core/)
+## ✅ Phase 1 — Core réseau (core/)
 
-- [ ] error.rs — types d'erreurs ToolError
-- [ ] lib.rs — trait UI, types (Peer, Mode, TransferStatus)
-- [ ] utils.rs — current_hostname
-- [ ] discovery.rs — UDP broadcast (TOOLE_DISCOVER / TOOLE_HERE)
-- [ ] transfer.rs — TCP + TLS + chunks 1 Mo + Ack + SHA-256
-
----
-
-## Phase 2 — App Tauri (app/)
-
-- [ ] commands.rs — TauriUI + invoke handlers
-- [ ] index.html — structure UI (2 boutons, liste appareils, progression)
-- [ ] main.js — events Tauri + invoke + logique frontend
-- [ ] style.css — minimaliste, responsive
+- [x] error.rs — types d'erreurs ToolError
+- [x] lib.rs — trait UI, type Peer
+- [x] utils.rs — current_hostname, local_ip
+- [x] discovery.rs — UDP broadcast (TOOLE_DISCOVERY / TOOLE_HERE), port 58199
+- [ ] transfer.rs — TCP + TLS + chunks 1 Mo + Ack + SHA-256 (plan uniquement)
 
 ---
 
-## Phase 3 — Polish
+## ✅ Phase 2 — App Tauri (desktop-app/)
 
-- [ ] Timeouts et reconnexion
-- [ ] Barre progression avec vitesse + temps restant
-- [ ] Gestion des erreurs
-- [ ] Tests
+- [x] commands.rs — TauriUI + commandes : start_discovery, stop_discovery, get_hostname, get_peers
+- [x] index.html — structure UI (liste appareils, modale à propos)
+- [x] js/main.js — polling get_peers toutes les 2s, sélection, init auto
+- [x] css/index.css — thème glassmorphism dark
 
 ---
 
-## Phase 4 — Futures versions
+## 🔜 Phase 3 — Transfert de fichiers
+
+- [ ] Protocole TCP + TLS (rustls)
+- [ ] Envoi par chunks de 1 Mo
+- [ ] Accusé de réception (Ack) par chunk
+- [ ] SHA-256 progressif
+- [ ] Timeouts et renvoi (3 tentatives max)
+- [ ] Sélecteur de fichier natif
+- [ ] Barre de progression avec vitesse + temps restant
+- [ ] Bouton Annuler
+
+---
+
+## 🔮 Phase 4 — Polish & futures versions
 
 - [ ] Plusieurs receivers simultanés
 - [ ] Reprise de transfert (via index du dernier Ack)
 - [ ] Historique local des transferts
 - [ ] Nom appareil personnalisable
-- [ ] Support Windows
+- [ ] Gestion des erreurs utilisateur
+- [ ] Tests unitaires et d'intégration
 
 ---
 
