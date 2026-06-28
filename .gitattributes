@@ -1,0 +1,10 @@
+* text=auto
+*.rs text
+*.ts text
+*.vue text
+*.css text
+*.json text
+*.html text
+*.md text
+*.toml text
+*.png binary
