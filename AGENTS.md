@@ -5,9 +5,10 @@ Dernière session : extraction de `formatSize` dans `src/utils.ts`, refactor Abo
 Structure : workspace Cargo avec `core/` (lib pure) + `desktop-app/src-tauri/` (app Tauri). Frontend Vue 3 + Pinia + Tailwind v4 + Vite.
 
 Commandes utiles :
-- `cargo tauri dev` — lancer l'app en dev
-- `npm run build` — builder le frontend (vérification TS)
+- `cargo tauri dev` — lancer l'app en dev (depuis `desktop-app/`)
+- `npm run build` — builder le frontend (depuis `desktop-app/ui/`)
 - `cargo check -p app` — vérifier Rust
+- `cargo run -p toole_core` — tester la découverte UDP standalone
 
 Conventions :
 - Commentaires Rust en français, lowercase, avec `je`

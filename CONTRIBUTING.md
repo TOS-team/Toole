@@ -18,8 +18,10 @@
 
 ```bash
 cargo build
-# ou pour l'app Tauri :
-cd desktop-app/src-tauri && cargo tauri dev
+# ou pour l'app Tauri (depuis la racine du workspace) :
+cargo tauri dev --manifest-path desktop-app/src-tauri/Cargo.toml
+# ou depuis desktop-app/ :
+cd desktop-app && cargo tauri dev
 ```
 
 4. Lancer les tests :
