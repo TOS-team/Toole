@@ -1,3 +1,26 @@
+use crate::{Peer, ToolError, UI};
+use quinn::{Endpoint, ServerConfig};
+use rcgen::{generate_simple_certificate, CertifiedKey};
+use std::net::SocketAddr;
+use std::path::PathBuf;
+use std::sync::atomic::AtomicBool;
+use std::sync::Arc;
+use std::time::Duration;
+
+struct Metadata {
+    rel_path: String,
+    size: u64,
+    sha256: String,
+    is_dir: bool,
+}
+
+const CHUNK_SIZE: usize = 1_048_576; // 1 Mo
+const ACK: u8 = 0x01;
+const REJECT: u8 = 0x00;
+const CHUNK: u8 = 0x02;
+const TIMEOUT: Duration = Duration::from_secs(10);
+const PORT: u16 = 58200;
+
 // Transfert de fichiers par QUIC (via Quinn).
 //
 // Pourquoi QUIC plutot que TCP ?
@@ -48,3 +71,31 @@
 //
 // start_sender(ui, paths: Vec<PathBuf>, peer_addr, stop)
 // start_receiver(ui, dest_dir, stop)
+// ici je genere le certificat auto-signé pour le sender
+fn read_certs_from_file(
+) -> Result<(Vec<CertificateDer<'static>>, PrivateKeyDer<'static>), Box<dyn Error>> {
+    let certs = CertificateDer::pem_file_iter("./fullchain.pem")
+        .unwrap()
+        .map(|cert| cert.unwrap())
+        .collect();
+    let key = PrivateKeyDer::from_pem_file("./privkey.pem").unwrap();
+    Ok((certs, key))
+}
+
+pub fn start_sender(
+    ui: &dyn UI,
+    paths: Vec<PathBuf>,
+    peer_addr: SocketAddr,
+    stop: Arc<AtomicBool>,
+) -> Result<(), ToolError> {
+    let (cert, key) = read_certs_from_file()?;
+    let server_crypto = rustls::ServerConfig::builder()
+        .with_no_client_auth()
+        .with_single_cert(vec![cert], key)?;
+    let mut server_config = ServerConfig::with_crypto(Arc::new(server_crypto));
+    let endpoint = Endpoint::server(server_config, peer_addr)?;
+
+    while let Some(conn) = endpoint.accept().await {}
+
+    Ok(())
+}

@@ -1,6 +1,6 @@
 // binaire standalone pour tester le discovery sans Tauri
-use std::sync::Arc;
 use std::sync::atomic::AtomicBool;
+use std::sync::Arc;
 use toole_core::{discovery, utils, Peer, UI};
 
 // implementation factice de UI qui affiche tout dans la console
@@ -8,11 +8,17 @@ struct NullUI;
 
 impl UI for NullUI {
     // j'affiche le message dans la console
-    fn log(&self, msg: &str) { println!("{msg}"); }
+    fn log(&self, msg: &str) {
+        println!("{msg}");
+    }
     // j'affiche les infos du pair trouve
-    fn peer_found(&self, peer: &Peer) { println!("Peer: {} ({})", peer.hostname, peer.addr); }
+    fn peer_found(&self, peer: &Peer) {
+        println!("Peer: {} ({})", peer.hostname, peer.addr);
+    }
     // j'affiche que le pair est perdu
-    fn peer_lost(&self, hostname: &str) { println!("Peer lost: {hostname}"); }
+    fn peer_lost(&self, hostname: &str) {
+        println!("Peer lost: {hostname}");
+    }
 }
 
 #[tokio::main]

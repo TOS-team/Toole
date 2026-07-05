@@ -1,3 +1,4 @@
+use rcgen::Error;
 use std::fmt;
 
 // ici c'est la liste des error specifique à toolé
@@ -5,6 +6,8 @@ use std::fmt;
 pub enum ToolError {
     IoError(std::io::Error),
     Canceled,
+    TransfertError,
+    CertificateError(std::io::Error),
 }
 
 //là je definit ToolError comme une erreur standard
@@ -16,6 +19,7 @@ impl fmt::Display for ToolError {
         match self {
             ToolError::IoError(e) => write!(f, "IO error: {}", e),
             ToolError::Canceled => write!(f, "Operation canceled"),
+            ToolError::TransfertError => write!(f, "Transfert refusé par le pair"),
         }
     }
 }
@@ -23,6 +27,10 @@ impl fmt::Display for ToolError {
 // je redirige les erreurs <std::io::Error> vers ToolError
 impl From<std::io::Error> for ToolError {
     fn from(err: std::io::Error) -> Self {
-        ToolError::IoError(err)
+        match self {
+            ToolError::IoError(_) => ToolError::IoError(err),
+            ToolError::CertificateError(_) => ToolError::CertificateError(err),
+            _ => ToolError::IoError(err),
+        }
     }
 }
