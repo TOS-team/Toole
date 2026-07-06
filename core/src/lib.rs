@@ -5,7 +5,7 @@ pub mod discovery;
 pub mod transfer;
 pub mod utils;
 use serde::Serialize;
-pub mod certif;
+
 
 // ici je defini la structure d'un pair sur le reseau
 // chaque pair a un hostname et une addresse IP

@@ -30,7 +30,6 @@ impl From<std::io::Error> for ToolError {
         match self {
             ToolError::IoError(_) => ToolError::IoError(err),
             ToolError::CertificateError(_) => ToolError::CertificateError(err),
-            _ => ToolError::IoError(err),
         }
     }
 }
