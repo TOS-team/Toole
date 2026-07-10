@@ -1,12 +1,16 @@
-use crate::{Peer, ToolError, UI};
+use crate::{ToolError, UI};
+use local_ip_address::local_ip;
 use quinn::{Endpoint, ServerConfig};
-use rcgen::{generate_simple_certificate, CertifiedKey};
+use rcgen::{date_time_ymd, CertificateParams, DistinguishedName, DnType, KeyPair, SanType};
 use std::net::SocketAddr;
+use std::path::Path;
 use std::path::PathBuf;
 use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
 use std::time::Duration;
-use rustls::pki_types::{CertificateDer, PrivateKeyDer, PrivatePkcs8KeyDer};
+use tokio::fs;
+use tokio::io::{AsyncReadExt, BufReader};
+use directories::ProjectDirs;
 
 struct Metadata {
     rel_path: String,
@@ -15,12 +19,18 @@ struct Metadata {
     is_dir: bool,
 }
 
+pub struct CompleteMsg {
+    pub sha256: String,
+}
+
 const CHUNK_SIZE: usize = 1_048_576; // 1 Mo
 const ACK: u8 = 0x01;
 const REJECT: u8 = 0x00;
 const CHUNK: u8 = 0x02;
 const TIMEOUT: Duration = Duration::from_secs(10);
 const PORT: u16 = 58200;
+const CERT_PATH: &str = "certs/cert.pem";
+const KEY_PATH: &str = "certs/key.pem";
 
 // Transfert de fichiers par QUIC (via Quinn).
 //
@@ -73,12 +83,24 @@ const PORT: u16 = 58200;
 // start_sender(ui, paths: Vec<PathBuf>, peer_addr, stop)
 // start_receiver(ui, dest_dir, stop)
 // ici je genere le certificat auto-signé pour le sender
-fn generate_self_signed_cert()
--> Result<(CertificateDer<'static>, PrivatePkcs8KeyDer<'static>), ToolError> {
-    let cert = rcgen::generate_simple_self_signed(vec!["localhost".to_string()])?;
-    let cert_der = CertificateDer::from(cert.cert);
-    let key = PrivatePkcs8KeyDer::from(cert.signing_key.serialize_der());
-    Ok((cert_der, key))
+
+fn config_endpoint(peer_addr: SocketAddr,)->Result<Endpoint,ToolError>{
+    let (cert_pem, key_pem) = certificat()?;
+    let mut cert_reader = std::io::BufReader::new(cert_pem.as_bytes());
+    let mut key_reader = std::io::BufReader::new(key_pem.as_bytes());
+
+    let certs = rustls_pemfile::certs(&mut cert_reader).collect::<Result<Vec<_>, _>>()?;
+
+    let key = match rustls_pemfile::private_key(&mut key_reader)? {
+        Some(v) => v,
+        None => return Err(ToolError::ParseKeyError),
+    };
+
+    let cert = certs[0].clone();
+
+    let server_config = ServerConfig::with_single_cert(vec![cert], key)?;
+    let endpoint = Endpoint::server(server_config, peer_addr)?;
+    Ok(endpoint)
 }
 
 pub async fn start_sender(
@@ -87,15 +109,68 @@ pub async fn start_sender(
     peer_addr: SocketAddr,
     stop: Arc<AtomicBool>,
 ) -> Result<(), ToolError> {
+    
+    let endpoint =config_endpoint(peer_addr)?;
 
-    let (cert, key) = generate_self_signed_cert()?;
-    let server_crypto = rustls::ServerConfig::builder()
-            .with_client_cert_verifier(client_cert_verifier)
-            .with_single_cert(cert, key);
-    let mut server_config = ServerConfig::with_crypto(Arc::new(server_crypto));
-    let endpoint = Endpoint::server(server_config, peer_addr)?;
-
-    while let Some(conn) = endpoint.accept().await {}
+    while let Some(conn) = endpoint.accept().await {
+        let connection = conn.await?;
+    }
 
     Ok(())
 }
+
+pub fn certificat() -> Result<(String, String), ToolError> {
+
+    let (key_file,cert_file) = data_file()?;
+
+    if key_file.exists() && cert_file.exists() {
+        // Lecture directe des fichiers texte
+        let cert_pem = std::fs::read_to_string(cert_file)?;
+        let key_pem = std::fs::read_to_string(key_file)?;
+        return Ok((cert_pem, key_pem));
+    }
+
+    
+
+    let my_local_ip = local_ip()?;
+    let mut params: CertificateParams = Default::default();
+    params.not_before = date_time_ymd(2026, 1, 1);
+    params.not_after = date_time_ymd(4096, 1, 1);
+
+    params.distinguished_name = DistinguishedName::new();
+    params
+        .distinguished_name
+        .push(DnType::OrganizationName, "Toole");
+    params
+        .distinguished_name
+        .push(DnType::CommonName, "Serveur QUIC");
+
+    params.subject_alt_names = vec![
+        SanType::DnsName("localhost".try_into()?),
+        SanType::IpAddress(my_local_ip),
+    ];
+
+    let key_pair = KeyPair::generate()?;
+    let cert = params.self_signed(&key_pair)?;
+
+    let cert_pem = cert.pem();
+    let key_pem = key_pair.serialize_pem();
+
+    // Sauvegarde physique pour les prochains démarrages
+    std::fs::write(cert_file, cert_pem.as_bytes())?;
+    std::fs::write(key_file, key_pem.as_bytes())?;
+
+    // Retourne le tuple contenant (certificat, clé)
+    Ok((cert_pem, key_pem))
+}
+
+fn data_file()-> Result<(PathBuf,PathBuf), ToolError>{
+    let proj_dirs = match ProjectDirs::from("com","Tiligre Open Space","Toole")  {
+        Some(value)=>value,
+        None=>return Err(ToolError::AppDireError)
+    };
+    let data_dir = proj_dirs.data_dir();
+    std::fs::create_dir_all(data_dir)?;
+    Ok((data_dir.join(KEY_PATH),data_dir.join(CERT_PATH)))
+}
+
