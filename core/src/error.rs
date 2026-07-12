@@ -1,67 +1,74 @@
-use std::fmt;
+use quinn::{ConnectError, ConnectionError, ReadExactError, WriteError};
+use thiserror::Error;
 
-// ici c'est la liste des error specifique à toolé
-#[derive(Debug)]
+
+// Liste des erreurs specifiques à Toolé
+#[derive(Error, Debug)]
 pub enum ToolError {
-    IoError(std::io::Error),
+    #[error("erreur IO: {0}")]
+    IoError(#[from] std::io::Error),
+
+    #[error("operation annulee")]
     Canceled,
+
+    #[error("transfert refuse par le pair")]
     TransfertError,
-    CertificateError(rcgen::Error),
-    IpaddresError(local_ip_address::Error),
-    FormatError(pem::PemError),
+
+    #[error("erreur de certification: {0}")]
+    CertificateError(#[from] rcgen::Error),
+
+    #[error("erreur de l'adresse ip: {0}")]
+    IpAddressError(#[from] local_ip_address::Error),
+
+    #[error("erreur de formatage: {0}")]
+    FormatError(#[from] pem::PemError),
+
+    #[error("erreur de parsage de la cle")]
     ParseKeyError,
-    ConfigQuicError(quinn::rustls::Error),
-    AppDireError
+
+    #[error("erreur de configuration de la connexion: {0}")]
+    ConfigQuicError(#[from] quinn::rustls::Error),
+
+    #[error("erreur de creation des dossiers")]
+    AppDirError,
+
+    #[error("erreur de connexion: {0}")]
+    ConnectionError(#[from] ConnectionError),
+
+    #[error("erreur d'ecriture sur le stream: {0}")]
+    WriteError(#[from] WriteError),
+
+    #[error("erreur de lecture sur le stream: {0}")]
+    ReadExactError(#[from] ReadExactError),
+
+    #[error("erreur d'etablissement de connexion: {0}")]
+    ConnectError(#[from] ConnectError),
+
+    #[error("erreur de (de)serialisation JSON: {0}")]
+    JsonError(#[from] serde_json::Error),
+
+    #[error("hash du fichier recu ne correspond pas au hash attendu")]
+    HashMismatch,
+
+    #[error("ack incoherent: attendu {expected}, recu {got}")]
+    AckMismatch { expected: u32, got: u32 },
+
+    #[error("aucun ack recu pour le chunk {chunk_index} apres {attempts} tentatives")]
+    AckTimeout { chunk_index: u32, attempts: u8 },
+
+    #[error("trame inattendue recue (protocole desynchronise)")]
+    UnexpectedFrame,
+
+    #[error("{0}")]
+    Protocol(String),
+
+    #[error("fermeture du stream: {0}")]
+    CloseStream(quinn::ClosedStream)
+
 }
 
-//là je definit ToolError comme une erreur standard
-impl std::error::Error for ToolError {}
-
-// J'affiche maintenant ToolError pour l'utilisateur
-impl fmt::Display  for ToolError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            ToolError::IoError(e) => write!(f, "IO error: {}", e),
-            ToolError::Canceled => write!(f, "Operation canceled"),
-            ToolError::TransfertError => write!(f, "Transfert refusé par le pair"),
-            ToolError::CertificateError(e)=>write!(f,"erreur de cerification"),
-            ToolError::IpaddresError(e)=>write!(f,"erreur de l'addresse ip"),
-            ToolError::FormatError(e)=>write!(f,"erreur de formatage"),
-            ToolError::ParseKeyError => write!(f,"erreur de parssage de la cle"),
-            ToolError::ConfigQuicError(e)=>write!(f,"erreur de configuration de la connection"),
-            ToolError::AppDireError=>write!(f,"erreur de creation des dossier")
-        }
-    }
-}
-
-// je redirige les erreurs <std::io::Error> vers ToolError
-impl From<std::io::Error> for ToolError {
-    fn from(err: std::io::Error) -> Self {
-        ToolError::IoError(err)
-    }
-}
-
-// je convertir les erreur de <rcgen::Error> vers ToolError
-impl From<rcgen::Error> for ToolError {
-    fn from(err:rcgen::Error) -> Self {
-        ToolError::CertificateError(err)
-    }
-}
-
-impl From<local_ip_address::Error> for ToolError {
-    fn from(value: local_ip_address::Error) -> Self {
-        ToolError::IpaddresError(value)
-    }
-}
-
-impl From<pem::PemError> for ToolError {
-    fn from(value: pem::PemError) -> Self {
-        ToolError::FormatError(value)
-    }
-}
-
-impl From<quinn::rustls::Error> for ToolError {
-    fn from(value: quinn::rustls::Error) -> Self {
-        ToolError::ConfigQuicError(value)
+impl From<quinn::ClosedStream> for ToolError {
+    fn from(value: quinn::ClosedStream) -> Self {
+        ToolError::CloseStream(value)
     }
 }
