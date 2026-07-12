@@ -1,35 +1,74 @@
-use rcgen::Error;
-use std::fmt;
+use quinn::{ConnectError, ConnectionError, ReadExactError, WriteError};
+use thiserror::Error;
 
-// ici c'est la liste des error specifique à toolé
-#[derive(Debug)]
+
+// Liste des erreurs specifiques à Toolé
+#[derive(Error, Debug)]
 pub enum ToolError {
-    IoError(std::io::Error),
+    #[error("erreur IO: {0}")]
+    IoError(#[from] std::io::Error),
+
+    #[error("operation annulee")]
     Canceled,
+
+    #[error("transfert refuse par le pair")]
     TransfertError,
-    CertificateError(std::io::Error),
+
+    #[error("erreur de certification: {0}")]
+    CertificateError(#[from] rcgen::Error),
+
+    #[error("erreur de l'adresse ip: {0}")]
+    IpAddressError(#[from] local_ip_address::Error),
+
+    #[error("erreur de formatage: {0}")]
+    FormatError(#[from] pem::PemError),
+
+    #[error("erreur de parsage de la cle")]
+    ParseKeyError,
+
+    #[error("erreur de configuration de la connexion: {0}")]
+    ConfigQuicError(#[from] quinn::rustls::Error),
+
+    #[error("erreur de creation des dossiers")]
+    AppDirError,
+
+    #[error("erreur de connexion: {0}")]
+    ConnectionError(#[from] ConnectionError),
+
+    #[error("erreur d'ecriture sur le stream: {0}")]
+    WriteError(#[from] WriteError),
+
+    #[error("erreur de lecture sur le stream: {0}")]
+    ReadExactError(#[from] ReadExactError),
+
+    #[error("erreur d'etablissement de connexion: {0}")]
+    ConnectError(#[from] ConnectError),
+
+    #[error("erreur de (de)serialisation JSON: {0}")]
+    JsonError(#[from] serde_json::Error),
+
+    #[error("hash du fichier recu ne correspond pas au hash attendu")]
+    HashMismatch,
+
+    #[error("ack incoherent: attendu {expected}, recu {got}")]
+    AckMismatch { expected: u32, got: u32 },
+
+    #[error("aucun ack recu pour le chunk {chunk_index} apres {attempts} tentatives")]
+    AckTimeout { chunk_index: u32, attempts: u8 },
+
+    #[error("trame inattendue recue (protocole desynchronise)")]
+    UnexpectedFrame,
+
+    #[error("{0}")]
+    Protocol(String),
+
+    #[error("fermeture du stream: {0}")]
+    CloseStream(quinn::ClosedStream)
+
 }
 
-//là je definit ToolError comme une erreur standard
-impl std::error::Error for ToolError {}
-
-// J'affiche maintenant ToolError pour l'utilisateur
-impl fmt::Display for ToolError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            ToolError::IoError(e) => write!(f, "IO error: {}", e),
-            ToolError::Canceled => write!(f, "Operation canceled"),
-            ToolError::TransfertError => write!(f, "Transfert refusé par le pair"),
-        }
-    }
-}
-
-// je redirige les erreurs <std::io::Error> vers ToolError
-impl From<std::io::Error> for ToolError {
-    fn from(err: std::io::Error) -> Self {
-        match self {
-            ToolError::IoError(_) => ToolError::IoError(err),
-            ToolError::CertificateError(_) => ToolError::CertificateError(err),
-        }
+impl From<quinn::ClosedStream> for ToolError {
+    fn from(value: quinn::ClosedStream) -> Self {
+        ToolError::CloseStream(value)
     }
 }
