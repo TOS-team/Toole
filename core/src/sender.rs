@@ -1,6 +1,10 @@
-use crate::transfert::{map_err,make_client_endpoint,send_entry}
+use crate::transfer::{collect_entries,io_err,make_client_endpoint,send_entry};
 use crate::{ToolError,UI};
 use std::net::SocketAddr;
+use std::sync::Arc;
+use std::sync::atomic::AtomicBool;
+use std::sync::atomic::Ordering;
+use std::path::PathBuf;
 
 
 pub async fn start_sender(

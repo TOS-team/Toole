@@ -1,19 +1,17 @@
-use crate::{ToolError, UI};
+use crate::{ToolError};
 use directories::ProjectDirs;
 use local_ip_address::local_ip;
-use quinn::{ClientConfig, Connection, Endpoint, RecvStream, SendStream, ServerConfig};
 use rcgen::{date_time_ymd, CertificateParams, DistinguishedName, DnType, KeyPair, SanType};
-use serde::{Deserialize, Serialize};
-use sha2::{Digest, Sha256};
-use std::io::{Error as IoError, ErrorKind};
-use std::net::SocketAddr;
-use std::path::{Path, PathBuf};
+use std::path::{PathBuf};
 
 use tokio::fs;
 
+const CERT_PATH: &str = "certs/cert.pem";
+const KEY_PATH: &str = "certs/key.pem";
+
 
 #[derive(Debug)]
-struct SkipServerVerification;
+pub struct SkipServerVerification;
 
 impl rustls::client::danger::ServerCertVerifier for SkipServerVerification {
     fn verify_server_cert(

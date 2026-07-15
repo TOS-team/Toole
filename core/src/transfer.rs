@@ -1,8 +1,5 @@
-use crate::{ToolError, UI};
-use directories::ProjectDirs;
-use local_ip_address::local_ip;
+use crate::{ToolError};
 use quinn::{ClientConfig, Connection, Endpoint, RecvStream, SendStream, ServerConfig};
-use rcgen::{date_time_ymd, CertificateParams, DistinguishedName, DnType, KeyPair, SanType};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::io::{Error as IoError, ErrorKind};
@@ -13,6 +10,8 @@ use std::sync::Arc;
 use std::time::Duration;
 use tokio::fs;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
+use crate::file_certif::{certificat,SkipServerVerification};
+
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 struct Metadata {
@@ -41,7 +40,7 @@ const KEY_PATH: &str = "certs/key.pem";
 // En gros ici je prepare la configuration  des endpoints pour le Sender et le Recever
 // ------------------------------------------------------------
 
-async fn make_server_endpoint() -> Result<Endpoint, ToolError> {
+pub async fn make_server_endpoint() -> Result<Endpoint, ToolError> {
     let (cert_pem, key_pem) = certificat().await?;
     let mut cert_reader = std::io::BufReader::new(cert_pem.as_bytes());
     let mut key_reader = std::io::BufReader::new(key_pem.as_bytes());
@@ -60,54 +59,7 @@ async fn make_server_endpoint() -> Result<Endpoint, ToolError> {
     let endpoint = Endpoint::server(server_config, bind_addr)?;
     Ok(endpoint)
 }
-
-// Verificateur qui accepte n'importe quel certificat presente par le pair.
-// Necessaire car chaque pair genere son propre certificat auto-signe (pas de
-// CA commune). Le chiffrement TLS 1.3 reste entier : seule la verification
-// d'IDENTITE du pair est desactivee, ce qui est acceptable ici car l'IP du
-// destinataire est choisie explicitement par l'utilisateur (pairing direct),
-// pas decouverte publiquement. Quand on vas passer a une version TCP  on vas changer sa 
-#[derive(Debug)]
-struct SkipServerVerification;
-
-impl rustls::client::danger::ServerCertVerifier for SkipServerVerification {
-    fn verify_server_cert(
-        &self,
-        _end_entity: &rustls::pki_types::CertificateDer<'_>,
-        _intermediates: &[rustls::pki_types::CertificateDer<'_>],
-        _server_name: &rustls::pki_types::ServerName<'_>,
-        _ocsp_response: &[u8],
-        _now: rustls::pki_types::UnixTime,
-    ) -> Result<rustls::client::danger::ServerCertVerified, rustls::Error> {
-        Ok(rustls::client::danger::ServerCertVerified::assertion())
-    }
-
-    fn verify_tls12_signature(
-        &self,
-        _message: &[u8],
-        _cert: &rustls::pki_types::CertificateDer<'_>,
-        _dss: &rustls::DigitallySignedStruct,
-    ) -> Result<rustls::client::danger::HandshakeSignatureValid, rustls::Error> {
-        Ok(rustls::client::danger::HandshakeSignatureValid::assertion())
-    }
-
-    fn verify_tls13_signature(
-        &self,
-        _message: &[u8],
-        _cert: &rustls::pki_types::CertificateDer<'_>,
-        _dss: &rustls::DigitallySignedStruct,
-    ) -> Result<rustls::client::danger::HandshakeSignatureValid, rustls::Error> {
-        Ok(rustls::client::danger::HandshakeSignatureValid::assertion())
-    }
-
-    fn supported_verify_schemes(&self) -> Vec<rustls::SignatureScheme> {
-        rustls::crypto::ring::default_provider()
-            .signature_verification_algorithms
-            .supported_schemes()
-    }
-}
-
-fn make_client_endpoint() -> Result<Endpoint, ToolError> {
+pub fn make_client_endpoint() -> Result<Endpoint, ToolError> {
     let crypto = rustls::ClientConfig::builder()
         .dangerous()
         .with_custom_certificate_verifier(Arc::new(SkipServerVerification))
@@ -123,58 +75,10 @@ fn make_client_endpoint() -> Result<Endpoint, ToolError> {
     Ok(endpoint)
 }
 
-fn io_err<E: std::fmt::Display>(e: E) -> ToolError {
+pub fn io_err<E: std::fmt::Display>(e: E) -> ToolError {
     IoError::new(ErrorKind::Other, e.to_string()).into()
 }
-
-// ------------------------------------------------------------
-// Receveur
-// ------------------------------------------------------------
-pub async fn start_receiver(
-    ui: &dyn UI,
-    dest_dir: PathBuf,
-    stop: Arc<AtomicBool>,
-) -> Result<(), ToolError> {
-    let endpoint = make_server_endpoint().await?;
-    ui.log(&format!("Recepteur en ecoute sur le port {PORT}"));
-
-    loop {
-        if stop.load(Ordering::Relaxed) {
-            break;
-        }
-
-        // On attend soit une connexion entrante, soit un tick de 500ms pour
-        // rester reactif au signal d'arret (evite de bloquer indefiniment
-        // sur endpoint.accept()).
-        let incoming = tokio::select! {
-            conn = endpoint.accept() => conn,
-            _ = tokio::time::sleep(Duration::from_millis(500)) => continue,
-        };
-
-        let Some(connecting) = incoming else {
-            break; // endpoint ferme cote local
-        };
-
-        let dest_dir = dest_dir.clone();
-        let stop = stop.clone();
-
-        tokio::spawn(async move {
-            match connecting.await {
-                Ok(connection) => {
-                    if let Err(e) = handle_incoming_connection(connection, dest_dir, stop).await {
-                        eprintln!("Erreur de connexion receveur: {e}");
-                    }
-                }
-                Err(e) => eprintln!("Handshake QUIC echoue😭:  {e}"),
-            }
-        });
-    }
-
-    endpoint.close(0u32.into(), b"arret");
-    Ok(())
-}
-
-async fn handle_incoming_connection(
+pub async fn handle_incoming_connection(
     connection: Connection,
     dest_dir: PathBuf,
     stop: Arc<AtomicBool>,
@@ -273,7 +177,7 @@ async fn receive_one(
     Ok(())
 }
 
-async fn read_json_line<T: for<'de> Deserialize<'de>>(
+pub async fn read_json_line<T: for<'de> Deserialize<'de>>(
     recv: &mut RecvStream,
 ) -> Result<T, ToolError> {
     let mut buf = Vec::new();
@@ -289,61 +193,10 @@ async fn read_json_line<T: for<'de> Deserialize<'de>>(
 
     serde_json::from_slice(&buf).map_err(io_err)
 }
-
-// ---------------------------------------------------------
-// Emetteur en gors le sender
-// ---------------------------------------------------------
-
-pub async fn start_sender(
-    ui: &dyn UI,
-    paths: Vec<PathBuf>,
-    peer_addr: SocketAddr,
-    stop: Arc<AtomicBool>,
-) -> Result<(), ToolError> {
-    let endpoint = make_client_endpoint()?;
-
-    // "localhost" : nom SNI attendu par le certificat auto-signe (voir SanType::DnsName
-    // dans certificat()). La verification etant desactivee (SkipServerVerification),
-    // ce nom n'a pas besoin de correspondre a une vraie resolution DNS.
-    let connecting = endpoint.connect(peer_addr, "localhost").map_err(io_err)?;
-    let connection = connecting.await?;
-    ui.log(&format!("Connecte a {peer_addr}"));
-
-    // Parcours recursif prealable : on liste toutes les entrees (fichiers et
-    // dossiers vides) avant d'ouvrir les streams, pour pouvoir les envoyer
-    // en parallele.
-    let mut entries = Vec::new();
-    for path in &paths {
-        collect_entries(path, path, &mut entries).await?;
-    }
-
-    let mut handles = Vec::new();
-    for (abs_path, rel_path, is_dir) in entries {
-        if stop.load(Ordering::Relaxed) {
-            break;
-        }
-        let connection = connection.clone();
-        let stop = stop.clone();
-        handles.push(tokio::spawn(async move {
-            send_entry(connection, abs_path, rel_path, is_dir, stop).await
-        }));
-    }
-
-    for handle in handles {
-        if let Err(e) = handle.await.map_err(io_err)? {
-            eprintln!("Erreur d'envoi: {e}");
-        }
-    }
-
-    connection.close(0u32.into(), b"transfert termine");
-    endpoint.wait_idle().await;
-    Ok(())
-}
-
 // En gros ici on fait un  Parcours recursif manuel (pas de dependance a walkdir) : accumule
 // (chemin absolu, chemin relatif, is_dir) pour chaque fichier et chaque
 // dossier vide rencontre.
-fn collect_entries<'a>(
+pub fn collect_entries<'a>(
     root: &'a Path,
     current: &'a Path,
     out: &'a mut Vec<(PathBuf, String, bool)>,
@@ -385,7 +238,7 @@ fn collect_entries<'a>(
     })
 }
 
-async fn send_entry(
+pub async fn send_entry(
     connection: Connection,
     abs_path: PathBuf,
     rel_path: String,
@@ -516,56 +369,4 @@ async fn hash_file(path: &Path) -> Result<String, ToolError> {
 
     Ok(hex::encode(hasher.finalize()))
 }
-
-// ---------------------------------------------------------
-// Certificats
-// ---------------------------------------------------------
-
-pub async fn certificat() -> Result<(String, String), ToolError> {
-    let (key_file, cert_file) = data_file()?;
-
-    if key_file.exists() && cert_file.exists() {
-        let cert_pem = std::fs::read_to_string(cert_file)?;
-        let key_pem = std::fs::read_to_string(key_file)?;
-        return Ok((cert_pem, key_pem));
-    }
-
-    let my_local_ip = local_ip()?;
-    let mut params: CertificateParams = Default::default();
-    params.not_before = date_time_ymd(2026, 1, 1);
-    params.not_after = date_time_ymd(4096, 1, 1);
-
-    params.distinguished_name = DistinguishedName::new();
-    params
-        .distinguished_name
-        .push(DnType::OrganizationName, "Toole");
-    params
-        .distinguished_name
-        .push(DnType::CommonName, "Serveur QUIC");
-
-    params.subject_alt_names = vec![
-        SanType::DnsName("localhost".try_into()?),
-        SanType::IpAddress(my_local_ip),
-    ];
-
-    let key_pair = KeyPair::generate()?;
-    let cert = params.self_signed(&key_pair)?;
-
-    let cert_pem = cert.pem();
-    let key_pem = key_pair.serialize_pem();
-
-    fs::write(&cert_file, cert_pem.as_bytes()).await?;
-    fs::write(&key_file, key_pem.as_bytes()).await?;
-
-    Ok((cert_pem, key_pem))
-}
-
-fn data_file() -> Result<(PathBuf, PathBuf), ToolError> {
-    let proj_dirs = match ProjectDirs::from("com", "Tiligre Open Space", "Toole") {
-        Some(value) => value,
-        None => return Err(ToolError::AppDirError),
-    };
-    let data_dir = proj_dirs.data_dir();
-    std::fs::create_dir_all(data_dir)?;
-    Ok((data_dir.join(KEY_PATH), data_dir.join(CERT_PATH)))
-} 
+ 
