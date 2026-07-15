@@ -130,7 +130,6 @@ fn io_err<E: std::fmt::Display>(e: E) -> ToolError {
 // ------------------------------------------------------------
 // Receveur
 // ------------------------------------------------------------
-
 pub async fn start_receiver(
     ui: &dyn UI,
     dest_dir: PathBuf,

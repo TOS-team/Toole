@@ -4,6 +4,9 @@ pub use error::ToolError;
 pub mod discovery;
 pub mod transfer;
 pub mod utils;
+pub mod recever;
+pub mod sender;
+pub mod file_certif;
 use serde::Serialize;
 
 
