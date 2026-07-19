@@ -111,4 +111,7 @@ pub fn get_file_sizes(paths: Vec<String>) -> Result<Vec<u64>, String> {
         .collect()
 }
 
-
+#[tauri::command]
+pub fn send_file(){
+    
+}

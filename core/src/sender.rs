@@ -8,7 +8,7 @@ use std::path::PathBuf;
 
 
 pub async fn start_sender(
-    ui: &dyn UI,
+    ui:Arc< &dyn UI>,
     paths: Vec<PathBuf>,
     peer_addr: SocketAddr,
     stop: Arc<AtomicBool>,

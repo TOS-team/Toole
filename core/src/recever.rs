@@ -8,7 +8,7 @@ use std::time::Duration;
 const PORT: u16 = 58200;
 
 pub async fn start_receiver(
-    ui: &dyn UI,
+    ui: Arc<&dyn UI>,
     dest_dir: PathBuf,
     stop: Arc<AtomicBool>,
 ) -> Result<(), ToolError> {
