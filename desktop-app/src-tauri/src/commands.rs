@@ -1,12 +1,76 @@
 // ici je gere les commandes Tauri qui relient le frontend au backend Rust
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
-use tauri::State;
-use toole_core::{Peer, UI};
+use tauri::{State,window};
+use toole_core::{Peer, UI,Transfert};
 
 // implementation de UI pour Tauri : je stocke les pairs dans l'etat partage
 struct TauriUI {
     peers: Arc<Mutex<Vec<Peer>>>,
+}
+
+#[derive(Clone, serde::Serialize)]
+struct Progress {
+    value: u8,
+}
+
+#[derive(Clone,serde::Serialize)]
+struct Palyoad{
+    message:String
+}
+
+#[derive(Clone)]
+struct GUI{
+    window:Arc<Mutex<window>>
+}
+
+impl GUI{
+    fn output(&self, msg: &str) {
+        self.window
+            .lock()
+            .expect("Couldn't lock GUI mutex")
+            .emit(
+                "outputMsg",
+                Payload {
+                    message: msg.to_string(),
+                },
+            )
+            .expect("could not emit event");
+    }
+    fn show_progress_bar(&self) {
+        self.window
+            .lock()
+            .expect("Couldn't lock GUI mutex")
+            .emit("showProgressBar", Progress { value: 0 })
+            .expect("could not emit event");
+    }
+    fn update_progress_bar(&self, percent: u8) {
+        self.window
+            .lock()
+            .expect("Couldn't lock GUI mutex")
+            .emit("updateProgressBar", Progress { value: percent })
+            .expect("could not emit event");
+    }
+    fn enable_ui(&self) {
+        self.window
+            .lock()
+            .expect("Couldn't lock GUI mutex")
+            .emit("enableUi", Progress { value: 0 })
+            .expect("could not emit event");
+    }
+    fn show_pin(&self, pin: &str) {
+        println!("showing pin");
+        self.window
+            .lock()
+            .expect("Couldn't lock GUI mutex")
+            .emit(
+                "showPin",
+                Payload {
+                    message: pin.to_string(),
+                },
+            )
+            .expect("could not emit event");
+    }
 }
 
 impl UI for TauriUI {

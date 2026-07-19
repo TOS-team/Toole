@@ -28,3 +28,21 @@ pub trait UI: Send + Sync {
     // je signale qu'un pair a ete perdu
     fn peer_lost(&self, hostname: &str);
 }
+
+pub struct Transfer {
+    pub cancel_handle: Mutex<Option<tokio::task::JoinHandle<()>>>,
+    pub hotspot: Arc<Mutex<Option<PeerResource>>>,
+    pub ssid: Arc<Mutex<Option<String>>>,
+    pub ble_ui_tx: Mutex<Option<mpsc::Sender<bool>>>, // used by javascript to report user's choice about whether to pair with bluetooth device to windows custom pairing callback.
+}
+
+impl Transfer {
+    pub fn new() -> Self {
+        Transfer {
+            cancel_handle: Mutex::new(None),
+            hotspot: Arc::new(Mutex::new(None)),
+            ssid: Arc::new(Mutex::new(None)),
+            ble_ui_tx: Mutex::new(None),
+        }
+    }
+}
