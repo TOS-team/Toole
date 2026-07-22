@@ -19,6 +19,12 @@ impl UI for NullUI {
     fn peer_lost(&self, hostname: &str) {
         println!("Peer lost: {hostname}");
     }
+    fn show_progress_bar(&self) {
+        println!("en progression")
+    }
+    fn update_progress_bar(&self,poucentage:u8) {
+        println!("le poucentage est a ce niveau: {poucentage}")
+    }
 }
 
 #[tokio::main]

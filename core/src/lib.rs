@@ -8,6 +8,9 @@ pub mod recever;
 pub mod sender;
 pub mod file_certif;
 use serde::Serialize;
+use std::collections::HashMap;
+use std::sync::{Arc,Mutex};
+use std::sync::mpsc;
 
 
 // ici je defini la structure d'un pair sur le reseau
@@ -27,22 +30,27 @@ pub trait UI: Send + Sync {
     fn peer_found(&self, peer: &Peer);
     // je signale qu'un pair a ete perdu
     fn peer_lost(&self, hostname: &str);
+    // implementation de la progrssion
+    fn show_progress_bar(&self,tranfert_id:&str);
+    // mise a jour de la  bar de progression
+    fn update_progress_bar(&self, transfer_id: &str, bytes_sent: u64, total_bytes: u64);
+    // quand un transfert est anuler
+    fn transfert_cancel(&self,tranfert_id:&str);
+    // quand un transfert est terminer
+    fn transfert_completed(&self,tranfert_id:&str);
+    // quand il y une errer a un tranfert 
+    fn tranfert_error(&self,tranfert_id:&str,error:&ToolError);
+
 }
 
 pub struct Transfer {
-    pub cancel_handle: Mutex<Option<tokio::task::JoinHandle<()>>>,
-    pub hotspot: Arc<Mutex<Option<PeerResource>>>,
-    pub ssid: Arc<Mutex<Option<String>>>,
-    pub ble_ui_tx: Mutex<Option<mpsc::Sender<bool>>>, // used by javascript to report user's choice about whether to pair with bluetooth device to windows custom pairing callback.
+    pub cancel_handle: Mutex<HashMap<String,tokio::task::JoinHandle<()>>>,
 }
 
 impl Transfer {
     pub fn new() -> Self {
         Transfer {
-            cancel_handle: Mutex::new(None),
-            hotspot: Arc::new(Mutex::new(None)),
-            ssid: Arc::new(Mutex::new(None)),
-            ble_ui_tx: Mutex::new(None),
+            cancel_handle: Mutex::new(HashMap::new()),
         }
     }
 }

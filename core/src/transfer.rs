@@ -238,6 +238,8 @@ pub fn collect_entries<'a>(
     })
 }
 
+use uuid::Uuid;
+
 pub async fn send_entry(
     connection: Connection,
     abs_path: PathBuf,
@@ -245,6 +247,8 @@ pub async fn send_entry(
     is_dir: bool,
     stop: Arc<AtomicBool>,
 ) -> Result<(), ToolError> {
+    let transfer_id = Uuid::new_v4().to_string();
+
     let (mut send, mut recv) = connection.open_bi().await?;
 
     if is_dir {
@@ -285,7 +289,7 @@ pub async fn send_entry(
     let mut file = fs::File::open(&abs_path).await?;
     let mut buf = vec![0u8; CHUNK_SIZE];
     let mut chunk_index: u32 = 0;
-
+    
     loop {
         if stop.load(Ordering::Relaxed) {
             let _ = send.reset(0u32.into());

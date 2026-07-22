@@ -1,12 +1,17 @@
 // ici je gere les commandes Tauri qui relient le frontend au backend Rust
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
-use tauri::{State,window};
-use toole_core::{Peer, UI,Transfert};
+use tauri::{State, Window};
+use toole_core::{Peer, UI,Transfer,ToolError};
 
 // implementation de UI pour Tauri : je stocke les pairs dans l'etat partage
 struct TauriUI {
     peers: Arc<Mutex<Vec<Peer>>>,
+    window:Window
+}
+
+struct Payload{
+    message:String
 }
 
 #[derive(Clone, serde::Serialize)]
@@ -19,77 +24,7 @@ struct Palyoad{
     message:String
 }
 
-#[derive(Clone)]
-struct GUI{
-    window:Arc<Mutex<window>>
-}
 
-impl GUI{
-    fn output(&self, msg: &str) {
-        self.window
-            .lock()
-            .expect("Couldn't lock GUI mutex")
-            .emit(
-                "outputMsg",
-                Payload {
-                    message: msg.to_string(),
-                },
-            )
-            .expect("could not emit event");
-    }
-    fn show_progress_bar(&self) {
-        self.window
-            .lock()
-            .expect("Couldn't lock GUI mutex")
-            .emit("showProgressBar", Progress { value: 0 })
-            .expect("could not emit event");
-    }
-    fn update_progress_bar(&self, percent: u8) {
-        self.window
-            .lock()
-            .expect("Couldn't lock GUI mutex")
-            .emit("updateProgressBar", Progress { value: percent })
-            .expect("could not emit event");
-    }
-    fn enable_ui(&self) {
-        self.window
-            .lock()
-            .expect("Couldn't lock GUI mutex")
-            .emit("enableUi", Progress { value: 0 })
-            .expect("could not emit event");
-    }
-    fn show_pin(&self, pin: &str) {
-        println!("showing pin");
-        self.window
-            .lock()
-            .expect("Couldn't lock GUI mutex")
-            .emit(
-                "showPin",
-                Payload {
-                    message: pin.to_string(),
-                },
-            )
-            .expect("could not emit event");
-    }
-}
-
-impl UI for TauriUI {
-    fn log(&self, _msg: &str) {
-        // les logs sont desactives dans l'interface
-    }
-    // j'ajoute le pair a la liste partagee
-    fn peer_found(&self, peer: &Peer) {
-        let mut peers = self.peers.lock().unwrap();
-        if !peers.iter().any(|p| p.hostname == peer.hostname) {
-            peers.push(peer.clone());
-        }
-    }
-    // je retire le pair de la liste partagee
-    fn peer_lost(&self, hostname: &str) {
-        let mut peers = self.peers.lock().unwrap();
-        peers.retain(|p| p.hostname != hostname);
-    }
-}
 
 // état partagé pour controler le demarrage/arret du discovery
 pub struct DiscoveryState {
@@ -176,6 +111,74 @@ pub fn get_file_sizes(paths: Vec<String>) -> Result<Vec<u64>, String> {
 }
 
 #[tauri::command]
-pub fn send_file(){
-    
+fn cancel_transfer(transfer_id: String, state: tauri::State<Transfer>) {
+    // remove() au lieu de get(), car on doit à la fois récupérer ET nettoyer
+    if let Some(handle) = state.cancel_handle.lock().unwrap().remove(&transfer_id) {
+        handle.abort();
+    }
+}
+
+use tauri::{Emitter};
+use serde::Serialize;
+
+#[derive(Clone, Serialize)]
+struct ProgressPayload {
+    transfer_id: String,
+    bytes_sent: u64,
+    total_bytes: u64,
+}
+
+#[derive(Clone, Serialize)]
+struct ErrorPayload {
+    transfer_id: String,
+    message: String,
+}
+
+
+
+
+impl UI for TauriUI {
+    fn log(&self, _msg: &str) {
+        // les logs sont desactives dans l'interface
+    }
+    // j'ajoute le pair a la liste partagee
+    fn peer_found(&self, peer: &Peer) {
+        let mut peers = self.peers.lock().unwrap();
+        if !peers.iter().any(|p| p.hostname == peer.hostname) {
+            peers.push(peer.clone());
+        }
+    }
+    // je retire le pair de la liste partagee
+    fn peer_lost(&self, hostname: &str) {
+        let mut peers = self.peers.lock().unwrap();
+        peers.retain(|p| p.hostname != hostname);
+    }
+
+
+    fn show_progress_bar(&self, tranfert_id: &str) {
+        let _ = self.window.emit("tool://show_progress_bar", tranfert_id);
+    }
+
+    fn update_progress_bar(&self, transfer_id: &str, bytes_sent: u64, total_bytes: u64) {
+        let _ = self.window.emit("tool://progress", ProgressPayload {
+            transfer_id: transfer_id.to_string(),
+            bytes_sent,
+            total_bytes,
+        });
+    }
+
+    fn transfert_cancel(&self, tranfert_id: &str) {
+        let _ = self.window.emit("tool://transfert_cancel", tranfert_id);
+    }
+
+    fn transfert_completed(&self, tranfert_id: &str) {
+        let _ = self.window.emit("tool://transfert_completed", tranfert_id);
+    }
+
+    fn tranfert_error(&self, tranfert_id: &str, error: &ToolError) {
+        let _ = self.window.emit("tool://tranfert_error", ErrorPayload {
+            transfer_id: tranfert_id.to_string(),
+            message: error.to_string(),
+        });
+    }
 }
