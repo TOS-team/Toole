@@ -7,9 +7,17 @@ use toole_core::{Peer, UI,Transfer,ToolError};
 // implementation de UI pour Tauri : je stocke les pairs dans l'etat partage
 struct TauriUI {
     peers: Arc<Mutex<Vec<Peer>>>,
+    
+}
+struct StranTauriUI{
     window:Window
 }
 
+impl StranTauriUI {
+    fn new(window: Window) -> Self {
+        StranTauriUI { window }
+    }
+}
 struct Payload{
     message:String
 }
@@ -137,23 +145,15 @@ struct ErrorPayload {
 
 
 
-impl UI for TauriUI {
-    fn log(&self, _msg: &str) {
-        // les logs sont desactives dans l'interface
-    }
-    // j'ajoute le pair a la liste partagee
-    fn peer_found(&self, peer: &Peer) {
-        let mut peers = self.peers.lock().unwrap();
-        if !peers.iter().any(|p| p.hostname == peer.hostname) {
-            peers.push(peer.clone());
-        }
-    }
-    // je retire le pair de la liste partagee
-    fn peer_lost(&self, hostname: &str) {
-        let mut peers = self.peers.lock().unwrap();
-        peers.retain(|p| p.hostname != hostname);
+impl UI for StranTauriUI {
+
+    fn log(&self, msg: &str) {
+        let _ = self.window.emit("tool://log", msg);
     }
 
+    // pas pertinent ici, no-op
+    fn peer_found(&self, _peer: &Peer) {}
+    fn peer_lost(&self, _hostname: &str) {}
 
     fn show_progress_bar(&self, tranfert_id: &str) {
         let _ = self.window.emit("tool://show_progress_bar", tranfert_id);

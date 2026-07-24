@@ -238,7 +238,7 @@ pub fn collect_entries<'a>(
     })
 }
 
-use uuid::Uuid;
+// use uuid::Uuid;
 
 pub async fn send_entry(
     connection: Connection,
@@ -247,7 +247,7 @@ pub async fn send_entry(
     is_dir: bool,
     stop: Arc<AtomicBool>,
 ) -> Result<(), ToolError> {
-    let transfer_id = Uuid::new_v4().to_string();
+    // let transfer_id = Uuid::new_v4().to_string();
 
     let (mut send, mut recv) = connection.open_bi().await?;
 
