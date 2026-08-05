@@ -1,17 +1,37 @@
-use crate::{ToolError};
+use crate::file_certif::{certificat, SkipServerVerification};
+use crate::{ToolError, UI};
 use quinn::{ClientConfig, Connection, Endpoint, RecvStream, SendStream, ServerConfig};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
+use std::collections::HashMap;
 use std::io::{Error as IoError, ErrorKind};
 use std::net::SocketAddr;
 use std::path::{Path, PathBuf};
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::Arc;
+use std::sync::Mutex;
 use std::time::Duration;
 use tokio::fs;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
-use crate::file_certif::{certificat,SkipServerVerification};
+use tokio::task::JoinHandle;
 
+pub struct Transfer {
+    pub cancel_handle: Mutex<HashMap<String, JoinHandle<()>>>,
+}
+
+impl Transfer {
+    pub fn new() -> Self {
+        Transfer {
+            cancel_handle: Mutex::new(HashMap::new()),
+        }
+    }
+}
+
+impl Default for Transfer {
+    fn default() -> Self {
+        Self::new()
+    }
+}
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 struct Metadata {
@@ -30,15 +50,15 @@ const CHUNK_SIZE: usize = 1_048_576; // 1 Mo
 const ACK: u8 = 0x01;
 const REJECT: u8 = 0x00;
 const CHUNK: u8 = 0x02;
+#[warn(dead_code)]
 const TIMEOUT: Duration = Duration::from_secs(10);
+#[warn(dead_code)]
 const MAX_RETRIES: u8 = 3;
 const PORT: u16 = 58200;
-const CERT_PATH: &str = "certs/cert.pem";
-const KEY_PATH: &str = "certs/key.pem";
 
-// ------------------------------------------------------------
-// En gros ici je prepare la configuration  des endpoints pour le Sender et le Recever
-// ------------------------------------------------------------
+pub fn io_err<E: std::fmt::Display>(e: E) -> ToolError {
+    IoError::new(ErrorKind::Other, e.to_string()).into()
+}
 
 pub async fn make_server_endpoint() -> Result<Endpoint, ToolError> {
     let (cert_pem, key_pem) = certificat().await?;
@@ -53,12 +73,11 @@ pub async fn make_server_endpoint() -> Result<Endpoint, ToolError> {
     };
 
     let server_config = ServerConfig::with_single_cert(certs, key)?;
-
-    // On ecoute sur toutes les interfaces, port fixe (58200)
     let bind_addr: SocketAddr = format!("0.0.0.0:{PORT}").parse().map_err(io_err)?;
     let endpoint = Endpoint::server(server_config, bind_addr)?;
     Ok(endpoint)
 }
+
 pub fn make_client_endpoint() -> Result<Endpoint, ToolError> {
     let crypto = rustls::ClientConfig::builder()
         .dangerous()
@@ -75,9 +94,7 @@ pub fn make_client_endpoint() -> Result<Endpoint, ToolError> {
     Ok(endpoint)
 }
 
-pub fn io_err<E: std::fmt::Display>(e: E) -> ToolError {
-    IoError::new(ErrorKind::Other, e.to_string()).into()
-}
+/// ← CORRECTION : timeout sur accept_bi pour rester réactif au signal stop
 pub async fn handle_incoming_connection(
     connection: Connection,
     dest_dir: PathBuf,
@@ -89,9 +106,8 @@ pub async fn handle_incoming_connection(
             return Ok(());
         }
 
-        // Chaque fichier/dossier arrive sur un stream bidirectionnel dedie.
-        match connection.accept_bi().await {
-            Ok((send, recv)) => {
+        match tokio::time::timeout(Duration::from_secs(1), connection.accept_bi()).await {
+            Ok(Ok((send, recv))) => {
                 let dest_dir = dest_dir.clone();
                 tokio::spawn(async move {
                     if let Err(e) = receive_one(send, recv, &dest_dir).await {
@@ -99,9 +115,10 @@ pub async fn handle_incoming_connection(
                     }
                 });
             }
-            Err(quinn::ConnectionError::ApplicationClosed(_))
-            | Err(quinn::ConnectionError::LocallyClosed) => return Ok(()),
-            Err(e) => return Err(e.into()),
+            Ok(Err(quinn::ConnectionError::ApplicationClosed(_)))
+            | Ok(Err(quinn::ConnectionError::LocallyClosed)) => return Ok(()),
+            Ok(Err(e)) => return Err(e.into()),
+            Err(_) => continue, // timeout : on revérifie `stop`
         }
     }
 }
@@ -111,7 +128,6 @@ async fn receive_one(
     mut recv: RecvStream,
     dest_dir: &Path,
 ) -> Result<(), ToolError> {
-    // je prepare les  Metadonnees 
     let metadata = read_json_line::<Metadata>(&mut recv).await?;
     let full_path = dest_dir.join(&metadata.rel_path);
 
@@ -126,10 +142,9 @@ async fn receive_one(
         return Ok(());
     }
 
-    //  Ack des metadonnees 
+    // Ack métadonnées
     send.write_all(&[ACK]).await?;
 
-    //   Chunks + hachage progressif 
     let mut out_file = fs::File::create(&full_path).await?;
     let mut hasher = Sha256::new();
     let mut received: u64 = 0;
@@ -155,22 +170,21 @@ async fn receive_one(
         out_file.write_all(&data).await?;
         received += len as u64;
 
-        // Ack du chunk : le sender s'en sert pour son mecanisme de retry
+        // Ack du chunk (index reçu)
         send.write_all(&idx_buf).await?;
     }
 
     out_file.flush().await?;
 
-    //  6. Message de completion 
+    // Message de complétion
     let complete = read_json_line::<CompleteMsg>(&mut recv).await?;
     let actual_hash = hex::encode(hasher.finalize());
 
-    //  7. Ack final 
     if actual_hash == complete.sha256 && actual_hash == metadata.sha256 {
         send.write_all(&[ACK]).await?;
     } else {
         send.write_all(&[REJECT]).await?;
-        let _ = fs::remove_file(&full_path).await; // fichier corrompu, on ne le garde pas
+        let _ = fs::remove_file(&full_path).await;
     }
 
     send.finish()?;
@@ -193,14 +207,12 @@ pub async fn read_json_line<T: for<'de> Deserialize<'de>>(
 
     serde_json::from_slice(&buf).map_err(io_err)
 }
-// En gros ici on fait un  Parcours recursif manuel (pas de dependance a walkdir) : accumule
-// (chemin absolu, chemin relatif, is_dir) pour chaque fichier et chaque
-// dossier vide rencontre.
+
 pub fn collect_entries<'a>(
     root: &'a Path,
     current: &'a Path,
     out: &'a mut Vec<(PathBuf, String, bool)>,
-) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<(), ToolError>> + 'a>> {
+) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<(), ToolError>> + Send + 'a>> {
     Box::pin(async move {
         let metadata = fs::metadata(current).await?;
         let base = root.parent().unwrap_or(root);
@@ -237,13 +249,17 @@ pub fn collect_entries<'a>(
         Ok(())
     })
 }
-
+/// ← CORRECTION : retry applicatif supprimé — QUIC gère déjà la fiabilité
 pub async fn send_entry(
     connection: Connection,
     abs_path: PathBuf,
     rel_path: String,
     is_dir: bool,
     stop: Arc<AtomicBool>,
+    ui: Arc<dyn UI>,
+    transfer_id: String,
+    total_bytes: u64,
+    bytes_sent_counter: Arc<AtomicU64>,
 ) -> Result<(), ToolError> {
     let (mut send, mut recv) = connection.open_bi().await?;
 
@@ -261,11 +277,8 @@ pub async fn send_entry(
         return Ok(());
     }
 
-    // Hash prealable : necessaire pour l'annoncer dans les metadonnees et
-    // pour la verification finale cote receveur.
     let sha256 = hash_file(&abs_path).await?;
     let size = fs::metadata(&abs_path).await?.len();
-
     let metadata = Metadata {
         rel_path,
         size,
@@ -274,14 +287,14 @@ pub async fn send_entry(
     };
     write_json_line(&mut send, &metadata).await?;
 
-    //  Ack des metadonnees 
+    // Ack métadonnées
     let mut ack = [0u8; 1];
     recv.read_exact(&mut ack).await?;
     if ack[0] != ACK {
         return Err(io_err("metadonnees rejetees par le receveur"));
     }
 
-    //  Chunks avec retry sur timeout 
+    // Chunks — QUIC gère nativement le renvoi
     let mut file = fs::File::open(&abs_path).await?;
     let mut buf = vec![0u8; CHUNK_SIZE];
     let mut chunk_index: u32 = 0;
@@ -297,45 +310,33 @@ pub async fn send_entry(
             break;
         }
 
-        let mut attempts = 0u8;
-        loop {
-            send.write_all(&[CHUNK]).await?;
-            send.write_all(&chunk_index.to_be_bytes()).await?;
-            send.write_all(&(n as u32).to_be_bytes()).await?;
-            send.write_all(&buf[..n]).await?;
+        send.write_all(&[CHUNK]).await?;
+        send.write_all(&chunk_index.to_be_bytes()).await?;
+        send.write_all(&(n as u32).to_be_bytes()).await?;
+        send.write_all(&buf[..n]).await?;
 
-            let mut ack_buf = [0u8; 4];
-            match tokio::time::timeout(TIMEOUT, recv.read_exact(&mut ack_buf)).await {
-                Ok(Ok(())) => {
-                    let acked = u32::from_be_bytes(ack_buf);
-                    if acked != chunk_index {
-                        return Err(io_err(format!(
-                            "ack incoherent: attendu {chunk_index}, recu {acked}"
-                        )));
-                    }
-                    break; // chunk confirme, on passe au suivant
-                }
-                Ok(Err(e)) => return Err(e.into()),
-                Err(_) => {
-                    attempts += 1;
-                    if attempts >= MAX_RETRIES {
-                        return Err(io_err(format!(
-                            "aucun ack recu pour le chunk {chunk_index} apres {MAX_RETRIES} tentatives"
-                        )));
-                    }
-                    // sinon on reboucle et on renvoie le meme chunk
-                }
-            }
+        // Attendre l'ack applicatif (synchronisation, pas retry)
+        let mut ack_buf = [0u8; 4];
+        recv.read_exact(&mut ack_buf).await?;
+        let acked = u32::from_be_bytes(ack_buf);
+        if acked != chunk_index {
+            return Err(io_err(format!(
+                "ack incoherent: attendu {chunk_index}, recu {acked}"
+            )));
         }
+
+        // Progression
+        let total_sent = bytes_sent_counter.fetch_add(n as u64, Ordering::Relaxed) + n as u64;
+        ui.update_progress_bar(&transfer_id, total_sent, total_bytes);
 
         chunk_index += 1;
     }
 
-    //  6. Message de completion 
+    // Message de complétion
     let complete = CompleteMsg { sha256 };
     write_json_line(&mut send, &complete).await?;
 
-    //  7. Ack final 
+    // Ack final
     let mut final_ack = [0u8; 1];
     recv.read_exact(&mut final_ack).await?;
     send.finish()?;
@@ -369,4 +370,3 @@ async fn hash_file(path: &Path) -> Result<String, ToolError> {
 
     Ok(hex::encode(hasher.finalize()))
 }
- 

@@ -26,4 +26,6 @@ tauri = { version = "2.11.5", features = [] }
 tauri-plugin-log = "2"
 tauri-plugin-dialog = "2"
 toole_core = { path = "../../core" }
-tokio = { version = "1", features = ["rt", "macros", "sync"] }
+tokio = { version = "1", features = ["fs", "rt-multi-thread", "macros", "time", "sync", "net", "io-util"] }
+uuid = { version = "1", features = ["v4"] }
+dirs = "5"

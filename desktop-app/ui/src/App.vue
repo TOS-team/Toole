@@ -4,11 +4,14 @@ import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { invoke } from "./tauri";
 import { usePeersStore } from "./stores/peers";
 import { useFilesStore } from "./stores/files";
+import { useTransfersStore } from "./stores/transfers";
 import WelcomeHeader from "./components/WelcomeHeader.vue";
 import FileDropZone from "./components/FileDropZone.vue";
 import PeerList from "./components/PeerList.vue";
 import AboutModal from "./components/AboutModal.vue";
+import TransferList from "./components/TransferList.vue";
 
+const transfersStore = useTransfersStore();
 const hostname = ref("");
 const peersStore = usePeersStore();
 const filesStore = useFilesStore();
@@ -18,9 +21,25 @@ const canSend = computed(
   () => filesStore.files.length > 0 && peersStore.selectedHostnames.size > 0,
 );
 
-function sendFiles() {
-  // TODO: implementer l'envoi QUIC
-  console.log("Envoi pas encore implemente");
+async function sendFiles() {
+  if (!canSend.value) return;
+
+  const paths = filesStore.files.map((f) => f.path);
+
+  for (const peer of peersStore.peers) {
+    if (peersStore.selectedHostnames.has(peer.hostname)) {
+      const peerAddr = `${peer.addr}:58200`;
+      try {
+        const transferId = await invoke<string>("send_files", {
+          paths,
+          peerAddr,
+        });
+        console.log("Transfert démarré vers", peer.hostname, ":", transferId);
+      } catch (e) {
+        console.error("Erreur envoi vers", peer.hostname, ":", e);
+      }
+    }
+  }
 }
 
 const appWindow = getCurrentWebviewWindow();
@@ -47,6 +66,11 @@ onMounted(async () => {
     peersStore.startPolling();
   } catch (e) {
     console.error("start_discovery error:", e);
+  }
+  try {
+    await transfersStore.startListening();
+  } catch (e) {
+    console.error("startListening error:", e);
   }
 });
 
@@ -93,6 +117,7 @@ window.addEventListener("beforeunload", () => {
       <WelcomeHeader :hostname="hostname" @open-about="aboutModal?.open()" />
       <FileDropZone />
       <PeerList />
+      <TransferList />
       <button
         type="button"
         class="w-full py-2.5 rounded-lg font-semibold text-sm flex items-center justify-center gap-2
@@ -102,7 +127,12 @@ window.addEventListener("beforeunload", () => {
         :disabled="!canSend"
         @click="sendFiles"
       >
-        <img src="/assets/icons/envoyer.png" alt="" class="w-4 h-4" style="filter: brightness(0) invert(1)" />
+        <img
+          src="/assets/icons/envoyer.png"
+          alt=""
+          class="w-4 h-4"
+          style="filter: brightness(0) invert(1)"
+        />
         Envoyer les fichiers
       </button>
     </div>

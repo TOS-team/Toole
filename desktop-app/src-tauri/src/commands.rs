@@ -1,70 +1,120 @@
-// ici je gere les commandes Tauri qui relient le frontend au backend Rust
+use std::collections::HashMap;
+use std::net::SocketAddr;
+use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
-use tauri::State;
-use toole_core::{Peer, UI};
+use tauri::{Emitter, State, WebviewWindow};
+use toole_core::sender::start_sender;
+use toole_core::{Peer, ToolError, UI};
 
-// implementation de UI pour Tauri : je stocke les pairs dans l'etat partage
-struct TauriUI {
-    peers: Arc<Mutex<Vec<Peer>>>,
+// ───────────────────────────────────────────────
+// UI unique
+// ───────────────────────────────────────────────
+
+pub struct AppUI {
+    pub peers: Arc<Mutex<Vec<Peer>>>,
+    pub window: WebviewWindow,
 }
 
-impl UI for TauriUI {
-    fn log(&self, _msg: &str) {
-        // les logs sont desactives dans l'interface
+impl UI for AppUI {
+    fn log(&self, msg: &str) {
+        let _ = self.window.emit("tool://log", msg);
     }
-    // j'ajoute le pair a la liste partagee
+
     fn peer_found(&self, peer: &Peer) {
         let mut peers = self.peers.lock().unwrap();
         if !peers.iter().any(|p| p.hostname == peer.hostname) {
             peers.push(peer.clone());
+            let _ = self.window.emit("tool://peer_found", peer);
         }
     }
-    // je retire le pair de la liste partagee
+
     fn peer_lost(&self, hostname: &str) {
         let mut peers = self.peers.lock().unwrap();
         peers.retain(|p| p.hostname != hostname);
+        let _ = self.window.emit("tool://peer_lost", hostname);
+    }
+
+    fn show_progress_bar(&self, transfer_id: &str) {
+        let _ = self.window.emit("tool://transfer/start", transfer_id);
+    }
+
+    fn update_progress_bar(&self, transfer_id: &str, bytes_sent: u64, total_bytes: u64) {
+        let percent = if total_bytes > 0 {
+            (bytes_sent as f64 / total_bytes as f64 * 100.0).min(100.0) as u8
+        } else {
+            0
+        };
+        let payload = serde_json::json!({
+            "transfer_id": transfer_id,
+            "bytes_sent": bytes_sent,
+            "total_bytes": total_bytes,
+            "percent": percent
+        });
+        let _ = self.window.emit("tool://transfer/progress", payload);
+    }
+
+    fn transfert_cancel(&self, transfer_id: &str) {
+        let _ = self.window.emit("tool://transfer/cancel", transfer_id);
+    }
+
+    fn transfert_completed(&self, transfer_id: &str) {
+        let _ = self.window.emit("tool://transfer/done", transfer_id);
+    }
+
+    fn tranfert_error(&self, transfer_id: &str, error: &ToolError) {
+        let payload = serde_json::json!({
+            "transfer_id": transfer_id,
+            "error": error.to_string()
+        });
+        let _ = self.window.emit("tool://transfer/error", payload);
     }
 }
 
-// état partagé pour controler le demarrage/arret du discovery
+// ───────────────────────────────────────────────
+// États
+// ───────────────────────────────────────────────
+
 pub struct DiscoveryState {
     pub stop_flag: Mutex<Arc<AtomicBool>>,
     pub peers: Arc<Mutex<Vec<Peer>>>,
 }
 
-// je demarre la decouverte de pairs sur le reseau local
+pub struct TransferState {
+    pub active: Mutex<HashMap<String, (Arc<AtomicBool>, tokio::task::AbortHandle)>>,
+}
+
+// ───────────────────────────────────────────────
+// Découverte
+// ───────────────────────────────────────────────
+
 #[tauri::command]
 pub async fn start_discovery(
     state: State<'_, DiscoveryState>,
+    window: WebviewWindow,
 ) -> Result<(), String> {
-    // je stoppe l'ancienne tache si elle tourne encore
     let old = state.stop_flag.lock().unwrap();
     old.store(true, Ordering::Relaxed);
     drop(old);
 
-    // je vide la liste des pairs
     state.peers.lock().unwrap().clear();
 
-    // je cree un nouveau flag pour la nouvelle tache
     let stop = Arc::new(AtomicBool::new(false));
     *state.stop_flag.lock().unwrap() = stop.clone();
 
     let local_ip = toole_core::utils::local_ip();
     let peers = state.peers.clone();
-    let ui = Arc::new(TauriUI { peers });
+    let ui: Arc<dyn UI> = Arc::new(AppUI { peers, window });
 
-    // je lance le discovery dans une tache asynchrone
     tokio::spawn(async move {
         if let Err(e) = toole_core::discovery::start_discovery(local_ip, stop, ui).await {
-            eprintln!("Discovery task error: {e}");
+            eprintln!("Discovery error: {e}");
         }
     });
 
     Ok(())
 }
 
-// j'arrete la decouverte de pairs
 #[tauri::command]
 pub async fn stop_discovery(state: State<'_, DiscoveryState>) -> Result<(), String> {
     let flag = state.stop_flag.lock().unwrap();
@@ -72,33 +122,85 @@ pub async fn stop_discovery(state: State<'_, DiscoveryState>) -> Result<(), Stri
     Ok(())
 }
 
-// je renvoie le nom de la machine au frontend
+// ───────────────────────────────────────────────
+// Transfert
+// ───────────────────────────────────────────────
+
+#[tauri::command]
+pub async fn send_files(
+    paths: Vec<String>,
+    peer_addr: String,
+    state: State<'_, TransferState>,
+    window: WebviewWindow,
+) -> Result<String, String> {
+    let transfer_id = uuid::Uuid::new_v4().to_string();
+    let stop = Arc::new(AtomicBool::new(false));
+
+    let path_bufs: Vec<PathBuf> = paths.into_iter().map(PathBuf::from).collect();
+    let addr: SocketAddr = peer_addr
+        .parse()
+        .map_err(|e| format!("Adresse invalide: {e}"))?;
+
+    let peers = Arc::new(Mutex::new(Vec::new()));
+    let ui: Arc<dyn UI> = Arc::new(AppUI { peers, window });
+    let transfer_id_clone = transfer_id.clone();
+    let stop_clone = stop.clone();
+
+    let handle = tokio::spawn(async move {
+        if let Err(e) = start_sender(ui, transfer_id_clone, path_bufs, addr, stop_clone).await {
+            eprintln!("Sender error: {e}");
+        }
+    });
+
+    state
+        .active
+        .lock()
+        .unwrap()
+        .insert(transfer_id.clone(), (stop, handle.abort_handle()));
+
+    Ok(transfer_id)
+}
+
+#[tauri::command]
+pub async fn cancel_transfer(
+    transfer_id: String,
+    state: State<'_, TransferState>,
+) -> Result<(), String> {
+    let mut active = state.active.lock().unwrap();
+    if let Some((stop, handle)) = active.remove(&transfer_id) {
+        stop.store(true, Ordering::Relaxed);
+        handle.abort();
+    }
+    Ok(())
+}
+
+// ───────────────────────────────────────────────
+// Utilitaires
+// ───────────────────────────────────────────────
+
 #[tauri::command]
 pub fn get_hostname() -> String {
     toole_core::utils::current_hostname()
 }
 
-// je renvoie la liste des pairs decouverts
 #[tauri::command]
 pub fn get_peers(state: State<'_, DiscoveryState>) -> Result<Vec<Peer>, String> {
     let peers = state.peers.lock().unwrap();
     Ok(peers.clone())
 }
 
-// je lis le texte du presse-papier (pour le Ctrl+V)
 #[tauri::command]
 pub fn read_clipboard() -> Result<String, String> {
     let mut cb = arboard::Clipboard::new().map_err(|e| format!("Clipboard error: {e}"))?;
-    cb.get_text().map_err(|e| format!("Clipboard read error: {e}"))
+    cb.get_text()
+        .map_err(|e| format!("Clipboard read error: {e}"))
 }
 
-// je ferme la fenetre
 #[tauri::command]
 pub fn close_window(window: tauri::Window) -> Result<(), String> {
     window.close().map_err(|e| e.to_string())
 }
 
-// je retourne la taille des fichiers en octets
 #[tauri::command]
 pub fn get_file_sizes(paths: Vec<String>) -> Result<Vec<u64>, String> {
     paths
@@ -106,12 +208,7 @@ pub fn get_file_sizes(paths: Vec<String>) -> Result<Vec<u64>, String> {
         .map(|p| {
             std::fs::metadata(p)
                 .map(|m| m.len())
-                .map_err(|e| format!("Erreur lecture {p}: {e}"))
+                .map_err(|e| format!("Erreur {p}: {e}"))
         })
         .collect()
-}
-
-#[tauri::command]
-pub fn send_file(){
-    
 }
