@@ -21,14 +21,11 @@ const canSend = computed(
   () => filesStore.files.length > 0 && peersStore.selectedHostnames.size > 0,
 );
 
-// ← IMPLÉMENTATION ENVOI QUIC
 async function sendFiles() {
   if (!canSend.value) return;
 
-  // Récupère les chemins bruts (adapt selon ta structure de filesStore)
-  const paths = filesStore.files.map((f: any) => (typeof f === "string" ? f : f.path));
+  const paths = filesStore.files.map((f) => f.path);
 
-  // Envoie à chaque pair sélectionné
   for (const peer of peersStore.peers) {
     if (peersStore.selectedHostnames.has(peer.hostname)) {
       const peerAddr = `${peer.addr}:58200`;
