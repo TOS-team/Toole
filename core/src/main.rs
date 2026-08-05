@@ -1,37 +1,33 @@
-// binaire standalone pour tester le discovery sans Tauri
-use std::sync::atomic::AtomicBool;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
-use toole_core::{discovery, utils, Peer, UI};
+use toole_core::{discovery, utils, Peer, ToolError, UI};
 
-// implementation factice de UI qui affiche tout dans la console
-struct NullUI;
+struct ConsoleUI;
 
-impl UI for NullUI {
-    // j'affiche le message dans la console
+impl UI for ConsoleUI {
     fn log(&self, msg: &str) {
-        println!("{msg}");
+        println!("[LOG] {}", msg);
     }
-    // j'affiche les infos du pair trouve
     fn peer_found(&self, peer: &Peer) {
-        println!("Peer: {} ({})", peer.hostname, peer.addr);
+        println!("[PEER] Trouvé: {} @ {}", peer.hostname, peer.addr);
     }
-    // j'affiche que le pair est perdu
     fn peer_lost(&self, hostname: &str) {
-        println!("Peer lost: {hostname}");
+        println!("[PEER] Perdu: {}", hostname);
     }
+    fn show_progress_bar(&self, _transfer_id: &str) {}
+    fn update_progress_bar(&self, _transfer_id: &str, _bytes_sent: u64, _total_bytes: u64) {}
+    fn transfert_cancel(&self, _transfer_id: &str) {}
+    fn transfert_completed(&self, _transfer_id: &str) {}
+    fn tranfert_error(&self, _transfer_id: &str, _error: &ToolError) {}
 }
 
 #[tokio::main]
-async fn main() {
-    // je recupere l'ip locale et je prepare le flag d'arret
+async fn main() -> Result<(), ToolError> {
     let local_ip = utils::local_ip();
+    println!("Démarrage discovery sur {}", local_ip);
+
     let stop = Arc::new(AtomicBool::new(false));
-    let ui = Arc::new(NullUI);
+    let ui: Arc<dyn UI> = Arc::new(ConsoleUI);
 
-    println!("Démarrage de Toolé Discovery...");
-
-    // je lance la boucle de discovery
-    if let Err(e) = discovery::start_discovery(local_ip, stop, ui).await {
-        eprintln!("Erreur : {}", e);
-    }
+    discovery::start_discovery(local_ip, stop, ui).await
 }

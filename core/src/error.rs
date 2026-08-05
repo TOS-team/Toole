@@ -1,74 +1,59 @@
-use quinn::{ConnectError, ConnectionError, ReadExactError, WriteError};
 use thiserror::Error;
 
-
-// Liste des erreurs specifiques à Toolé
 #[derive(Error, Debug)]
 pub enum ToolError {
-    #[error("erreur IO: {0}")]
+    #[error("IO error: {0}")]
     IoError(#[from] std::io::Error),
 
-    #[error("operation annulee")]
-    Canceled,
-
-    #[error("transfert refuse par le pair")]
-    TransfertError,
-
-    #[error("erreur de certification: {0}")]
-    CertificateError(#[from] rcgen::Error),
-
-    #[error("erreur de l'adresse ip: {0}")]
-    IpAddressError(#[from] local_ip_address::Error),
-
-    #[error("erreur de formatage: {0}")]
-    FormatError(#[from] pem::PemError),
-
-    #[error("erreur de parsage de la cle")]
+    #[error("Failed to parse private key")]
     ParseKeyError,
 
-    #[error("erreur de configuration de la connexion: {0}")]
-    ConfigQuicError(#[from] quinn::rustls::Error),
-
-    #[error("erreur de creation des dossiers")]
+    #[error("Failed to get app directories")]
     AppDirError,
 
-    #[error("erreur de connexion: {0}")]
-    ConnectionError(#[from] ConnectionError),
+    #[error("QUIC error: {0}")]
+    QuinnError(String),
 
-    #[error("erreur d'ecriture sur le stream: {0}")]
-    WriteError(#[from] WriteError),
+    #[error("Transfer cancelled")]
+    Cancelled,
 
-    #[error("erreur de lecture sur le stream: {0}")]
-    ReadExactError(#[from] ReadExactError),
+    #[error("Transfer error: {0}")]
+    TransferError(String),
 
-    #[error("erreur d'etablissement de connexion: {0}")]
-    ConnectError(#[from] ConnectError),
+    #[error("Stream closed")]
+    ClosedStream(#[from] quinn::ClosedStream),
 
-    #[error("erreur de (de)serialisation JSON: {0}")]
-    JsonError(#[from] serde_json::Error),
-
-    #[error("hash du fichier recu ne correspond pas au hash attendu")]
-    HashMismatch,
-
-    #[error("ack incoherent: attendu {expected}, recu {got}")]
-    AckMismatch { expected: u32, got: u32 },
-
-    #[error("aucun ack recu pour le chunk {chunk_index} apres {attempts} tentatives")]
-    AckTimeout { chunk_index: u32, attempts: u8 },
-
-    #[error("trame inattendue recue (protocole desynchronise)")]
-    UnexpectedFrame,
-
-    #[error("{0}")]
-    Protocol(String),
-
-    #[error("fermeture du stream: {0}")]
-    CloseStream(quinn::ClosedStream)
-
+    #[error("TLS error: {0}")]
+    TlsError(#[from] rustls::Error),
 }
 
-impl From<quinn::ClosedStream> for ToolError {
-    fn from(value: quinn::ClosedStream) -> Self {
-        ToolError::CloseStream(value)
+impl From<quinn::ConnectionError> for ToolError {
+    fn from(e: quinn::ConnectionError) -> Self {
+        ToolError::QuinnError(e.to_string())
+    }
+}
+
+impl From<quinn::WriteError> for ToolError {
+    fn from(e: quinn::WriteError) -> Self {
+        ToolError::QuinnError(e.to_string())
+    }
+}
+
+impl From<quinn::ReadError> for ToolError {
+    fn from(e: quinn::ReadError) -> Self {
+        ToolError::QuinnError(e.to_string())
+    }
+}
+
+// ← CORRECTION : quinn::ReadExactError (pas tokio::io::ReadExactError)
+impl From<quinn::ReadExactError> for ToolError {
+    fn from(e: quinn::ReadExactError) -> Self {
+        ToolError::QuinnError(e.to_string())
+    }
+}
+
+impl From<rcgen::Error> for ToolError {
+    fn from(e: rcgen::Error) -> Self {
+        ToolError::TransferError(e.to_string())
     }
 }
