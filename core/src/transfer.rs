@@ -50,10 +50,6 @@ const CHUNK_SIZE: usize = 1_048_576; // 1 Mo
 const ACK: u8 = 0x01;
 const REJECT: u8 = 0x00;
 const CHUNK: u8 = 0x02;
-#[warn(dead_code)]
-const TIMEOUT: Duration = Duration::from_secs(10);
-#[warn(dead_code)]
-const MAX_RETRIES: u8 = 3;
 const PORT: u16 = 58200;
 
 pub fn io_err<E: std::fmt::Display>(e: E) -> ToolError {

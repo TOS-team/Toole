@@ -5,9 +5,6 @@ use std::net::IpAddr;
 use std::path::PathBuf;
 use tokio::fs;
 
-const CERT_PATH: &str = "certs/cert.pem";
-const KEY_PATH: &str = "certs/key.pem";
-
 #[derive(Debug)]
 pub struct SkipServerVerification;
 
