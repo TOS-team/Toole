@@ -19,8 +19,8 @@ function colorStyle(id: string) {
 
 <template>
   <div class="flex-1 min-h-0 flex flex-col p-4 md:p-6 xl:p-8 overflow-y-auto">
-    <header class="mb-6 md:mb-8 flex items-center justify-between pt-4 flex-shrink-0">
-      <div class="min-w-0">
+    <header class="mb-6 md:mb-8 flex items-center justify-between pt-4 flex-shrink-0 mx-auto w-full max-w-[560px]">
+      <div class="min-w-0 text-center w-full">
         <h1
           class="text-headline-lg font-headline-lg text-on-background tracking-tight truncate"
         >
@@ -32,7 +32,7 @@ function colorStyle(id: string) {
       </div>
     </header>
 
-    <div class="flex flex-col gap-4 max-w-[560px]">
+    <div class="flex flex-col gap-4 max-w-[560px] w-full mx-auto">
       <section
         class="bg-surface-container-high rounded-2xl border border-outline/50 p-5"
       >
