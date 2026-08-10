@@ -1,127 +1,114 @@
-<template>
-  <div v-if="store.transfers.length" class="transfer-panel">
-    <h3 class="transfer-title">Transferts</h3>
-    <div
-      v-for="t in store.transfers"
-      :key="t.id"
-      class="transfer-item"
-      :class="{ done: t.status === 'done', error: t.status === 'error', cancelled: t.status === 'cancelled' }"
-    >
-      <div class="transfer-header">
-        <span class="transfer-id">{{ t.id.slice(0, 8) }}…</span>
-        <span class="transfer-status">{{ statusLabel(t) }}</span>
-      </div>
-
-      <div class="progress-track">
-        <div class="progress-fill" :style="{ width: t.percent + '%' }" />
-      </div>
-
-      <div class="transfer-meta">
-        <span>{{ formatSize(t.bytesSent) }} / {{ formatSize(t.totalBytes) }}</span>
-        <span>{{ t.speed }}</span>
-      </div>
-
-      <button
-        v-if="t.status === 'running'"
-        class="btn-cancel"
-        @click="cancel(t.id)"
-      >
-        Annuler
-      </button>
-    </div>
-  </div>
-</template>
-
 <script setup lang="ts">
-import { useTransfersStore } from '../stores/transfers'
-import { invoke } from '@tauri-apps/api/core'
+import { computed } from "vue";
+import { useTransfersStore, type Transfer } from "../stores/transfers";
+import { invoke } from "../tauri";
+import { formatSize } from "../utils";
+import Icon from "./Icon.vue";
 
-const store = useTransfersStore()
+const props = defineProps<{ items?: Transfer[] }>();
 
-function statusLabel(t: typeof store.transfers[0]) {
-  if (t.status === 'done') return '✅ Terminé'
-  if (t.status === 'error') return '❌ ' + (t.error?.slice(0, 30) ?? 'Erreur')
-  if (t.status === 'cancelled') return '🚫 Annulé'
-  return `⏳ ${t.percent}%`
+const store = useTransfersStore();
+const list = computed(() => props.items ?? store.transfers);
+
+const hasRunning = computed(() =>
+  list.value.some((t) => t.status === "running"),
+);
+
+function statusLabel(t: Transfer): string {
+  if (t.status === "done") return "Terminé";
+  if (t.status === "error") return t.error?.slice(0, 24) ?? "Erreur";
+  if (t.status === "cancelled") return "Annulé";
+  return t.speed;
 }
 
-function formatSize(bytes: number): string {
-  if (bytes > 1_073_741_824) return (bytes / 1_073_741_824).toFixed(2) + ' Go'
-  if (bytes > 1_048_576) return (bytes / 1_048_576).toFixed(1) + ' Mo'
-  if (bytes > 1024) return (bytes / 1024).toFixed(1) + ' Ko'
-  return bytes + ' o'
+function statusColor(t: Transfer): string {
+  if (t.status === "done") return "text-tertiary-fixed-dim";
+  if (t.status === "error") return "text-error";
+  if (t.status === "cancelled") return "text-on-surface-variant";
+  return "text-on-surface";
+}
+
+function barColor(t: Transfer): string {
+  if (t.status === "done") return "bg-tertiary-fixed-dim";
+  if (t.status === "error") return "bg-error";
+  return "bg-primary";
+}
+
+function cardClass(t: Transfer): Record<string, boolean> {
+  return {
+    "border-primary/30": t.status === "running",
+    "border-tertiary/60": t.status === "done",
+    "border-error/60": t.status === "error",
+  };
 }
 
 async function cancel(id: string) {
-  await invoke('cancel_transfer', { transferId: id })
+  await invoke("cancel_transfer", { transferId: id });
 }
 </script>
 
-<style scoped>
-.transfer-panel {
-  margin-top: 1rem;
-  padding: 1rem;
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 12px;
-  backdrop-filter: blur(10px);
-}
-.transfer-title {
-  margin: 0 0 0.75rem;
-  font-size: 0.875rem;
-  font-weight: 600;
-  color: #e2e8f0;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-}
-.transfer-item {
-  margin-bottom: 0.75rem;
-  padding: 0.75rem;
-  background: rgba(0, 0, 0, 0.2);
-  border-radius: 8px;
-}
-.transfer-item.done { border-left: 3px solid #22c55e; }
-.transfer-item.error { border-left: 3px solid #ef4444; }
-.transfer-item.cancelled { border-left: 3px solid #f59e0b; }
+<template>
+  <div class="flex flex-col gap-2 overflow-y-auto pr-0.5">
+    <div class="flex items-center justify-between pr-1 mb-1">
+      <h3 class="text-label-sm font-label-sm text-on-surface-variant uppercase">
+        Transfert actif
+      </h3>
+      <Icon
+        v-if="hasRunning"
+        name="sync"
+        :size="16"
+        class="text-primary animate-spin"
+        style="animation-duration: 3s"
+      />
+    </div>
 
-.transfer-header {
-  display: flex;
-  justify-content: space-between;
-  font-size: 0.75rem;
-  color: #94a3b8;
-  margin-bottom: 0.5rem;
-}
-.progress-track {
-  height: 6px;
-  background: rgba(255, 255, 255, 0.1);
-  border-radius: 3px;
-  overflow: hidden;
-}
-.progress-fill {
-  height: 100%;
-  background: linear-gradient(90deg, #3b82f6, #8b5cf6);
-  border-radius: 3px;
-  transition: width 0.3s ease;
-}
-.transfer-meta {
-  display: flex;
-  justify-content: space-between;
-  margin-top: 0.5rem;
-  font-size: 0.75rem;
-  color: #94a3b8;
-}
-.btn-cancel {
-  margin-top: 0.5rem;
-  padding: 0.25rem 0.75rem;
-  font-size: 0.75rem;
-  color: #fecaca;
-  background: rgba(239, 68, 68, 0.2);
-  border: 1px solid rgba(239, 68, 68, 0.4);
-  border-radius: 6px;
-  cursor: pointer;
-  transition: background 0.2s;
-}
-.btn-cancel:hover {
-  background: rgba(239, 68, 68, 0.4);
-}
-</style>
+    <div
+      v-for="t in list"
+      :key="t.id"
+      class="bg-surface-container-high rounded-xl p-4 border border-outline/50"
+      :class="cardClass(t)"
+    >
+      <div class="flex items-start gap-3">
+        <div class="mt-0.5">
+          <Icon name="folder-zip" :size="20" class="text-on-surface" />
+        </div>
+        <div class="flex-1 min-w-0">
+          <p class="text-label-md font-label-md text-on-background truncate">
+            {{ t.files?.[0] ?? `Transfert ${t.id.slice(0, 8)}` }}
+            <span v-if="(t.files?.length ?? 0) > 1" class="text-on-surface-variant">
+              +{{ t.files!.length - 1 }}
+            </span>
+          </p>
+          <p class="text-[11px] text-on-surface-variant mt-0.5 truncate">
+            {{ formatSize(t.bytesSent) }} / {{ formatSize(t.totalBytes) }}
+          </p>
+        </div>
+        <button
+          v-if="t.status === 'running'"
+          type="button"
+          aria-label="Annuler le transfert"
+          title="Annuler"
+          class="text-on-surface-variant hover:text-error transition-colors cursor-pointer"
+          @click="cancel(t.id)"
+        >
+          <Icon name="close" :size="16" />
+        </button>
+      </div>
+
+      <div class="w-full bg-surface-container-lowest h-1.5 rounded-full overflow-hidden mt-3 mb-2">
+        <div
+          class="h-full rounded-full relative transition-all duration-300"
+          :class="barColor(t)"
+          :style="{ width: Math.min(100, t.percent) + '%' }"
+        >
+          <div class="absolute right-0 top-0 bottom-0 w-4 bg-white/30 blur-sm rounded-full"></div>
+        </div>
+      </div>
+
+      <div class="flex justify-between items-center text-[11px] text-on-surface-variant">
+        <span>{{ t.percent }}%</span>
+        <span class="truncate" :class="statusColor(t)">{{ statusLabel(t) }}</span>
+      </div>
+    </div>
+  </div>
+</template>
