@@ -11,6 +11,8 @@ export interface Transfer {
   speed: string
   error?: string
   startTime: number
+  peer?: string
+  files?: string[]
 }
 
 export const useTransfersStore = defineStore('transfers', () => {
@@ -42,6 +44,10 @@ export const useTransfersStore = defineStore('transfers', () => {
 
   function remove(id: string) {
     transfers.value = transfers.value.filter(t => t.id !== id)
+  }
+
+  function clearHistory() {
+    transfers.value = transfers.value.filter(t => t.status === 'pending' || t.status === 'running')
   }
 
   async function startListening() {
@@ -86,5 +92,5 @@ export const useTransfersStore = defineStore('transfers', () => {
 
   const activeCount = computed(() => transfers.value.filter(t => t.status === 'running').length)
 
-  return { transfers, upsert, remove, startListening, activeCount }
+  return { transfers, upsert, remove, clearHistory, startListening, activeCount }
 })
