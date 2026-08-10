@@ -39,30 +39,32 @@ onUnmounted(() => {
       @click="onBackdropClick"
     >
       <div
-        class="w-full max-w-[360px] bg-[rgba(18,18,22,0.96)] border border-white/12 rounded-xl p-4
-               shadow-[0_14px_36px_rgba(0,0,0,0.5)]"
+        class="w-full max-w-[360px] bg-surface-container-high border border-outline-variant rounded-2xl p-4 active-shadow"
         role="dialog"
         aria-modal="true"
         aria-labelledby="about-title"
       >
         <div class="flex items-center justify-between gap-3 mb-3">
-          <h3 id="about-title" class="text-[15px] font-bold">À propos de Toolé</h3>
+          <h3 id="about-title" class="text-headline-md font-headline-md text-on-background">
+            À propos de Toolé
+          </h3>
           <button
             type="button"
             aria-label="Fermer"
-            class="w-[30px] h-[30px] rounded-full border border-white/12 bg-white/6
-                   text-white cursor-pointer text-[18px] leading-none"
+            class="w-[30px] h-[30px] rounded-full border border-outline-variant bg-surface-variant
+                   text-on-surface-variant cursor-pointer text-[18px] leading-none
+                   hover:text-on-surface hover:bg-surface-container-highest transition-colors"
             @click="close"
           >
             &times;
           </button>
         </div>
-        <p class="text-[13px] leading-relaxed">
+        <p class="text-body-md font-body-md text-on-surface leading-relaxed">
           Toolé est un logiciel de transfert de fichiers entre deux
           machines sur le même réseau local, sans Internet, sans clé USB,
           sans compte cloud.
         </p>
-        <p class="text-[13px] leading-relaxed mt-2.5 text-dim text-[11px]">
+        <p class="text-label-md font-label-md text-on-surface-variant mt-2.5">
           Version 2.0.0 &bull; Interface locale &bull; Licence GPL-3.0
         </p>
       </div>
