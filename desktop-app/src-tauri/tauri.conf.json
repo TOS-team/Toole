@@ -12,6 +12,7 @@
   "app": {
     "windows": [
       {
+        "label": "main",
         "title": "Toolé",
         "width": 890,
         "height": 550,

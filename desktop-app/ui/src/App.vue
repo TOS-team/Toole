@@ -12,6 +12,7 @@ import HistoryPage from "./components/HistoryPage.vue";
 import TransferPage from "./components/TransferPage.vue";
 import HomePage from "./components/HomePage.vue";
 import SettingsPage from "./components/SettingsPage.vue";
+import TitleBar from "./components/TitleBar.vue";
 
 const transfersStore = useTransfersStore();
 const hostname = ref("");
@@ -83,8 +84,11 @@ window.addEventListener("beforeunload", () => {
 
 <template>
   <div
-    class="w-full h-full flex flex-row gap-2 md:gap-3 p-2 md:p-3 overflow-hidden bg-surface-container-lowest relative"
+    class="w-full h-full flex flex-col overflow-hidden bg-surface-container-lowest relative"
   >
+    <TitleBar />
+
+    <div class="flex-1 min-h-0 flex flex-row gap-2 md:gap-3 p-2 md:p-3 relative">
     <div
       class="absolute inset-0 pointer-events-none"
       :style="{
@@ -141,6 +145,7 @@ window.addEventListener("beforeunload", () => {
           </button>
         </div>
       </aside>
+    </div>
   </div>
 
   <AboutModal ref="aboutModal" />
