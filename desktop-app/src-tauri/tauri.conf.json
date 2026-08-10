@@ -13,12 +13,12 @@
     "windows": [
       {
         "title": "Toolé",
-        "width": 300,
-        "height": 600,
-        "resizable": false,
+        "width": 890,
+        "height": 550,
+        "resizable": true,
         "fullscreen": false,
-        "decorations": false,
-        "transparent": true,
+        "decorations": true,
+        "transparent": false,
         "acceptFirstMouse": true
       }
     ],
