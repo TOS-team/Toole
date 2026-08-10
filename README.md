@@ -22,6 +22,30 @@ Toolé est un logiciel de transfert de fichiers entre deux machines sur le même
 
 ---
 
+## Prérequis réseau
+
+Toolé utilise deux ports UDP sur le réseau local :
+
+- `58199/udp` — découverte des appareils
+- `58200/udp` — transfert de fichiers (QUIC)
+
+Les pare-feu par défaut (ex. firewalld sous Fedora) bloquent ces ports : les appareils ne se voient alors pas. Active le pare-feu sur **chaque machine** avec :
+
+```bash
+sudo ./scripts/firewall-install.sh
+```
+
+Alternative manuelle (firewalld) :
+
+```bash
+sudo firewall-cmd --permanent --add-service=toole
+sudo firewall-cmd --reload
+```
+
+Si les appareils ne se voient toujours pas après ça, il s'agit probablement de l'**isolation des clients Wi-Fi** activée sur le routeur (souvent appelée « AP isolation » / « isolation client ») qui bloque tout trafic entre appareils en Wi-Fi. Désactive-la, ou teste avec un appareil branché en câble.
+
+---
+
 ## Documentation
 
 - [PRD — vision produit](docs/prd.md)
