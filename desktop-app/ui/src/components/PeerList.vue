@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref } from "vue";
 import { usePeersStore } from "../stores/peers";
+import { invoke } from "../tauri";
 import Icon from "./Icon.vue";
 
 const peersStore = usePeersStore();
@@ -10,8 +11,14 @@ function peerKey(id: string, addr: string) {
   return id + "@" + addr;
 }
 
-function onRefresh() {
+async function onRefresh() {
   spinning.value = true;
+  try {
+    await invoke("stop_discovery");
+    await invoke("start_discovery");
+  } catch (e) {
+    console.error("restart discovery error:", e);
+  }
   peersStore.startPolling();
   setTimeout(() => {
     spinning.value = false;
