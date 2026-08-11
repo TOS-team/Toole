@@ -16,6 +16,13 @@ impl UI for ConsoleUI {
     }
     fn show_progress_bar(&self, _transfer_id: &str) {}
     fn update_progress_bar(&self, _transfer_id: &str, _bytes_sent: u64, _total_bytes: u64) {}
+    fn file_progress_bar(
+        &self,
+        _transfer_id: &str,
+        _file_name: &str,
+        _file_bytes_sent: u64,
+        _file_total_bytes: u64,
+    ) {}
     fn transfert_cancel(&self, _transfer_id: &str) {}
     fn transfert_completed(&self, _transfer_id: &str) {}
     fn transfert_received(&self, transfer_id: &str, peer: &str, bytes: u64, files: Vec<String>) {

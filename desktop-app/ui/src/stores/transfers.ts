@@ -13,6 +13,14 @@ export interface Transfer {
   startTime: number
   peer?: string
   files?: string[]
+  fileProgress?: FileProgress[]
+}
+
+export interface FileProgress {
+  name: string
+  bytesSent: number
+  totalBytes: number
+  percent: number
 }
 
 const KEY = 'toole.transfers'
@@ -47,6 +55,21 @@ function loadHistory(): Transfer[] {
         peer: typeof t.peer === 'string' ? t.peer : undefined,
         files: Array.isArray(t.files)
           ? t.files.filter((f: unknown) => typeof f === 'string')
+          : undefined,
+        fileProgress: Array.isArray(t.fileProgress)
+          ? t.fileProgress
+              .filter(
+                (f: unknown) =>
+                  f &&
+                  typeof f === 'object' &&
+                  typeof (f as FileProgress).name === 'string',
+              )
+              .map((f: FileProgress) => ({
+                name: f.name,
+                bytesSent: typeof f.bytesSent === 'number' ? f.bytesSent : 0,
+                totalBytes: typeof f.totalBytes === 'number' ? f.totalBytes : 0,
+                percent: typeof f.percent === 'number' ? f.percent : 0,
+              }))
           : undefined,
       })
     }
@@ -132,6 +155,24 @@ export const useTransfersStore = defineStore('transfers', () => {
         })
       }
     )
+
+    await listen<{
+      transfer_id: string
+      file_name: string
+      file_bytes_sent: number
+      file_total_bytes: number
+      percent: number
+    }>('tool://transfer/file_progress', (event) => {
+      const { transfer_id, file_name, file_bytes_sent, file_total_bytes, percent } = event.payload
+      const t = transfers.value.find(x => x.id === transfer_id)
+      if (!t) return
+      const list = t.fileProgress ?? []
+      const idx = list.findIndex(f => f.name === file_name)
+      const entry = { name: file_name, bytesSent: file_bytes_sent, totalBytes: file_total_bytes, percent }
+      if (idx >= 0) list[idx] = entry
+      else list.push(entry)
+      upsert(transfer_id, { status: 'running', fileProgress: [...list] })
+    })
 
     await listen<string>('tool://transfer/done', (event) => {
       upsert(event.payload, { status: 'done', percent: 100, speed: 'Terminé' })

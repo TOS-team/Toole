@@ -35,6 +35,15 @@ pub trait UI: Send + Sync {
     // mise a jour de la progression (octets envoyes / total)
     fn update_progress_bar(&self, transfer_id: &str, bytes_sent: u64, total_bytes: u64);
 
+    // progression d'un fichier individuel dans un lot (nom de fichier + octets)
+    fn file_progress_bar(
+        &self,
+        transfer_id: &str,
+        file_name: &str,
+        file_bytes_sent: u64,
+        file_total_bytes: u64,
+    );
+
     // quand un transfert est annule par l'utilisateur
     fn transfert_cancel(&self, transfer_id: &str);
 

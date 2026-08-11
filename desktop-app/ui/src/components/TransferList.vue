@@ -109,6 +109,25 @@ async function cancel(id: string) {
         <span>{{ t.percent }}%</span>
         <span class="truncate" :class="statusColor(t)">{{ statusLabel(t) }}</span>
       </div>
+
+      <div
+        v-if="t.fileProgress && t.fileProgress.length"
+        class="mt-3 pt-2 border-t border-outline/40 flex flex-col gap-1.5 max-h-40 overflow-y-auto pr-0.5"
+      >
+        <div v-for="f in t.fileProgress" :key="f.name" class="flex flex-col gap-0.5">
+          <div class="flex items-center justify-between gap-2 text-[11px]">
+            <span class="truncate text-on-surface-variant">{{ f.name }}</span>
+            <span class="shrink-0 text-on-surface-variant">{{ f.percent }}%</span>
+          </div>
+          <div class="w-full bg-surface-container-lowest h-1 rounded-full overflow-hidden">
+            <div
+              class="h-full rounded-full transition-all duration-300"
+              :class="f.percent >= 100 ? 'bg-tertiary-fixed-dim' : 'bg-primary/70'"
+              :style="{ width: Math.min(100, f.percent) + '%' }"
+            ></div>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 </template>

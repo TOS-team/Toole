@@ -54,6 +54,28 @@ impl UI for AppUI {
         let _ = self.window.emit("tool://transfer/progress", payload);
     }
 
+    fn file_progress_bar(
+        &self,
+        transfer_id: &str,
+        file_name: &str,
+        file_bytes_sent: u64,
+        file_total_bytes: u64,
+    ) {
+        let percent = if file_total_bytes > 0 {
+            (file_bytes_sent as f64 / file_total_bytes as f64 * 100.0).min(100.0) as u8
+        } else {
+            0
+        };
+        let payload = serde_json::json!({
+            "transfer_id": transfer_id,
+            "file_name": file_name,
+            "file_bytes_sent": file_bytes_sent,
+            "file_total_bytes": file_total_bytes,
+            "percent": percent
+        });
+        let _ = self.window.emit("tool://transfer/file_progress", payload);
+    }
+
     fn transfert_cancel(&self, transfer_id: &str) {
         let _ = self.window.emit("tool://transfer/cancel", transfer_id);
     }

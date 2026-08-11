@@ -217,6 +217,7 @@ async fn receive_one(
         // progression cote receveur, aluminee sur celle de l'emetteur
         let done = bytes.fetch_add(len as u64, Ordering::Relaxed) + len as u64;
         ui.update_progress_bar(&tid, done, total.load(Ordering::Relaxed));
+        ui.file_progress_bar(&tid, &name, received, metadata.size);
     }
 
     out_file.flush().await?;
@@ -325,6 +326,11 @@ pub async fn send_entry(
         return Ok(());
     }
 
+    let file_name = Path::new(&rel_path)
+        .file_name()
+        .map(|f| f.to_string_lossy().to_string())
+        .unwrap_or_else(|| rel_path.clone());
+
     let sha256 = hash_file(&abs_path).await?;
     let size = fs::metadata(&abs_path).await?.len();
     let metadata = Metadata {
@@ -346,6 +352,7 @@ pub async fn send_entry(
     // Chunks — pas d'ack par chunk : QUIC assure la fiabilite, on pipeline
     let mut file = fs::File::open(&abs_path).await?;
     let mut buf = vec![0u8; CHUNK_SIZE];
+    let mut file_sent: u64 = 0;
 
     loop {
         if stop.load(Ordering::Relaxed) {
@@ -362,9 +369,11 @@ pub async fn send_entry(
         send.write_all(&(n as u32).to_be_bytes()).await?;
         send.write_all(&buf[..n]).await?;
 
-        // Progression locale, sans aller-retour
+        // Progression globale cumulee (lot) + per-fichier
+        file_sent += n as u64;
         let total_sent = bytes_sent_counter.fetch_add(n as u64, Ordering::Relaxed) + n as u64;
         ui.update_progress_bar(&transfer_id, total_sent, total_bytes);
+        ui.file_progress_bar(&transfer_id, &file_name, file_sent, size);
     }
 
     // Message de complétion
