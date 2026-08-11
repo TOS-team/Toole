@@ -6,31 +6,31 @@ import { invoke } from "../tauri";
 
 export const usePeersStore = defineStore("peers", () => {
   const peers = ref<Peer[]>([]);
-  const selectedHostnames = ref<Set<string>>(new Set());
+  const selectedIds = ref<Set<string>>(new Set());
   const discoveryError = ref("");
 
   const selectedPeers = computed(() =>
-    peers.value.filter((p) => selectedHostnames.value.has(p.hostname)),
+    peers.value.filter((p) => selectedIds.value.has(p.id)),
   );
 
   function updatePeers(list: Peer[]) {
-    const incoming = new Set(list.map((p) => p.hostname));
-    for (const h of selectedHostnames.value) {
-      if (!incoming.has(h)) selectedHostnames.value.delete(h);
+    const incoming = new Set(list.map((p) => p.id));
+    for (const id of selectedIds.value) {
+      if (!incoming.has(id)) selectedIds.value.delete(id);
     }
     peers.value = list;
   }
 
-  function toggleSelection(hostname: string) {
-    const s = new Set(selectedHostnames.value);
-    if (s.has(hostname)) s.delete(hostname);
-    else s.add(hostname);
-    selectedHostnames.value = s;
+  function toggleSelection(id: string) {
+    const s = new Set(selectedIds.value);
+    if (s.has(id)) s.delete(id);
+    else s.add(id);
+    selectedIds.value = s;
   }
 
   function selectAll(checked: boolean) {
-    selectedHostnames.value = checked
-      ? new Set(peers.value.map((p) => p.hostname))
+    selectedIds.value = checked
+      ? new Set(peers.value.map((p) => p.id))
       : new Set();
   }
 
@@ -63,7 +63,7 @@ export const usePeersStore = defineStore("peers", () => {
 
   return {
     peers,
-    selectedHostnames,
+    selectedIds,
     discoveryError,
     selectedPeers,
     updatePeers,

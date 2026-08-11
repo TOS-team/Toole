@@ -10,10 +10,10 @@ pub mod utils;
 use serde::Serialize;
 
 // ici je defini la structure d'un pair sur le reseau
-// chaque pair a un hostname et une addresse IP
+// chaque pair a un id jolie et unique (hostname-suffixe) et une addresse IP
 #[derive(Debug, Clone, Serialize)]
 pub struct Peer {
-    pub hostname: String,
+    pub id: String,
     pub addr: String,
 }
 

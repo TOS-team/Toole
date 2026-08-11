@@ -6,8 +6,8 @@ import Icon from "./Icon.vue";
 const peersStore = usePeersStore();
 const spinning = ref(false);
 
-function peerKey(hostname: string, addr: string) {
-  return hostname + "@" + addr;
+function peerKey(id: string, addr: string) {
+  return id + "@" + addr;
 }
 
 function onRefresh() {
@@ -46,35 +46,35 @@ function onRefresh() {
     >
       <li
         v-for="p in peersStore.peers"
-        :key="peerKey(p.hostname, p.addr)"
+        :key="peerKey(p.id, p.addr)"
         class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-[13px]
                bg-surface-container-high border border-outline/50
                cursor-pointer transition-all duration-150
                hover:border-primary/50 hover:-translate-y-px
                focus-visible:outline-2 focus-visible:outline-primary focus-visible:outline-offset-2"
         :class="{
-          'bg-primary/15 border-primary/70': peersStore.selectedHostnames.has(p.hostname),
+          'bg-primary/15 border-primary/70': peersStore.selectedIds.has(p.id),
         }"
         tabindex="0"
         role="button"
-        :aria-selected="peersStore.selectedHostnames.has(p.hostname)"
-        @click="peersStore.toggleSelection(p.hostname)"
-        @keydown.enter.prevent="peersStore.toggleSelection(p.hostname)"
-        @keydown.space.prevent="peersStore.toggleSelection(p.hostname)"
+        :aria-selected="peersStore.selectedIds.has(p.id)"
+        @click="peersStore.toggleSelection(p.id)"
+        @keydown.enter.prevent="peersStore.toggleSelection(p.id)"
+        @keydown.space.prevent="peersStore.toggleSelection(p.id)"
       >
         <div
           class="w-8 h-8 rounded-lg border border-outline bg-surface-variant flex items-center justify-center text-on-surface text-[13px] font-bold shrink-0"
         >
-          {{ (p.hostname.trim().charAt(0) || "?").toUpperCase() }}
+          {{ (p.id.trim().charAt(0) || "?").toUpperCase() }}
         </div>
         <div class="min-w-0 flex-1 flex flex-col gap-0.5">
-          <div class="truncate text-on-surface font-medium">{{ p.hostname }}</div>
+          <div class="truncate text-on-surface font-medium">{{ p.id }}</div>
           <div class="text-[11px] text-on-surface-variant font-mono truncate">{{ p.addr }}</div>
         </div>
         <span
           class="w-2 h-2 rounded-full shrink-0 transition-colors duration-150"
           :class="
-            peersStore.selectedHostnames.has(p.hostname)
+            peersStore.selectedIds.has(p.id)
               ? 'bg-primary'
               : 'bg-outline'
           "

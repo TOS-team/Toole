@@ -15,14 +15,14 @@ import SettingsPage from "./components/SettingsPage.vue";
 import TitleBar from "./components/TitleBar.vue";
 
 const transfersStore = useTransfersStore();
-const hostname = ref("");
+const deviceId = ref("");
 const peersStore = usePeersStore();
 const filesStore = useFilesStore();
 const aboutModal = ref<InstanceType<typeof AboutModal> | null>(null);
 const view = ref("home");
 
 const canSend = computed(
-  () => filesStore.files.length > 0 && peersStore.selectedHostnames.size > 0,
+  () => filesStore.files.length > 0 && peersStore.selectedIds.size > 0,
 );
 
 async function sendFiles() {
@@ -32,17 +32,17 @@ async function sendFiles() {
   const names = filesStore.files.map((f) => f.name);
 
   for (const peer of peersStore.peers) {
-    if (peersStore.selectedHostnames.has(peer.hostname)) {
+    if (peersStore.selectedIds.has(peer.id)) {
       const peerAddr = `${peer.addr}:58200`;
       try {
         const transferId = await invoke<string>("send_files", {
           paths,
           peerAddr,
         });
-        transfersStore.upsert(transferId, { peer: peer.hostname, files: names });
-        console.log("Transfert démarré vers", peer.hostname, ":", transferId);
+        transfersStore.upsert(transferId, { peer: peer.id, files: names });
+        console.log("Transfert démarré vers", peer.id, ":", transferId);
       } catch (e) {
-        console.error("Erreur envoi vers", peer.hostname, ":", e);
+        console.error("Erreur envoi vers", peer.id, ":", e);
       }
     }
   }
@@ -54,9 +54,9 @@ async function sendFiles() {
 
 onMounted(async () => {
   try {
-    hostname.value = await invoke<string>("get_hostname");
+    deviceId.value = await invoke<string>("get_device_id");
   } catch (e) {
-    console.error("get_hostname error:", e);
+    console.error("get_device_id error:", e);
   }
   try {
     await invoke("start_discovery");
@@ -102,7 +102,7 @@ window.addEventListener("beforeunload", () => {
       }"
     ></div>
 
-    <SidebarNav :hostname="hostname" :active="view" @navigate="view = $event" />
+    <SidebarNav :hostname="deviceId" :active="view" @navigate="view = $event" />
 
       <main
         class="flex-1 min-w-0 flex flex-col relative z-10 overflow-hidden rounded-2xl border border-outline-variant bg-surface-container-lowest active-shadow"
@@ -122,7 +122,7 @@ window.addEventListener("beforeunload", () => {
         </div>
 
         <div v-else class="flex-1 min-h-0 flex flex-col">
-          <HomePage :hostname="hostname" />
+          <HomePage :hostname="deviceId" />
         </div>
       </main>
 

@@ -23,16 +23,16 @@ impl UI for AppUI {
 
     fn peer_found(&self, peer: &Peer) {
         let mut peers = self.peers.lock().unwrap();
-        if !peers.iter().any(|p| p.hostname == peer.hostname) {
+        if !peers.iter().any(|p| p.id == peer.id) {
             peers.push(peer.clone());
             let _ = self.window.emit("tool://peer_found", peer);
         }
     }
 
-    fn peer_lost(&self, hostname: &str) {
+    fn peer_lost(&self, id: &str) {
         let mut peers = self.peers.lock().unwrap();
-        peers.retain(|p| p.hostname != hostname);
-        let _ = self.window.emit("tool://peer_lost", hostname);
+        peers.retain(|p| p.id != id);
+        let _ = self.window.emit("tool://peer_lost", id);
     }
 
     fn show_progress_bar(&self, transfer_id: &str) {
@@ -182,6 +182,11 @@ pub async fn cancel_transfer(
 #[tauri::command]
 pub fn get_hostname() -> String {
     toole_core::utils::current_hostname()
+}
+
+#[tauri::command]
+pub fn get_device_id() -> String {
+    toole_core::utils::device_id()
 }
 
 #[tauri::command]

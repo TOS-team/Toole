@@ -19,6 +19,7 @@ pub fn run() {
             commands::start_discovery,
             commands::stop_discovery,
             commands::get_hostname,
+            commands::get_device_id,
             commands::get_peers,
             commands::send_files,
             commands::cancel_transfer,

@@ -1,5 +1,5 @@
 export interface Peer {
-  hostname: string;
+  id: string;
   addr: string;
 }
 

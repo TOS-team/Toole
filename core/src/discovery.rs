@@ -54,7 +54,7 @@ pub async fn start_discovery(
         .parse()
         .unwrap_or_else(|_| IpAddr::V4(Ipv4Addr::LOCALHOST));
 
-    let hostname = crate::utils::current_hostname();
+    let my_id = crate::utils::device_id();
     let mut last_seen: HashMap<String, Instant> = HashMap::new();
     let mut interval = tokio::time::interval(BROADCAST_INTERVAL);
     let mut buf = [0u8; 1024];
@@ -90,15 +90,15 @@ pub async fn start_discovery(
                     let msg = String::from_utf8_lossy(&buf[..len]);
 
                     if msg == "TOOLE_DISCOVERY" {
-                        let response = format!("TOOLE_HERE:{}", hostname);
+                        let response = format!("TOOLE_HERE:{}", my_id);
                         let _ = socket.send_to(response.as_bytes(), addr).await;
-                    } else if let Some(h) = msg.strip_prefix("TOOLE_HERE:") {
-                        if h != hostname {
+                    } else if let Some(id) = msg.strip_prefix("TOOLE_HERE:") {
+                        if id != my_id {
                             let peer = Peer {
-                                hostname: h.to_string(),
+                                id: id.to_string(),
                                 addr: addr.ip().to_string(),
                             };
-                            last_seen.insert(h.to_string(), Instant::now());
+                            last_seen.insert(id.to_string(), Instant::now());
                             ui.peer_found(&peer);
                         }
                     }

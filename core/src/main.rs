@@ -9,7 +9,7 @@ impl UI for ConsoleUI {
         println!("[LOG] {}", msg);
     }
     fn peer_found(&self, peer: &Peer) {
-        println!("[PEER] Trouvé: {} @ {}", peer.hostname, peer.addr);
+        println!("[PEER] Trouvé: {} @ {}", peer.id, peer.addr);
     }
     fn peer_lost(&self, hostname: &str) {
         println!("[PEER] Perdu: {}", hostname);
