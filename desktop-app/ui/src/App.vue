@@ -65,6 +65,11 @@ onMounted(async () => {
     console.error("start_discovery error:", e);
   }
   try {
+    await peersStore.startListening();
+  } catch (e) {
+    console.error("peers startListening error:", e);
+  }
+  try {
     await transfersStore.startListening();
   } catch (e) {
     console.error("startListening error:", e);

@@ -1,11 +1,13 @@
 import { defineStore } from "pinia";
 import { ref, computed } from "vue";
+import { listen } from "@tauri-apps/api/event";
 import type { Peer } from "../types";
 import { invoke } from "../tauri";
 
 export const usePeersStore = defineStore("peers", () => {
   const peers = ref<Peer[]>([]);
   const selectedHostnames = ref<Set<string>>(new Set());
+  const discoveryError = ref("");
 
   const selectedPeers = computed(() =>
     peers.value.filter((p) => selectedHostnames.value.has(p.hostname)),
@@ -53,14 +55,22 @@ export const usePeersStore = defineStore("peers", () => {
     }
   }
 
+  async function startListening() {
+    await listen<string>("tool://discovery/error", (event) => {
+      discoveryError.value = event.payload;
+    });
+  }
+
   return {
     peers,
     selectedHostnames,
+    discoveryError,
     selectedPeers,
     updatePeers,
     toggleSelection,
     selectAll,
     startPolling,
     stopPolling,
+    startListening,
   };
 });

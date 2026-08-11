@@ -93,6 +93,9 @@ function onRefresh() {
       <p class="text-[11px] text-on-surface-variant/70 mt-1 max-w-[180px]">
         Ouvrez l'application sur une autre machine du réseau.
       </p>
+      <p v-if="peersStore.discoveryError" class="text-[11px] text-error mt-2 max-w-[200px]">
+        Erreur découverte : {{ peersStore.discoveryError }}
+      </p>
     </div>
   </div>
 </template>

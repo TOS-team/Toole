@@ -1,5 +1,6 @@
 use crate::{Peer, ToolError, UI};
 use std::collections::HashMap;
+use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
@@ -9,6 +10,37 @@ const DISCOVERY_PORT: u16 = 58199;
 const BROADCAST_INTERVAL: Duration = Duration::from_secs(3);
 const PEER_TIMEOUT: Duration = Duration::from_secs(9);
 
+// collecte les adresses broadcast de chaque interface réseau montée,
+// puis le broadcast illimité 255.255.255.255 en secours (souvent filtré en WiFi)
+fn broadcast_targets() -> Vec<SocketAddr> {
+    let mut ips: Vec<Ipv4Addr> = Vec::new();
+
+    if let Ok(ifaces) = if_addrs::get_if_addrs() {
+        for iface in ifaces {
+            if iface.is_loopback() {
+                continue;
+            }
+            if let if_addrs::IfAddr::V4(v4) = iface.addr {
+                if let Some(bcast) = v4.broadcast {
+                    ips.push(bcast);
+                }
+                // si l'OS ne fournit pas le broadcast, on le déduit ip | ~masque
+                let bcast = Ipv4Addr::from(u32::from(v4.ip) | !u32::from(v4.netmask));
+                if bcast != Ipv4Addr::BROADCAST {
+                    ips.push(bcast);
+                }
+            }
+        }
+    }
+
+    ips.push(Ipv4Addr::BROADCAST);
+    ips.dedup();
+
+    ips.into_iter()
+        .map(|ip| SocketAddr::new(IpAddr::V4(ip), DISCOVERY_PORT))
+        .collect()
+}
+
 pub async fn start_discovery(
     local_ip: String,
     stop: Arc<AtomicBool>,
@@ -16,6 +48,11 @@ pub async fn start_discovery(
 ) -> Result<(), ToolError> {
     let socket = Arc::new(UdpSocket::bind(format!("0.0.0.0:{DISCOVERY_PORT}")).await?);
     socket.set_broadcast(true)?;
+
+    let targets = broadcast_targets();
+    let me: IpAddr = local_ip
+        .parse()
+        .unwrap_or_else(|_| IpAddr::V4(Ipv4Addr::LOCALHOST));
 
     let hostname = crate::utils::current_hostname();
     let mut last_seen: HashMap<String, Instant> = HashMap::new();
@@ -41,20 +78,22 @@ pub async fn start_discovery(
         tokio::select! {
             _ = interval.tick() => {
                 let msg = b"TOOLE_DISCOVERY";
-                let addr = format!("255.255.255.255:{DISCOVERY_PORT}");
-                let _ = socket.send_to(msg, &addr).await;
+                for dest in &targets {
+                    let _ = socket.send_to(msg, dest).await;
+                }
             }
             result = socket.recv_from(&mut buf) => {
                 if let Ok((len, addr)) = result {
+                    if addr.ip() == me {
+                        continue;
+                    }
                     let msg = String::from_utf8_lossy(&buf[..len]);
 
                     if msg == "TOOLE_DISCOVERY" {
-                        if addr.ip().to_string() != local_ip {
-                            let response = format!("TOOLE_HERE:{}", hostname);
-                            let _ = socket.send_to(response.as_bytes(), addr).await;
-                        }
+                        let response = format!("TOOLE_HERE:{}", hostname);
+                        let _ = socket.send_to(response.as_bytes(), addr).await;
                     } else if let Some(h) = msg.strip_prefix("TOOLE_HERE:") {
-                        if h != hostname && addr.ip().to_string() != local_ip {
+                        if h != hostname {
                             let peer = Peer {
                                 hostname: h.to_string(),
                                 addr: addr.ip().to_string(),

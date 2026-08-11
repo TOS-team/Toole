@@ -104,11 +104,12 @@ pub async fn start_discovery(
 
     let local_ip = toole_core::utils::local_ip();
     let peers = state.peers.clone();
-    let ui: Arc<dyn UI> = Arc::new(AppUI { peers, window });
+    let ui: Arc<dyn UI> = Arc::new(AppUI { peers, window: window.clone() });
 
     tokio::spawn(async move {
         if let Err(e) = toole_core::discovery::start_discovery(local_ip, stop, ui).await {
             eprintln!("Discovery error: {e}");
+            let _ = window.emit("tool://discovery/error", e.to_string());
         }
     });
 
