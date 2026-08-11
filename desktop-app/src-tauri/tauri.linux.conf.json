@@ -10,6 +10,7 @@
         "fullscreen": false,
         "decorations": false,
         "transparent": true,
+        "shadow": false,
         "acceptFirstMouse": true
       }
     ]

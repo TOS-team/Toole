@@ -10,6 +10,7 @@
     "beforeBuildCommand": "cd ../ui && npm run build"
   },
   "app": {
+    "macOSPrivateApi": true,
     "windows": [
       {
         "label": "main",
@@ -18,8 +19,9 @@
         "height": 550,
         "resizable": true,
         "fullscreen": false,
-        "decorations": true,
-        "transparent": false,
+        "decorations": false,
+        "transparent": true,
+        "shadow": false,
         "acceptFirstMouse": true
       }
     ],
