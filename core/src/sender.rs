@@ -5,6 +5,7 @@ use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::Arc;
 use tokio::fs;
+use tokio::sync::Semaphore;
 
 pub async fn start_sender(
     ui: Arc<dyn UI>,
@@ -32,6 +33,8 @@ pub async fn start_sender(
 
     ui.show_progress_bar(&transfer_id);
     let bytes_sent_counter = Arc::new(AtomicU64::new(0));
+    // on envoie au maximum 2 fichiers en parallele pour ne pas saturer la liaison
+    let semaphore = Arc::new(Semaphore::new(2));
 
     let mut handles = Vec::new();
     for (abs_path, rel_path, is_dir) in entries {
@@ -43,8 +46,10 @@ pub async fn start_sender(
         let ui = ui.clone();
         let transfer_id = transfer_id.clone();
         let bytes_sent_counter = bytes_sent_counter.clone();
+        let permit = semaphore.clone();
 
         handles.push(tokio::spawn(async move {
+            let _guard = permit.acquire().await;
             send_entry(
                 connection,
                 abs_path,
