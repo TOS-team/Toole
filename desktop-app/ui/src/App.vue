@@ -84,7 +84,7 @@ window.addEventListener("beforeunload", () => {
 
 <template>
   <div
-    class="w-full h-full flex flex-col overflow-hidden bg-surface-container-lowest relative"
+    class="w-full h-full flex flex-col overflow-hidden rounded-2xl bg-background relative"
   >
     <TitleBar />
 

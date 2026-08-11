@@ -24,24 +24,10 @@ function close() {
 <template>
   <div
     data-tauri-drag-region
-    class="h-9 flex-shrink-0 flex items-center select-none"
-    :class="isMac ? 'justify-start pl-[80px]' : 'justify-between'"
+    class="h-8 flex-shrink-0 flex items-center select-none relative bg-background"
+    :class="isMac ? 'justify-start pl-[80px]' : 'justify-end'"
   >
-    <span
-      v-if="!isMac"
-      data-tauri-drag-region
-      class="text-label-sm font-label-sm text-on-surface-variant uppercase tracking-widest ml-3 flex items-center gap-2"
-    >
-      <img
-        src="/assets/img/sticker.png"
-        alt="Toolé"
-        class="h-4 w-auto object-contain"
-      />
-      Toolé
-    </span>
-    <span v-else data-tauri-drag-region class="text-label-sm font-label-sm text-on-surface-variant"></span>
-
-    <div v-if="!isMac" class="flex items-center h-full">
+      <div v-if="!isMac" class="flex items-center h-full">
       <button
         type="button"
         title="Réduire"
