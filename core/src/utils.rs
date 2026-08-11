@@ -43,14 +43,13 @@ pub fn device_id() -> String {
     id
 }
 
-// 5 caractères base32 sans chiffres ambigus (0 O 1 I L)
+// 5 caractères en base32 Crockford (32 symboles, pas de chiffres ambigus)
 fn short_suffix() -> String {
-    const ALPHABET: &[u8] = b"ABCDEFGHJKMNPQRSTVWXYZ23456789";
+    const ALPHABET: &[u8] = b"0123456789ABCDEFGHJKMNPQRSTVWXYZ";
+    let bytes = uuid::Uuid::new_v4().as_bytes().to_owned();
     let mut out = String::new();
-    for byte in uuid::Uuid::new_v4().as_bytes().iter().take(4) {
-        out.push(ALPHABET[(*byte >> 3) as usize & 0x1F] as char);
-        out.push(ALPHABET[*byte as usize & 0x1F] as char);
+    for i in 0..5 {
+        out.push(ALPHABET[bytes[i] as usize & 0x1F] as char);
     }
-    out.truncate(5);
     out
 }
