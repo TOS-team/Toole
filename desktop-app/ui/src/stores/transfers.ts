@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia'
-import { ref, computed } from 'vue'
+import { ref, computed, watch } from 'vue'
 import { listen } from '@tauri-apps/api/event'
 
 export interface Transfer {
@@ -15,8 +15,68 @@ export interface Transfer {
   files?: string[]
 }
 
+const KEY = 'toole.transfers'
+const MAX_HISTORY = 200
+
+const TERMINAL: Transfer['status'][] = ['done', 'error', 'cancelled']
+
+function loadHistory(): Transfer[] {
+  try {
+    const raw = localStorage.getItem(KEY)
+    if (!raw) return []
+    const parsed = JSON.parse(raw)
+    if (!Array.isArray(parsed)) return []
+    const loaded: Transfer[] = []
+    for (const t of parsed) {
+      if (!t || typeof t.id !== 'string') continue
+      const status = TERMINAL.includes(t.status) ? t.status : 'error'
+      loaded.push({
+        id: t.id,
+        status,
+        percent: typeof t.percent === 'number' ? t.percent : 0,
+        bytesSent: typeof t.bytesSent === 'number' ? t.bytesSent : 0,
+        totalBytes: typeof t.totalBytes === 'number' ? t.totalBytes : 0,
+        speed: status === 'error' ? 'Erreur' : typeof t.speed === 'string' ? t.speed : 'Terminé',
+        error:
+          !TERMINAL.includes(t.status)
+            ? 'Interrompu au redémarrage'
+            : typeof t.error === 'string'
+              ? t.error
+              : undefined,
+        startTime: typeof t.startTime === 'number' ? t.startTime : Date.now(),
+        peer: typeof t.peer === 'string' ? t.peer : undefined,
+        files: Array.isArray(t.files)
+          ? t.files.filter((f: unknown) => typeof f === 'string')
+          : undefined,
+      })
+    }
+    return loaded.slice(-MAX_HISTORY)
+  } catch {
+    return []
+  }
+}
+
 export const useTransfersStore = defineStore('transfers', () => {
-  const transfers = ref<Transfer[]>([])
+  const transfers = ref<Transfer[]>(loadHistory())
+
+  let saveTimer: ReturnType<typeof setTimeout> | null = null
+  function save() {
+    try {
+      const settled = transfers.value.filter(t => TERMINAL.includes(t.status))
+      localStorage.setItem(KEY, JSON.stringify(settled.slice(-MAX_HISTORY)))
+    } catch {
+      /* stockage indisponible : on ignore */
+    }
+  }
+
+  watch(
+    transfers,
+    () => {
+      if (saveTimer) clearTimeout(saveTimer)
+      saveTimer = setTimeout(save, 300)
+    },
+    { deep: true },
+  )
 
   function formatSpeed(bytesPerSec: number): string {
     if (bytesPerSec > 1_048_576) return `${(bytesPerSec / 1_048_576).toFixed(1)} Mo/s`
