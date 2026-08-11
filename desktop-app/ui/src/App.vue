@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from "vue";
+import { listen } from "@tauri-apps/api/event";
 import { invoke } from "./tauri";
 import { usePeersStore } from "./stores/peers";
 import { useFilesStore } from "./stores/files";
@@ -25,7 +26,16 @@ const canSend = computed(
   () => filesStore.files.length > 0 && peersStore.selectedIds.size > 0,
 );
 
+const sendError = ref("");
+const buttonTitle = computed(() => {
+  if (canSend.value) return undefined;
+  if (filesStore.files.length === 0) return "Ajoutez des fichiers d'abord";
+  if (peersStore.selectedIds.size === 0) return "Sélectionnez un appareil";
+  return undefined;
+});
+
 async function sendFiles() {
+  sendError.value = "";
   if (!canSend.value) return;
 
   const paths = filesStore.files.map((f) => f.path);
@@ -42,6 +52,7 @@ async function sendFiles() {
         transfersStore.upsert(transferId, { peer: peer.id, files: names });
         console.log("Transfert démarré vers", peer.id, ":", transferId);
       } catch (e) {
+        sendError.value = `Envoi vers ${peer.id} : ${e}`;
         console.error("Erreur envoi vers", peer.id, ":", e);
       }
     }
@@ -68,6 +79,13 @@ onMounted(async () => {
     await peersStore.startListening();
   } catch (e) {
     console.error("peers startListening error:", e);
+  }
+  try {
+    await listen<{ transfer_id: string; error: string }>("tool://transfer/error", (event) => {
+      sendError.value = event.payload.error;
+    });
+  } catch (e) {
+    console.error("transfer error listener:", e);
   }
   try {
     await transfersStore.startListening();
@@ -136,6 +154,7 @@ window.addEventListener("beforeunload", () => {
         <div class="p-4 md:p-6 pt-3 pb-4 mt-auto flex-shrink-0">
           <button
             type="button"
+            :title="buttonTitle"
             class="w-full h-12 bg-surface-container-high border border-outline rounded-xl flex items-center justify-center gap-2 transition-colors"
             :class="
               canSend
@@ -148,6 +167,12 @@ window.addEventListener("beforeunload", () => {
             <Icon name="send" :size="18" />
             <span class="text-label-md font-label-md">Transférer</span>
           </button>
+          <p
+            v-if="sendError"
+            class="mt-2 text-[11px] text-error text-center break-words"
+          >
+            {{ sendError }}
+          </p>
         </div>
       </aside>
     </div>
