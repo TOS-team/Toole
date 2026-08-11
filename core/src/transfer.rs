@@ -69,9 +69,22 @@ pub async fn make_server_endpoint() -> Result<Endpoint, ToolError> {
     };
 
     let server_config = ServerConfig::with_single_cert(certs, key)?;
+    let mut server_config = server_config;
+    server_config.transport_config(Arc::new(transport_config()));
     let bind_addr: SocketAddr = format!("0.0.0.0:{PORT}").parse().map_err(io_err)?;
     let endpoint = Endpoint::server(server_config, bind_addr)?;
     Ok(endpoint)
+}
+
+/// fenetres QUIC larges (defaut quinn = 1,25 Mo par stream, ca plafonne le debit)
+fn transport_config() -> quinn::TransportConfig {
+    use quinn::VarInt;
+    let mut t = quinn::TransportConfig::default();
+    t.stream_receive_window(VarInt::from(8u32 * 1024 * 1024));
+    t.receive_window(VarInt::from(32u32 * 1024 * 1024));
+    t.send_window(32 * 1024 * 1024);
+    t.initial_rtt(std::time::Duration::from_millis(10));
+    t
 }
 
 pub fn make_client_endpoint() -> Result<Endpoint, ToolError> {
@@ -83,6 +96,8 @@ pub fn make_client_endpoint() -> Result<Endpoint, ToolError> {
     let client_config = ClientConfig::new(Arc::new(
         quinn::crypto::rustls::QuicClientConfig::try_from(crypto).map_err(io_err)?,
     ));
+    let mut client_config = client_config;
+    client_config.transport_config(Arc::new(transport_config()));
 
     let bind_addr: SocketAddr = "0.0.0.0:0".parse().map_err(io_err)?;
     let mut endpoint = Endpoint::client(bind_addr)?;
@@ -164,9 +179,6 @@ async fn receive_one(
             return Err(io_err("trame inattendue (protocole desynchronise)"));
         }
 
-        let mut idx_buf = [0u8; 4];
-        recv.read_exact(&mut idx_buf).await?;
-
         let mut len_buf = [0u8; 4];
         recv.read_exact(&mut len_buf).await?;
         let len = u32::from_be_bytes(len_buf) as usize;
@@ -177,9 +189,6 @@ async fn receive_one(
         hasher.update(&data);
         out_file.write_all(&data).await?;
         received += len as u64;
-
-        // Ack du chunk (index reçu)
-        send.write_all(&idx_buf).await?;
     }
 
     out_file.flush().await?;
@@ -305,10 +314,9 @@ pub async fn send_entry(
         return Err(io_err("metadonnees rejetees par le receveur"));
     }
 
-    // Chunks — QUIC gère nativement le renvoi
+    // Chunks — pas d'ack par chunk : QUIC assure la fiabilite, on pipeline
     let mut file = fs::File::open(&abs_path).await?;
     let mut buf = vec![0u8; CHUNK_SIZE];
-    let mut chunk_index: u32 = 0;
 
     loop {
         if stop.load(Ordering::Relaxed) {
@@ -322,25 +330,12 @@ pub async fn send_entry(
         }
 
         send.write_all(&[CHUNK]).await?;
-        send.write_all(&chunk_index.to_be_bytes()).await?;
         send.write_all(&(n as u32).to_be_bytes()).await?;
         send.write_all(&buf[..n]).await?;
 
-        // Attendre l'ack applicatif (synchronisation, pas retry)
-        let mut ack_buf = [0u8; 4];
-        recv.read_exact(&mut ack_buf).await?;
-        let acked = u32::from_be_bytes(ack_buf);
-        if acked != chunk_index {
-            return Err(io_err(format!(
-                "ack incoherent: attendu {chunk_index}, recu {acked}"
-            )));
-        }
-
-        // Progression
+        // Progression locale, sans aller-retour
         let total_sent = bytes_sent_counter.fetch_add(n as u64, Ordering::Relaxed) + n as u64;
         ui.update_progress_bar(&transfer_id, total_sent, total_bytes);
-
-        chunk_index += 1;
     }
 
     // Message de complétion
