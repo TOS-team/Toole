@@ -12,7 +12,8 @@ const PEER_TIMEOUT: Duration = Duration::from_secs(9);
 
 // collecte les adresses broadcast de chaque interface réseau montée,
 // puis le broadcast illimité 255.255.255.255 en secours (souvent filtré en WiFi)
-fn broadcast_targets() -> Vec<SocketAddr> {
+// je l'expose en pub pour pouvoir la tester unitairement dans le crate tests/
+pub fn broadcast_targets() -> Vec<SocketAddr> {
     let mut ips: Vec<Ipv4Addr> = Vec::new();
 
     if let Ok(ifaces) = if_addrs::get_if_addrs() {

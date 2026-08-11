@@ -44,7 +44,8 @@ pub fn device_id() -> String {
 }
 
 // 5 caractères en base32 Crockford (32 symboles, pas de chiffres ambigus)
-fn short_suffix() -> String {
+// je l'expose en pub pour pouvoir la tester unitairement dans le crate tests/
+pub fn short_suffix() -> String {
     const ALPHABET: &[u8] = b"0123456789ABCDEFGHJKMNPQRSTVWXYZ";
     let bytes = uuid::Uuid::new_v4().as_bytes().to_owned();
     let mut out = String::new();

@@ -2,7 +2,6 @@ use crate::file_certif::{certificat, SkipServerVerification};
 use crate::{ToolError, UI};
 use quinn::{ClientConfig, Connection, Endpoint, RecvStream, SendStream, ServerConfig};
 use serde::{Deserialize, Serialize};
-use sha2::{Digest, Sha256};
 use std::collections::HashMap;
 use std::io::{Error as IoError, ErrorKind};
 use std::net::SocketAddr;
@@ -10,7 +9,7 @@ use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::Arc;
 use std::sync::Mutex;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 use tokio::fs;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::task::JoinHandle;
@@ -34,24 +33,40 @@ impl Default for Transfer {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
-struct Metadata {
-    transfer_id: String,
-    rel_path: String,
-    size: u64,
-    sha256: String,
-    is_dir: bool,
-}
-
-#[derive(Serialize, Deserialize, Debug)]
-pub struct CompleteMsg {
-    pub sha256: String,
+pub struct Metadata {
+    pub transfer_id: String,
+    pub rel_path: String,
+    pub size: u64,
+    pub is_dir: bool,
 }
 
 const CHUNK_SIZE: usize = 1_048_576; // 1 Mo
 const ACK: u8 = 0x01;
-const REJECT: u8 = 0x00;
-const CHUNK: u8 = 0x02;
+const COMPLETE: u8 = 0x02;
 const PORT: u16 = 58200;
+
+/// limite les emissions de progression UI a ~20/s : le webview n'a pas besoin
+/// de 190 evenements/s et chaque IPC coûte cher en boucle serree
+/// je l'expose en pub pour pouvoir le tester unitairement dans le crate tests/
+pub struct UiThrottle {
+    last: Instant,
+}
+
+impl UiThrottle {
+    fn new() -> Self {
+        UiThrottle { last: Instant::now() }
+    }
+
+    /// true si au moins 50ms se sont ecoulees depuis la derniere emission
+    fn ready(&mut self) -> bool {
+        if self.last.elapsed() >= Duration::from_millis(50) {
+            self.last = Instant::now();
+            true
+        } else {
+            false
+        }
+    }
+}
 
 pub fn io_err<E: std::fmt::Display>(e: E) -> ToolError {
     IoError::new(ErrorKind::Other, e.to_string()).into()
@@ -78,13 +93,14 @@ pub async fn make_server_endpoint() -> Result<Endpoint, ToolError> {
 }
 
 /// fenetres QUIC larges (defaut quinn = 1,25 Mo par stream, ca plafonne le debit)
+/// initial_rtt garde au defaut quinn (333ms) : une valeur optimiste fait partir le
+/// pacing trop vite et provoque des pertes puis l'effondrement de Cubic sur WiFi
 fn transport_config() -> quinn::TransportConfig {
     use quinn::VarInt;
     let mut t = quinn::TransportConfig::default();
     t.stream_receive_window(VarInt::from(8u32 * 1024 * 1024));
     t.receive_window(VarInt::from(32u32 * 1024 * 1024));
     t.send_window(32 * 1024 * 1024);
-    t.initial_rtt(std::time::Duration::from_millis(10));
     t
 }
 
@@ -118,6 +134,10 @@ pub async fn handle_incoming_connection(
     transfer_id: Arc<Mutex<Option<String>>>,
     total: Arc<AtomicU64>,
 ) -> Result<(), ToolError> {
+    // je mémorise si un flux a échoué en cours de route (ex: annulation côté
+    // émetteur) : dans ce cas je signalerai une erreur, pas une réception
+    let had_error = Arc::new(AtomicBool::new(false));
+    let mut handles: Vec<JoinHandle<()>> = Vec::new();
     loop {
         if stop.load(Ordering::Relaxed) {
             connection.close(0u32.into(), b"arret utilisateur");
@@ -132,14 +152,32 @@ pub async fn handle_incoming_connection(
                 let ui = ui.clone();
                 let transfer_id = transfer_id.clone();
                 let total = total.clone();
-                tokio::spawn(async move {
+                let had_error = had_error.clone();
+                handles.push(tokio::spawn(async move {
                     if let Err(e) = receive_one(send, recv, &dest_dir, files, bytes, ui, transfer_id, total).await {
+                        // je marque l'échec pour que la connexion soit
+                        // signalée en erreur (pas comme un transfert reçu)
+                        had_error.store(true, Ordering::Relaxed);
                         eprintln!("Erreur reception fichier: {e}");
                     }
-                });
+                }));
             }
             Ok(Err(quinn::ConnectionError::ApplicationClosed(_)))
-            | Ok(Err(quinn::ConnectionError::LocallyClosed)) => return Ok(()),
+            | Ok(Err(quinn::ConnectionError::LocallyClosed)) => {
+                // j'attends la fin des tâches de flux : elles posent
+                // `had_error` si un fichier a échoué, et elles terminent vite
+                // une fois la connexion fermée
+                for h in handles {
+                    let _ = h.await;
+                }
+                // si un flux a échoué (ex: annulation côté émetteur), je
+                // signale une erreur plutôt qu'une réception
+                return if had_error.load(Ordering::Relaxed) {
+                    Err(io_err("connexion fermee avec un flux en echec"))
+                } else {
+                    Ok(())
+                };
+            }
             Ok(Err(e)) => return Err(e.into()),
             Err(_) => continue, // timeout : on revérifie `stop`
         }
@@ -193,16 +231,10 @@ async fn receive_one(
     send.write_all(&[ACK]).await?;
 
     let mut out_file = fs::File::create(&full_path).await?;
-    let mut hasher = Sha256::new();
     let mut received: u64 = 0;
+    let mut throttle = UiThrottle::new();
 
     while received < metadata.size {
-        let mut marker = [0u8; 1];
-        recv.read_exact(&mut marker).await?;
-        if marker[0] != CHUNK {
-            return Err(io_err("trame inattendue (protocole desynchronise)"));
-        }
-
         let mut len_buf = [0u8; 4];
         recv.read_exact(&mut len_buf).await?;
         let len = u32::from_be_bytes(len_buf) as usize;
@@ -210,29 +242,26 @@ async fn receive_one(
         let mut data = vec![0u8; len];
         recv.read_exact(&mut data).await?;
 
-        hasher.update(&data);
         out_file.write_all(&data).await?;
         received += len as u64;
 
         // progression cote receveur, aluminee sur celle de l'emetteur
         let done = bytes.fetch_add(len as u64, Ordering::Relaxed) + len as u64;
-        ui.update_progress_bar(&tid, done, total.load(Ordering::Relaxed));
-        ui.file_progress_bar(&tid, &name, received, metadata.size);
+        if throttle.ready() || received == metadata.size {
+            ui.update_progress_bar(&tid, done, total.load(Ordering::Relaxed));
+            ui.file_progress_bar(&tid, &name, received, metadata.size);
+        }
     }
 
     out_file.flush().await?;
 
-    // Message de complétion
-    let complete = read_json_line::<CompleteMsg>(&mut recv).await?;
-    let actual_hash = hex::encode(hasher.finalize());
-
-    if actual_hash == complete.sha256 && actual_hash == metadata.sha256 {
-        send.write_all(&[ACK]).await?;
-    } else {
-        send.write_all(&[REJECT]).await?;
-        let _ = fs::remove_file(&full_path).await;
-        return Err(io_err("hash invalide, fichier rejete"));
+    // Marqueur de complétion, puis ack final
+    let mut complete = [0u8; 1];
+    recv.read_exact(&mut complete).await?;
+    if complete[0] != COMPLETE {
+        return Err(io_err("fin de fichier inattendue (protocole desynchronise)"));
     }
+    send.write_all(&[ACK]).await?;
 
     send.finish()?;
     files.lock().unwrap().push(name);
@@ -316,7 +345,6 @@ pub async fn send_entry(
             transfer_id: transfer_id.clone(),
             rel_path,
             size: 0,
-            sha256: String::new(),
             is_dir: true,
         };
         write_json_line(&mut send, &metadata).await?;
@@ -331,13 +359,11 @@ pub async fn send_entry(
         .map(|f| f.to_string_lossy().to_string())
         .unwrap_or_else(|| rel_path.clone());
 
-    let sha256 = hash_file(&abs_path).await?;
     let size = fs::metadata(&abs_path).await?.len();
     let metadata = Metadata {
         transfer_id: transfer_id.clone(),
         rel_path,
         size,
-        sha256: sha256.clone(),
         is_dir: false,
     };
     write_json_line(&mut send, &metadata).await?;
@@ -353,6 +379,7 @@ pub async fn send_entry(
     let mut file = fs::File::open(&abs_path).await?;
     let mut buf = vec![0u8; CHUNK_SIZE];
     let mut file_sent: u64 = 0;
+    let mut throttle = UiThrottle::new();
 
     loop {
         if stop.load(Ordering::Relaxed) {
@@ -365,20 +392,20 @@ pub async fn send_entry(
             break;
         }
 
-        send.write_all(&[CHUNK]).await?;
         send.write_all(&(n as u32).to_be_bytes()).await?;
         send.write_all(&buf[..n]).await?;
 
         // Progression globale cumulee (lot) + per-fichier
         file_sent += n as u64;
         let total_sent = bytes_sent_counter.fetch_add(n as u64, Ordering::Relaxed) + n as u64;
-        ui.update_progress_bar(&transfer_id, total_sent, total_bytes);
-        ui.file_progress_bar(&transfer_id, &file_name, file_sent, size);
+        if throttle.ready() || file_sent == size {
+            ui.update_progress_bar(&transfer_id, total_sent, total_bytes);
+            ui.file_progress_bar(&transfer_id, &file_name, file_sent, size);
+        }
     }
 
-    // Message de complétion
-    let complete = CompleteMsg { sha256 };
-    write_json_line(&mut send, &complete).await?;
+    // Marqueur de complétion
+    send.write_all(&[COMPLETE]).await?;
 
     // Ack final
     let mut final_ack = [0u8; 1];
@@ -386,7 +413,7 @@ pub async fn send_entry(
     send.finish()?;
 
     if final_ack[0] != ACK {
-        return Err(io_err("le receveur a rejete le fichier (hash invalide)"));
+        return Err(io_err("le receveur a rejete le fichier"));
     }
 
     Ok(())
@@ -397,20 +424,4 @@ async fn write_json_line<T: Serialize>(send: &mut SendStream, value: &T) -> Resu
     encoded.push(b'\n');
     send.write_all(&encoded).await?;
     Ok(())
-}
-
-async fn hash_file(path: &Path) -> Result<String, ToolError> {
-    let mut file = fs::File::open(path).await?;
-    let mut hasher = Sha256::new();
-    let mut buf = vec![0u8; CHUNK_SIZE];
-
-    loop {
-        let n = file.read(&mut buf).await?;
-        if n == 0 {
-            break;
-        }
-        hasher.update(&buf[..n]);
-    }
-
-    Ok(hex::encode(hasher.finalize()))
 }

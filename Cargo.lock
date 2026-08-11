@@ -4447,7 +4447,6 @@ name = "toole_core"
 version = "0.1.0"
 dependencies = [
  "directories",
- "hex",
  "hostname",
  "if-addrs",
  "local-ip-address",
@@ -4457,10 +4456,18 @@ dependencies = [
  "rustls-pemfile",
  "serde",
  "serde_json",
- "sha2",
  "thiserror 1.0.69",
  "tokio",
  "uuid",
+]
+
+[[package]]
+name = "toole_tests"
+version = "0.1.0"
+dependencies = [
+ "serde_json",
+ "tokio",
+ "toole_core",
 ]
 
 [[package]]
