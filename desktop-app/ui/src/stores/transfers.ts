@@ -1,4 +1,8 @@
-import { defineStore } from 'pinia'
+// je gère l'historique et l'état des transferts. Chaque événement émis par le
+// processus Rust (progression, erreur, annulation...) met à jour un transfert,
+// et je persiste les transferts terminés dans localStorage pour les afficher
+// après un redémarrage.
+import { defineStore } from "pinia"
 import { ref, computed, watch } from 'vue'
 import { listen } from '@tauri-apps/api/event'
 
@@ -28,6 +32,9 @@ const MAX_HISTORY = 200
 
 const TERMINAL: Transfer['status'][] = ['done', 'error', 'cancelled']
 
+// je relis l'historique persisté et je le valide entrée par entrée : les
+// statuts inconnus deviennent des erreurs et les champs manquants ont des
+// valeurs par défaut. Je tronque à MAX_HISTORY pour éviter de stocker trop.
 function loadHistory(): Transfer[] {
   try {
     const raw = localStorage.getItem(KEY)
@@ -83,6 +90,8 @@ export const useTransfersStore = defineStore('transfers', () => {
   const transfers = ref<Transfer[]>(loadHistory())
 
   let saveTimer: ReturnType<typeof setTimeout> | null = null
+  // je ne persiste que les transferts terminés (l'historique), pas les
+  // transferts en cours, pour ne pas ressusciter un état obsolète
   function save() {
     try {
       const settled = transfers.value.filter(t => TERMINAL.includes(t.status))
@@ -92,6 +101,7 @@ export const useTransfersStore = defineStore('transfers', () => {
     }
   }
 
+  // je débounce la sauvegarde de 300ms pour ne pas écrire à chaque octet
   watch(
     transfers,
     () => {
@@ -101,12 +111,15 @@ export const useTransfersStore = defineStore('transfers', () => {
     { deep: true },
   )
 
+  // je formate un débit octets/seconde pour l'afficher dans la liste
   function formatSpeed(bytesPerSec: number): string {
     if (bytesPerSec > 1_048_576) return `${(bytesPerSec / 1_048_576).toFixed(1)} Mo/s`
     if (bytesPerSec > 1024) return `${(bytesPerSec / 1024).toFixed(1)} Ko/s`
     return `${bytesPerSec.toFixed(0)} o/s`
   }
 
+  // je crée le transfert s'il n'existe pas (en pending) puis j'applique le
+  // patch des champs reçus de l'événement
   function upsert(id: string, patch: Partial<Transfer>) {
     const idx = transfers.value.findIndex(t => t.id === id)
     if (idx >= 0) {
@@ -129,10 +142,12 @@ export const useTransfersStore = defineStore('transfers', () => {
     transfers.value = transfers.value.filter(t => t.id !== id)
   }
 
+  // j'efface l'historique mais je garde les transferts toujours en cours
   function clearHistory() {
     transfers.value = transfers.value.filter(t => t.status === 'pending' || t.status === 'running')
   }
 
+  // je m'abonne aux événements de transfert émis par le processus Rust
   async function startListening() {
     await listen<string>('tool://transfer/start', (event) => {
       upsert(event.payload, { status: 'running' })
@@ -156,6 +171,8 @@ export const useTransfersStore = defineStore('transfers', () => {
       }
     )
 
+    // je mets à jour la barre de progression du fichier en cours, en la
+    // créant si on ne l'a pas encore vue
     await listen<{
       transfer_id: string
       file_name: string
@@ -206,6 +223,7 @@ export const useTransfersStore = defineStore('transfers', () => {
     )
   }
 
+  // je compte les transferts encore actifs (pour le badge de la barre latérale)
   const activeCount = computed(() => transfers.value.filter(t => t.status === 'running').length)
 
   return { transfers, upsert, remove, clearHistory, startListening, activeCount }

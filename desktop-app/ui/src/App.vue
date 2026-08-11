@@ -1,4 +1,7 @@
 <script setup lang="ts">
+// composant racine : il orchestre les pages (accueil, transferts, historique,
+// paramètres), lance la découverte des appareils au montage et envoie les
+// fichiers vers les appareils sélectionnés.
 import { ref, computed, onMounted, onUnmounted } from "vue";
 import { listen } from "@tauri-apps/api/event";
 import { invoke } from "./tauri";
@@ -22,11 +25,13 @@ const filesStore = useFilesStore();
 const aboutModal = ref<InstanceType<typeof AboutModal> | null>(null);
 const view = ref("home");
 
+// je n'autorise l'envoi que si j'ai des fichiers et au moins un appareil coché
 const canSend = computed(
   () => filesStore.files.length > 0 && peersStore.selectedIds.size > 0,
 );
 
 const sendError = ref("");
+// je précise au survol pourquoi le bouton d'envoi est désactivé
 const buttonTitle = computed(() => {
   if (canSend.value) return undefined;
   if (filesStore.files.length === 0) return "Ajoutez des fichiers d'abord";
@@ -34,6 +39,8 @@ const buttonTitle = computed(() => {
   return undefined;
 });
 
+// j'envoie la liste des fichiers vers chaque appareil coché, puis je bascule
+// sur la page des transferts pour suivre la progression
 async function sendFiles() {
   sendError.value = "";
   if (!canSend.value) return;
@@ -57,12 +64,13 @@ async function sendFiles() {
       }
     }
   }
+  view.value = "transfers";
 }
 
 
 
-
-
+// au montage je récupère l'identité de la machine, je démarre la découverte
+// des appareils et je m'abonne aux événements du processus Rust
 onMounted(async () => {
   try {
     deviceId.value = await invoke<string>("get_device_id");
@@ -94,6 +102,7 @@ onMounted(async () => {
   }
 });
 
+// je coupe le polling et la découverte quand je quitte
 onUnmounted(() => {
   peersStore.stopPolling();
   invoke("stop_discovery").catch(console.error);

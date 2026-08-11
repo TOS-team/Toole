@@ -1,3 +1,6 @@
+// je gère les préférences de l'utilisateur : thème clair/sombre/auto et la
+// couleur d'accentuation du halo. Je les persiste dans localStorage et je les
+// applique au document (variables CSS) au chargement et à chaque changement.
 import { defineStore } from "pinia"
 import { ref, watch } from "vue"
 
@@ -5,6 +8,7 @@ export type ThemeMode = "auto" | "dark" | "light"
 
 const KEY = "toole.settings"
 
+// la palette de halos proposée, avec l'accent CSS correspondant
 export const GLOW_COLORS = [
   { id: "red", label: "Rouge", rgb: [255, 0, 51], accent: "#ff0033" },
   { id: "orange", label: "Orange", rgb: [255, 140, 0], accent: "#ff7a00" },
@@ -18,6 +22,8 @@ export const GLOW_COLORS = [
 
 export type GlowColorId = (typeof GLOW_COLORS)[number]["id"]
 
+// je relis les préférences enregistrées, avec un repli sur les défauts
+// (thème auto, halo rouge à 50) si le stockage est vide ou corrompu
 function loadSettings() {
   try {
     const raw = localStorage.getItem(KEY)
@@ -49,12 +55,14 @@ export const useSettingsStore = defineStore("settings", () => {
   const glowColor = ref<GlowColorId>(saved.glowColor)
   const systemTheme = ref<"dark" | "light">("dark")
 
+  // en mode auto je suis le thème du système, sinon j'applique le choix
   function applyTheme() {
     const effective: "dark" | "light" =
       theme.value === "auto" ? systemTheme.value : theme.value
     document.documentElement.dataset.theme = effective
   }
 
+  // je pilote les variables CSS du halo (opacité, couleur, accent primaire)
   function applyGlow() {
     const color = GLOW_COLORS.find((c) => c.id === glowColor.value)
     const [r, g, b] = color?.rgb ?? [255, 0, 51]
@@ -65,13 +73,17 @@ export const useSettingsStore = defineStore("settings", () => {
     }
   }
 
+  // j'informe le store du thème réel du système (utilisé en mode auto)
   function setSystemTheme(t: "dark" | "light") {
     systemTheme.value = t
   }
 
+  // je réapplique à chaque changement de valeur
   watch([theme, systemTheme], applyTheme)
   watch([glow, glowColor], applyGlow)
 
+  // et je persiste les préférences (avec un délai pour éviter d'écrire à
+  // chaque déplacement du curseur de halo)
   watch(
     [theme, glow, glowColor],
     () => {

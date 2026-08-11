@@ -1,4 +1,6 @@
 <script setup lang="ts">
+// modale "à propos" : ouverte par le bouton des paramètres, fermée par
+// Échap ou en cliquant sur le fond
 import { ref, onMounted, onUnmounted } from "vue";
 
 const isOpen = ref(false);

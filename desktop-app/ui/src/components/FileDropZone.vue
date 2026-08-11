@@ -1,4 +1,7 @@
 <script setup lang="ts">
+// zone de dépôt : sélection de fichiers par boîte de dialogue, glisser-déposer
+// (drag & drop) ou collage du presse-papier. Je récupère les chemins locaux et
+// je les pousse dans le store des fichiers.
 import { ref, onMounted, onUnmounted } from "vue";
 import { open } from "@tauri-apps/plugin-dialog";
 import { getCurrentWebview } from "@tauri-apps/api/webview";
@@ -15,6 +18,7 @@ const filesStore = useFilesStore();
 const isDragOver = ref(false);
 const dropHint = ref(true);
 
+// je propose la boîte de dialogue système pour choisir un ou plusieurs fichiers
 async function pickFiles() {
   try {
     const selected = await open({
@@ -135,6 +139,7 @@ onMounted(async () => {
   });
 });
 
+// je retire mes écouteurs quand le composant disparaît
 onUnmounted(() => {
   document.removeEventListener("paste", onPaste);
   document.removeEventListener("keydown", onKeydown);

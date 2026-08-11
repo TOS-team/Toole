@@ -1,4 +1,7 @@
 <script setup lang="ts">
+// page des paramètres : thème (auto/sombre/clair), intensité et couleur du
+// halo. Je préviens App.vue quand l'utilisateur veut ouvrir la modale "à
+// propos".
 import { useSettingsStore, GLOW_COLORS, type ThemeMode } from "../stores/settings";
 
 const emit = defineEmits<{ (e: "open-about"): void }>();
@@ -11,6 +14,7 @@ const themes: { id: ThemeMode; label: string }[] = [
   { id: "light", label: "Clair" },
 ];
 
+// je convertis une couleur de la palette en CSS rgb pour le swatch
 function colorStyle(id: string) {
   const c = GLOW_COLORS.find((x) => x.id === id);
   return c ? `rgb(${c.rgb.join(", ")})` : "#fff";

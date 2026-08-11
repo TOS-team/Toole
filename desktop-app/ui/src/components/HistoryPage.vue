@@ -1,4 +1,6 @@
 <script setup lang="ts">
+// page historique : je filtre les transferts terminés/annulés/en erreur depuis
+// le store et je les affiche avec leur statut et leur date
 import { computed } from "vue";
 import { useTransfersStore, type Transfer } from "../stores/transfers";
 import { formatSize } from "../utils";
@@ -6,6 +8,7 @@ import Icon from "./Icon.vue";
 
 const store = useTransfersStore();
 
+// je ne montre que les transferts finis (pas les transferts en cours)
 const history = computed(() =>
   store.transfers.filter((t) =>
     ["done", "cancelled", "error"].includes(t.status),

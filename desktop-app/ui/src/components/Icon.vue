@@ -1,8 +1,10 @@
 <script setup lang="ts">
+// j'affiche une icône SVG en chargeant son fichier brut depuis assets/icons
 import { computed } from "vue";
 
 const props = defineProps<{ name: string; size?: number }>();
 
+// je précharge toutes les icônes au build pour les servir par nom
 const icons = import.meta.glob("../assets/icons/*.svg", {
   query: "?raw",
   import: "default",

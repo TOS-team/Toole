@@ -1,4 +1,6 @@
 <script setup lang="ts">
+// liste des transferts : je montre soit la liste fournie en prop, soit celle
+// du store, avec une barre de progression, le débit et un bouton d'annulation
 import { computed } from "vue";
 import { useTransfersStore, type Transfer } from "../stores/transfers";
 import { invoke } from "../tauri";
@@ -10,6 +12,7 @@ const props = defineProps<{ items?: Transfer[] }>();
 const store = useTransfersStore();
 const list = computed(() => props.items ?? store.transfers);
 
+// je mémorise s'il reste un transfert en cours (pour l'affichage global)
 const hasRunning = computed(() =>
   list.value.some((t) => t.status === "running"),
 );
@@ -42,6 +45,7 @@ function cardClass(t: Transfer): Record<string, boolean> {
   };
 }
 
+// je demande l'annulation au processus Rust par l'identifiant du transfert
 async function cancel(id: string) {
   await invoke("cancel_transfer", { transferId: id });
 }

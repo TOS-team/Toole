@@ -1,4 +1,6 @@
 <script setup lang="ts">
+// page des transferts : je montre uniquement les transferts en attente ou en
+// cours (les finis sont dans l'historique)
 import { computed } from "vue";
 import { useTransfersStore } from "../stores/transfers";
 import TransferList from "./TransferList.vue";

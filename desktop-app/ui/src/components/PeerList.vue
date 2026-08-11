@@ -1,4 +1,5 @@
 <script setup lang="ts">
+// liste des appareils détectés, avec sélection multiple et bouton d'actualisation
 import { ref } from "vue";
 import { usePeersStore } from "../stores/peers";
 import { invoke } from "../tauri";
@@ -11,6 +12,8 @@ function peerKey(id: string, addr: string) {
   return id + "@" + addr;
 }
 
+// je relance la découverte (arrêt + départ) puis le polling pour rafraîchir
+// immédiatement la liste
 async function onRefresh() {
   spinning.value = true;
   try {

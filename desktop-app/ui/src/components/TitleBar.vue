@@ -1,10 +1,13 @@
 <script setup lang="ts">
+// barre de titre de la fenêtre (Windows/Linux) : je détecte macOS pour
+// réserver l'espace des boutons rouges natifs et je pilote min/max/close
 import { ref, onMounted } from "vue";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 
 const isMac = ref(false);
 
 onMounted(() => {
+  // je détecte la plateforme via l'API moderne, avec repli sur navigator
   const n = navigator as Navigator & { userAgentData?: { platform?: string } };
   const platform = n.userAgentData?.platform ?? navigator.platform ?? "";
   isMac.value = /Mac|iP(hone|ad|od)/.test(platform);

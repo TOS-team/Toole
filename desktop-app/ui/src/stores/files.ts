@@ -1,3 +1,6 @@
+// je garde la liste des fichiers que l'utilisateur veut envoyer, avec leur
+// taille récupérée côté Rust. Je dédoublonne par chemin et j'ignore les
+// chemins vides.
 import { defineStore } from "pinia";
 import { ref } from "vue";
 import type { FileEntry } from "../types";
@@ -6,6 +9,8 @@ import { invoke } from "../tauri";
 export const useFilesStore = defineStore("files", () => {
   const files = ref<FileEntry[]>([]);
 
+  // j'ajoute des entrées sans doublon, puis je recharge les tailles si la
+  // liste a effectivement grandi
   function addFiles(entries: FileEntry[]) {
     const existing = new Set(files.value.map((f) => f.path));
     const newEntries: FileEntry[] = [];
@@ -18,6 +23,7 @@ export const useFilesStore = defineStore("files", () => {
     if (newEntries.length) fetchSizes();
   }
 
+  // je demande à Rust la taille et le type (fichier/dossier) de chaque entrée
   async function fetchSizes() {
     const paths = files.value.map((f) => f.path);
     if (!paths.length) return;

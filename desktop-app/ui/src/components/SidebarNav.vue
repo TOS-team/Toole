@@ -1,4 +1,6 @@
 <script setup lang="ts">
+// barre latérale de navigation : les pages principales en haut, les
+// paramètres en bas. J'émets `navigate` quand l'utilisateur clique.
 import Icon from "./Icon.vue";
 
 defineProps<{ hostname: string; active: string }>();

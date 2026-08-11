@@ -1,4 +1,6 @@
 <script setup lang="ts">
+// page d'accueil : j'affiche le nom de la machine et la zone de dépôt des
+// fichiers à envoyer
 import FileDropZone from "./FileDropZone.vue";
 
 defineProps<{ hostname: string }>();

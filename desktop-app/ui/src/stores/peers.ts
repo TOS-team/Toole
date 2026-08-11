@@ -1,3 +1,6 @@
+// je gère la liste des appareils Toolé détectés et la sélection de ceux vers
+// lesquels envoyer. La liste arrive du processus Rust par polling et/ou par
+// événements, et la sélection est purement locale à l'interface.
 import { defineStore } from "pinia";
 import { ref, computed } from "vue";
 import { listen } from "@tauri-apps/api/event";
@@ -9,10 +12,12 @@ export const usePeersStore = defineStore("peers", () => {
   const selectedIds = ref<Set<string>>(new Set());
   const discoveryError = ref("");
 
+  // je ne renvoie que les appareils cochés par l'utilisateur
   const selectedPeers = computed(() =>
     peers.value.filter((p) => selectedIds.value.has(p.id)),
   );
 
+  // je remplace la liste et je purge les sélections dont l'appareil a disparu
   function updatePeers(list: Peer[]) {
     const incoming = new Set(list.map((p) => p.id));
     for (const id of selectedIds.value) {
@@ -36,6 +41,7 @@ export const usePeersStore = defineStore("peers", () => {
 
   let pollTimer: ReturnType<typeof setInterval> | null = null;
 
+  // j'interroge get_peers toutes les 2 secondes pour garder la liste à jour
   function startPolling() {
     stopPolling();
     pollTimer = setInterval(async () => {
@@ -55,6 +61,7 @@ export const usePeersStore = defineStore("peers", () => {
     }
   }
 
+  // je reçois une éventuelle erreur de découverte (port occupé, etc.)
   async function startListening() {
     await listen<string>("tool://discovery/error", (event) => {
       discoveryError.value = event.payload;
