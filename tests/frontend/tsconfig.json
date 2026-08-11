@@ -1,0 +1,16 @@
+{
+  "compilerOptions": {
+    "target": "ES2020",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "strict": true,
+    "noEmit": true,
+    "skipLibCheck": true,
+    "types": ["vitest/globals", "node"],
+    "paths": {
+      "@tauri-apps/api/core": ["./src/mocks/tauri-core.ts"],
+      "@tauri-apps/api/event": ["./src/mocks/tauri-event.ts"]
+    }
+  },
+  "include": ["src", "tests", "vitest.config.ts"]
+}
