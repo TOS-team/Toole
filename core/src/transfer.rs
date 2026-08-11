@@ -35,6 +35,7 @@ impl Default for Transfer {
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 struct Metadata {
+    transfer_id: String,
     rel_path: String,
     size: u64,
     sha256: String,
@@ -106,12 +107,16 @@ pub fn make_client_endpoint() -> Result<Endpoint, ToolError> {
 }
 
 /// reçoit un lot de fichiers sur cette connexion et remonte la liste des fichiers recus
+#[allow(clippy::too_many_arguments)]
 pub async fn handle_incoming_connection(
     connection: Connection,
     dest_dir: PathBuf,
     stop: Arc<AtomicBool>,
     files: Arc<Mutex<Vec<String>>>,
     bytes: Arc<AtomicU64>,
+    ui: Arc<dyn UI>,
+    transfer_id: Arc<Mutex<Option<String>>>,
+    total: Arc<AtomicU64>,
 ) -> Result<(), ToolError> {
     loop {
         if stop.load(Ordering::Relaxed) {
@@ -124,8 +129,11 @@ pub async fn handle_incoming_connection(
                 let dest_dir = dest_dir.clone();
                 let files = files.clone();
                 let bytes = bytes.clone();
+                let ui = ui.clone();
+                let transfer_id = transfer_id.clone();
+                let total = total.clone();
                 tokio::spawn(async move {
-                    if let Err(e) = receive_one(send, recv, &dest_dir, files, bytes).await {
+                    if let Err(e) = receive_one(send, recv, &dest_dir, files, bytes, ui, transfer_id, total).await {
                         eprintln!("Erreur reception fichier: {e}");
                     }
                 });
@@ -145,6 +153,9 @@ async fn receive_one(
     dest_dir: &Path,
     files: Arc<Mutex<Vec<String>>>,
     bytes: Arc<AtomicU64>,
+    ui: Arc<dyn UI>,
+    transfer_id: Arc<Mutex<Option<String>>>,
+    total: Arc<AtomicU64>,
 ) -> Result<(), ToolError> {
     let metadata = read_json_line::<Metadata>(&mut recv).await?;
     let full_path = dest_dir.join(&metadata.rel_path);
@@ -156,6 +167,19 @@ async fn receive_one(
     if let Some(parent) = full_path.parent() {
         fs::create_dir_all(parent).await?;
     }
+
+    total.fetch_add(metadata.size, Ordering::Relaxed);
+
+    // l'id du transfert vient de l'emetteur pour que les deux appareils
+    // affichent la meme progression sous le meme id
+    {
+        let mut tid = transfer_id.lock().unwrap();
+        if tid.is_none() {
+            *tid = Some(metadata.transfer_id.clone());
+            ui.show_progress_bar(&metadata.transfer_id);
+        }
+    }
+    let tid = transfer_id.lock().unwrap().clone().unwrap_or_default();
 
     if metadata.is_dir {
         fs::create_dir_all(&full_path).await?;
@@ -189,6 +213,10 @@ async fn receive_one(
         hasher.update(&data);
         out_file.write_all(&data).await?;
         received += len as u64;
+
+        // progression cote receveur, aluminee sur celle de l'emetteur
+        let done = bytes.fetch_add(len as u64, Ordering::Relaxed) + len as u64;
+        ui.update_progress_bar(&tid, done, total.load(Ordering::Relaxed));
     }
 
     out_file.flush().await?;
@@ -206,7 +234,6 @@ async fn receive_one(
     }
 
     send.finish()?;
-    bytes.fetch_add(received, Ordering::Relaxed);
     files.lock().unwrap().push(name);
     Ok(())
 }
@@ -285,6 +312,7 @@ pub async fn send_entry(
 
     if is_dir {
         let metadata = Metadata {
+            transfer_id: transfer_id.clone(),
             rel_path,
             size: 0,
             sha256: String::new(),
@@ -300,6 +328,7 @@ pub async fn send_entry(
     let sha256 = hash_file(&abs_path).await?;
     let size = fs::metadata(&abs_path).await?.len();
     let metadata = Metadata {
+        transfer_id: transfer_id.clone(),
         rel_path,
         size,
         sha256: sha256.clone(),

@@ -37,13 +37,15 @@ pub async fn start_receiver(
             match connecting.await {
                 Ok(connection) => {
                     let peer = connection.remote_address().ip().to_string();
-                    let transfer_id = uuid::Uuid::new_v4().to_string();
                     ui.log(&format!(
                         "Connexion entrante depuis {:?}",
                         connection.remote_address()
                     ));
-                    ui.show_progress_bar(&transfer_id);
 
+                    // l'id du transfert est donne par l'emetteur (lu dans le metadata)
+                    let transfer_id: Arc<Mutex<Option<String>>> =
+                        Arc::new(Mutex::new(None));
+                    let total = Arc::new(AtomicU64::new(0));
                     let files = Arc::new(Mutex::new(Vec::new()));
                     let bytes = Arc::new(AtomicU64::new(0));
 
@@ -53,19 +55,27 @@ pub async fn start_receiver(
                         stop,
                         files.clone(),
                         bytes.clone(),
+                        ui.clone(),
+                        transfer_id.clone(),
+                        total.clone(),
                     )
                     .await;
 
                     let received: Vec<String> = files.lock().unwrap().clone();
                     let total = bytes.load(Ordering::Relaxed);
+                    let tid = transfer_id
+                        .lock()
+                        .unwrap()
+                        .clone()
+                        .unwrap_or_else(|| uuid::Uuid::new_v4().to_string());
                     if let Err(e) = res {
                         eprintln!("Erreur connexion receveur: {e}");
                         let err: ToolError = crate::transfer::io_err(format!(
                             "reception: {e}"
                         ));
-                        ui.tranfert_error(&transfer_id, &err);
+                        ui.tranfert_error(&tid, &err);
                     } else {
-                        ui.transfert_received(&transfer_id, &peer, total, received);
+                        ui.transfert_received(&tid, &peer, total, received);
                     }
                 }
                 Err(e) => eprintln!("Handshake QUIC echoue: {e}"),
