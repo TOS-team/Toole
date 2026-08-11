@@ -78,7 +78,6 @@ toole/
 │               └── files.ts
 │
 ├── docs/
-├── assets/
 ├── README.md
 ├── LICENSE
 └── CONTRIBUTING.md

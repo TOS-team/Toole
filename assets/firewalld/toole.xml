@@ -1,7 +1,0 @@
-<?xml version="1.0" encoding="utf-8"?>
-<service>
-  <short>Toolé</short>
-  <description>Toolé — transfert de fichiers peer-to-peer sur réseau local. UDP 58199 pour la découverte, UDP 58200 pour le transfert QUIC.</description>
-  <port protocol="udp" port="58199"/>
-  <port protocol="udp" port="58200"/>
-</service>
