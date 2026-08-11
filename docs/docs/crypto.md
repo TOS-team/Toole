@@ -28,11 +28,10 @@ Le transfert utilise **QUIC via Quinn**. QUIC intègre **TLS 1.3 nativement** :
 
 ### Vérification d'intégrité
 
-**SHA-256 (fichier final)**
-- Hash du fichier complet calculé côté sender avant transfert
-- Transmis dans le paquet `Metadata`
-- Le receiver recalcule progressivement pendant la réception et compare à la fin
-- **Double protection** : QUIC (intégrité paquet) + SHA-256 (intégrité fichier)
+**Par QUIC/TLS uniquement — pas de SHA-256 applicatif**
+- Chaque paquet QUIC est authentifié et chiffré par TLS 1.3 : toute modification en transit est détectée et rejetée
+- Le contrôle de congestion et le renvoi de QUIC garantissent la transmission complète des données
+- Un SHA-256 applicatif a été retiré pour la performance (bench loopback : ~346 Mo/s vs ~190 avec hash) — QUIC suffit pour le réseau local
 
 ---
 
@@ -42,7 +41,7 @@ Le transfert utilise **QUIC via Quinn**. QUIC intègre **TLS 1.3 nativement** :
 |---|---|---|
 | Interception passive (écoute) | QUIC + TLS 1.3 | ✅ Fort |
 | Modification d'un paquet | QUIC (authentification paquet) | ✅ Fort |
-| Modification d'un fichier | SHA-256 final | ✅ Fort |
+| Modification d'un fichier | QUIC/TLS 1.3 (intégrité paquet) | ✅ Fort |
 | Connexion non autorisée | TLS 1.3 + réseau local | ✅ Fort |
 | MITM actif | TLS 1.3 | ✅ Fort |
 | Corruption réseau | QUIC (contrôle congestion + renvoi automatique) | ✅ Fort |

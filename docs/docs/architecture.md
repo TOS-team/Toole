@@ -61,15 +61,21 @@ pub trait UI: Send + Sync {
     fn log(&self, msg: &str);
     fn peer_found(&self, peer: &Peer);
     fn peer_lost(&self, hostname: &str);
-    // transfer_progress, transfer_done, transfer_error — à ajouter avec QUIC
+    fn show_progress_bar(&self, transfer_id: &str);
+    fn update_progress_bar(&self, transfer_id: &str, bytes_sent: u64, total_bytes: u64);
+    fn file_progress_bar(&self, transfer_id: &str, file_name: &str, file_bytes_sent: u64, file_total_bytes: u64);
+    fn transfert_cancel(&self, transfer_id: &str);
+    fn transfert_completed(&self, transfer_id: &str);
+    fn transfert_received(&self, transfer_id: &str, peer: &str, bytes: u64, files: Vec<String>);
+    fn tranfert_error(&self, transfer_id: &str, error: &ToolError);
 }
 ```
 
-Dans `desktop-app/src-tauri/src/commands.rs`, la structure `TauriUI` implémente ce trait :
-- `log`, `peer_found`, `peer_lost` mettent à jour une liste partagée `Arc<Mutex<Vec<Peer>>>`
-- Les méthodes de progression QUIC (`transfer_progress`, `transfer_done`, `transfer_error`) seront ajoutées lors de l'implémentation du transfert
+Dans `desktop-app/src-tauri/src/commands.rs`, la structure `AppUI` implémente ce trait et émet des événements Tauri vers le frontend :
+- `peer_found`/`peer_lost` maintiennent une liste partagée `Arc<Mutex<Vec<Peer>>>` et émettent `tool://peer_found` / `tool://peer_lost`
+- Les méthodes de progression émettent `tool://transfer/start`, `tool://transfer/progress`, `tool://transfer/file_progress`, `tool://transfer/done`, `tool://transfer/cancel`, `tool://transfer/received`, `tool://transfer/error`
 
-Le frontend récupère la liste des pairs via la commande `get_peers` appelée toutes les 2s.
+Le frontend récupère la liste des pairs via la commande `get_peers` appelée toutes les 2s (polling), et s'abonne aux événements `tool://transfer/*` pour la progression.
 
 ---
 
@@ -106,14 +112,14 @@ Le frontend récupère la liste des pairs via la commande `get_peers` appelée t
 Connexion QUIC (TLS 1.3 intégré)
 │
 ├── Stream 1 : fichier "rapport.pdf"
-│   ├── Metadata JSON (rel_path, size, sha256, is_dir)
-│   ├── Chunks 1 Mo + Ack (chunk_index u32 BE)
-│   └── Complete JSON + FinalAck
+│   ├── Metadata JSON (transfer_id, rel_path, size, is_dir)
+│   ├── Chunks pipelinés (len u32 BE + data, 1 Mo max, pas d'ack)
+│   └── Marqueur COMPLETE + FinalAck
 │
 ├── Stream 2 : fichier "photos/vacances/img1.jpg"
 │   ├── Metadata JSON
-│   ├── Chunks 1 Mo + Ack
-│   └── Complete + FinalAck
+│   ├── Chunks pipelinés
+│   └── Marqueur COMPLETE + FinalAck
 │
 ├── Stream 3 : fichier "photos/vacances/img2.jpg" (en parallèle)
 │   └── ...
@@ -130,9 +136,11 @@ Connexion QUIC (TLS 1.3 intégré)
 Tokio Runtime
 │
 ├── Tâche broadcast + écoute UDP        (envoi TOOLE_DISCOVERY + réponse TOOLE_HERE)
-├── Tâche serveur QUIC (port 58200)     (connexions entrantes)
-├── Tâche client QUIC                   (connexions sortantes)
-└── Tâches streams QUIC (1 par fichier) (transfert en parallèle)
+├── Tâche récepteur QUIC (port 58200)   (démarrée au setup, écrit dans Downloads/Toolé)
+│   └── 1 tâche par connexion entrante  (handle_incoming_connection)
+│       └── 1 tâche par stream/fichier  (receive_one, en parallèle)
+├── Tâches émetteur (1 par envoi)       (send_files → start_sender)
+│   └── 1 tâche par fichier             (send_entry, sémaphore 2 en parallèle)
 ```
 
 ---
@@ -143,36 +151,48 @@ Tokio Runtime
 
 | Module | Responsabilité |
 |---|---|
-| `lib.rs` | Trait UI, type Peer, types TransferStatus |
+| `lib.rs` | Trait UI, type Peer, exports des modules |
 | `error.rs` | ToolError (IoError, Canceled, TransferError) |
-| `utils.rs` | current_hostname, local_ip |
+| `utils.rs` | current_hostname, local_ip, device_id (hostname + suffixe stable) |
 | `discovery.rs` | UDP broadcast (TOOLE_DISCOVERY / TOOLE_HERE), port 58199 |
-| `transfer.rs` | Transfert QUIC : serveur, client, streams, chunks, SHA-256 |
+| `file_certif.rs` | Certificat TLS auto-signé + SkipServerVerification (session unique) |
+| `transfer.rs` | Transfert QUIC : endpoints, streams, chunks pipelinés, UI throttle |
+| `sender.rs` | Côté émetteur : parcours des chemins, ouverture des streams en parallèle |
+| `recever.rs` | Côté récepteur : serveur QUIC (port 58200), écriture dans Downloads/Toolé |
 
 ### desktop-app/src-tauri/src/
 
 | Fichier | Responsabilité |
 |---|---|
 | `main.rs` | Point d'entrée, appelle `app_lib::run()` |
-| `lib.rs` | Builder Tauri : manage state, on_window_event, invoke_handler |
-| `commands.rs` | TauriUI + commandes : start_discovery, stop_discovery, get_hostname, get_peers, start_transfer, cancel_transfer |
+| `lib.rs` | Builder Tauri : manage state, invoke_handler, récepteur au démarrage |
+| `commands.rs` | AppUI + commandes : start_discovery, stop_discovery, get_hostname, get_device_id, get_peers, send_files, cancel_transfer, read_clipboard, close_window, get_file_infos |
 
 ### desktop-app/ui/
 
 | Fichier | Responsabilité |
-|---|---|---|
+|---|---|
 | `index.html` | Point d'entrée Vite |
-| `src/main.ts` | Bootstrap Vue 3 + Pinia |
-| `src/App.vue` | Root component, titlebar, layout, bouton Envoyer |
+| `src/main.ts` | Bootstrap Vue 3 + Pinia, thème système |
+| `src/App.vue` | Root component : navigation, envoi, découverte |
 | `src/style.css` | Thème glassmorphism dark + Tailwind v4 |
 | `src/types.ts` | Interfaces partagées (Peer, FileEntry) |
 | `src/tauri.ts` | Wrapper invoke Tauri |
-| `src/utils.ts` | Utilitaires (formatSize) |
+| `src/utils.ts` | Utilitaires (formatSize, extOf, fileVisual) |
 | `src/stores/peers.ts` | Store Pinia — liste des pairs + polling 2s |
 | `src/stores/files.ts` | Store Pinia — fichiers sélectionnés + tailles |
-| `src/components/WelcomeHeader.vue` | Logo, hostname, bouton À propos |
-| `src/components/FileDropZone.vue` | Dépôt fichiers, Ctrl+V, sélecteur natif |
+| `src/stores/transfers.ts` | Store Pinia — historique + progression, persistance localStorage |
+| `src/stores/settings.ts` | Store Pinia — thème (auto/sombre/clair) + halo couleur |
+| `src/components/HomePage.vue` | Accueil + zone de dépôt |
+| `src/components/FileDropZone.vue` | Dépôt fichiers, Ctrl+V, sélecteur natif, drag & drop Tauri |
 | `src/components/PeerList.vue` | Liste des pairs, sélection individuelle/groupée |
+| `src/components/TransferPage.vue` | Page des transferts en cours |
+| `src/components/TransferList.vue` | Cartes de transfert (barre, débit, annuler) |
+| `src/components/HistoryPage.vue` | Historique des transferts terminés |
+| `src/components/SettingsPage.vue` | Paramètres (thème, halo) |
+| `src/components/SidebarNav.vue` | Barre latérale de navigation |
+| `src/components/TitleBar.vue` | Titlebar custom (drag, min, close, détection macOS) |
+| `src/components/Icon.vue` | Icônes SVG chargées depuis assets/icons |
 | `src/components/AboutModal.vue` | Modale À propos glassmorph |
 
 ### Fenêtre et permissions
@@ -185,7 +205,8 @@ La fenêtre Tauri est configurée sans décoration native (`decorations: false`)
 |---|---|
 | `read_clipboard` | Lit le presse-papier système via `arboard` (Ctrl+V) |
 | `close_window` | Ferme la fenêtre (fallback) |
-| `get_file_sizes` | Retourne la taille des fichiers en octets |
+| `get_file_infos` | Retourne taille et type (fichier/dossier) de chaque chemin |
+| `cancel_transfer` | Annule un transfert par son id (stop flag + abort) |
 
 ---
 
