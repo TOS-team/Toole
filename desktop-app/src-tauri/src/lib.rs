@@ -25,7 +25,7 @@ pub fn run() {
             commands::cancel_transfer,
             commands::read_clipboard,
             commands::close_window,
-            commands::get_file_sizes,
+            commands::get_file_infos,
         ])
         .setup(|app| {
             let window = app.get_webview_window("main").unwrap();

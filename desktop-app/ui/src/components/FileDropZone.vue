@@ -5,7 +5,8 @@ import { getCurrentWebview } from "@tauri-apps/api/webview";
 import { invoke } from "../tauri";
 import { useFilesStore } from "../stores/files";
 import type { FileEntry } from "../types";
-import { formatSize } from "../utils";
+import { formatSize, fileVisual } from "../utils";
+import { convertFileSrc } from "@tauri-apps/api/core";
 import Icon from "./Icon.vue";
 
 const props = defineProps<{ compact?: boolean }>();
@@ -159,15 +160,30 @@ onUnmounted(() => {
 
     <ul
       v-if="filesStore.files.length"
-      class="relative z-10 w-full flex flex-col gap-2 overflow-y-auto pr-1 mb-5 max-h-[150px]"
+      class="relative z-10 w-full flex-1 min-h-0 flex flex-col gap-2 overflow-y-auto pr-1 mb-5"
     >
       <li
         v-for="f in filesStore.files"
         :key="f.path"
         class="flex items-center gap-2.5 px-3 py-2 text-[13px] bg-surface-container-high border border-outline rounded-lg"
       >
+        <span v-if="f.isDir" class="shrink-0 w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
+          <Icon name="folder" :size="20" class="text-primary" />
+        </span>
+        <span v-else-if="fileVisual(f.name).thumb" class="shrink-0 w-8 h-8 rounded-lg overflow-hidden bg-surface border border-outline flex items-center justify-center">
+          <img
+            :src="convertFileSrc(f.path)"
+            :alt="f.name"
+            class="w-full h-full object-cover"
+            loading="lazy"
+            draggable="false"
+          />
+        </span>
+        <span v-else class="shrink-0 w-8 h-8 rounded-lg bg-surface/60 flex items-center justify-center">
+          <Icon :name="fileVisual(f.name).icon" :size="20" class="text-on-surface-variant" />
+        </span>
         <span class="flex-1 truncate text-on-surface">{{ f.name }}</span>
-        <span v-if="f.size != null" class="text-[11px] text-on-surface-variant shrink-0">
+        <span v-if="!f.isDir && f.size != null" class="text-[11px] text-on-surface-variant shrink-0">
           {{ formatSize(f.size) }}
         </span>
         <button

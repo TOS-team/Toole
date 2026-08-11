@@ -218,13 +218,22 @@ pub fn close_window(window: tauri::Window) -> Result<(), String> {
 }
 
 #[tauri::command]
-pub fn get_file_sizes(paths: Vec<String>) -> Result<Vec<u64>, String> {
+pub fn get_file_infos(paths: Vec<String>) -> Result<Vec<FileInfo>, String> {
     paths
         .iter()
         .map(|p| {
             std::fs::metadata(p)
-                .map(|m| m.len())
+                .map(|m| FileInfo {
+                    size: if m.is_file() { m.len() } else { 0 },
+                    is_dir: m.is_dir(),
+                })
                 .map_err(|e| format!("Erreur {p}: {e}"))
         })
         .collect()
+}
+
+#[derive(serde::Serialize)]
+pub struct FileInfo {
+    pub size: u64,
+    pub is_dir: bool,
 }

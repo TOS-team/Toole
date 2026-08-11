@@ -22,12 +22,16 @@ export const useFilesStore = defineStore("files", () => {
     const paths = files.value.map((f) => f.path);
     if (!paths.length) return;
     try {
-      const sizes = await invoke<number[]>("get_file_sizes", { paths });
+      const infos = await invoke<{ size: number; is_dir: boolean }[]>(
+        "get_file_infos",
+        { paths },
+      );
       for (let i = 0; i < files.value.length; i++) {
-        files.value[i].size = sizes[i];
+        files.value[i].size = infos[i].size;
+        files.value[i].isDir = infos[i].is_dir;
       }
     } catch (e) {
-      console.error("get_file_sizes error:", e);
+      console.error("get_file_infos error:", e);
     }
   }
 
