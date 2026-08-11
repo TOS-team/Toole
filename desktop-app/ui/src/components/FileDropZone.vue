@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted } from "vue";
 import { open } from "@tauri-apps/plugin-dialog";
-import { listen } from "@tauri-apps/api/event";
+import { getCurrentWebview } from "@tauri-apps/api/webview";
 import { invoke } from "../tauri";
 import { useFilesStore } from "../stores/files";
 import type { FileEntry } from "../types";
@@ -107,22 +107,30 @@ function onPaste(e: ClipboardEvent) {
   dropHint.value = false;
 }
 
-// ecoute l'evenement Tauri pour les fichiers glisses-deposes
+// ecoute le drag-and-drop natif Tauri (v2) pour recup les chemins des fichiers
 let unlisten: (() => void) | null = null;
 
 onMounted(async () => {
   document.addEventListener("paste", onPaste);
   document.addEventListener("keydown", onKeydown);
 
-  unlisten = await listen<string[]>("dropped-files", (event) => {
-    const paths = event.payload;
-    if (!paths || !paths.length) return;
-    const entries: FileEntry[] = paths.map((p) => ({
-      path: p,
-      name: p.split("/").pop() || p.split("\\").pop() || p,
-    }));
-    filesStore.addFiles(entries);
-    dropHint.value = false;
+  unlisten = await getCurrentWebview().onDragDropEvent((event) => {
+    const { payload } = event;
+    if (payload.type === "enter" || payload.type === "over") {
+      isDragOver.value = true;
+    } else if (payload.type === "leave") {
+      isDragOver.value = false;
+    } else if (payload.type === "drop") {
+      isDragOver.value = false;
+      const paths = payload.paths || [];
+      if (!paths.length) return;
+      const entries: FileEntry[] = paths.map((p) => ({
+        path: p,
+        name: p.split("/").pop() || p.split("\\").pop() || p,
+      }));
+      filesStore.addFiles(entries);
+      dropHint.value = false;
+    }
   });
 });
 
@@ -175,6 +183,7 @@ onUnmounted(() => {
     </ul>
 
     <div
+      v-else
       class="relative z-10 flex-1 flex flex-col items-center justify-center text-center"
     >
       <div
