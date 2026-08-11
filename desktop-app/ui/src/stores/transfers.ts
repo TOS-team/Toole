@@ -88,6 +88,21 @@ export const useTransfersStore = defineStore('transfers', () => {
         speed: 'Erreur',
       })
     })
+
+    await listen<{ transfer_id: string; peer: string; bytes: number; files: string[] }>(
+      'tool://transfer/received',
+      (event) => {
+        upsert(event.payload.transfer_id, {
+          status: 'done',
+          percent: 100,
+          bytesSent: event.payload.bytes,
+          totalBytes: event.payload.bytes,
+          speed: 'Terminé',
+          peer: event.payload.peer,
+          files: event.payload.files,
+        })
+      },
+    )
   }
 
   const activeCount = computed(() => transfers.value.filter(t => t.status === 'running').length)

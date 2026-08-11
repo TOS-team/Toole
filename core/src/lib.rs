@@ -41,6 +41,9 @@ pub trait UI: Send + Sync {
     // quand un transfert est termine avec succes
     fn transfert_completed(&self, transfer_id: &str);
 
+    // quand des fichiers ont ete recus par ce device
+    fn transfert_received(&self, transfer_id: &str, peer: &str, bytes: u64, files: Vec<String>);
+
     // quand une erreur survient pendant un transfert
     fn tranfert_error(&self, transfer_id: &str, error: &ToolError);
 }

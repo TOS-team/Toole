@@ -62,6 +62,16 @@ impl UI for AppUI {
         let _ = self.window.emit("tool://transfer/done", transfer_id);
     }
 
+    fn transfert_received(&self, transfer_id: &str, peer: &str, bytes: u64, files: Vec<String>) {
+        let payload = serde_json::json!({
+            "transfer_id": transfer_id,
+            "peer": peer,
+            "bytes": bytes,
+            "files": files
+        });
+        let _ = self.window.emit("tool://transfer/received", payload);
+    }
+
     fn tranfert_error(&self, transfer_id: &str, error: &ToolError) {
         let payload = serde_json::json!({
             "transfer_id": transfer_id,

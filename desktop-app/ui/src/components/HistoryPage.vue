@@ -66,7 +66,7 @@ function transferredSize(t: Transfer): string {
         class="flex items-center gap-1.5 text-label-sm font-label-sm text-on-surface-variant hover:text-error transition-colors px-2 py-1 rounded-lg cursor-pointer"
         @click="store.clearHistory()"
       >
-        <Icon name="refresh" :size="14" />
+        <Icon name="delete" :size="14" />
         Tout effacer
       </button>
     </header>
@@ -109,6 +109,15 @@ function transferredSize(t: Transfer): string {
             <span class="text-[11px] text-on-surface-variant" :title="dateLabel(t.startTime)">
               {{ timeLabel(t.startTime) }}
             </span>
+            <button
+              type="button"
+              title="Supprimer cette entrée"
+              aria-label="Supprimer cette entrée"
+              class="text-on-surface-variant hover:text-error transition-colors cursor-pointer mt-1"
+              @click="store.remove(t.id)"
+            >
+              <Icon name="delete" :size="16" />
+            </button>
           </div>
         </div>
       </div>

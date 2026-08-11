@@ -90,11 +90,13 @@ pub fn make_client_endpoint() -> Result<Endpoint, ToolError> {
     Ok(endpoint)
 }
 
-/// ← CORRECTION : timeout sur accept_bi pour rester réactif au signal stop
+/// reçoit un lot de fichiers sur cette connexion et remonte la liste des fichiers recus
 pub async fn handle_incoming_connection(
     connection: Connection,
     dest_dir: PathBuf,
     stop: Arc<AtomicBool>,
+    files: Arc<Mutex<Vec<String>>>,
+    bytes: Arc<AtomicU64>,
 ) -> Result<(), ToolError> {
     loop {
         if stop.load(Ordering::Relaxed) {
@@ -105,8 +107,10 @@ pub async fn handle_incoming_connection(
         match tokio::time::timeout(Duration::from_secs(1), connection.accept_bi()).await {
             Ok(Ok((send, recv))) => {
                 let dest_dir = dest_dir.clone();
+                let files = files.clone();
+                let bytes = bytes.clone();
                 tokio::spawn(async move {
-                    if let Err(e) = receive_one(send, recv, &dest_dir).await {
+                    if let Err(e) = receive_one(send, recv, &dest_dir, files, bytes).await {
                         eprintln!("Erreur reception fichier: {e}");
                     }
                 });
@@ -119,13 +123,20 @@ pub async fn handle_incoming_connection(
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 async fn receive_one(
     mut send: SendStream,
     mut recv: RecvStream,
     dest_dir: &Path,
+    files: Arc<Mutex<Vec<String>>>,
+    bytes: Arc<AtomicU64>,
 ) -> Result<(), ToolError> {
     let metadata = read_json_line::<Metadata>(&mut recv).await?;
     let full_path = dest_dir.join(&metadata.rel_path);
+    let name = Path::new(&metadata.rel_path)
+        .file_name()
+        .map(|f| f.to_string_lossy().to_string())
+        .unwrap_or_else(|| metadata.rel_path.clone());
 
     if let Some(parent) = full_path.parent() {
         fs::create_dir_all(parent).await?;
@@ -135,6 +146,7 @@ async fn receive_one(
         fs::create_dir_all(&full_path).await?;
         send.write_all(&[ACK]).await?;
         send.finish()?;
+        files.lock().unwrap().push(name);
         return Ok(());
     }
 
@@ -181,9 +193,12 @@ async fn receive_one(
     } else {
         send.write_all(&[REJECT]).await?;
         let _ = fs::remove_file(&full_path).await;
+        return Err(io_err("hash invalide, fichier rejete"));
     }
 
     send.finish()?;
+    bytes.fetch_add(received, Ordering::Relaxed);
+    files.lock().unwrap().push(name);
     Ok(())
 }
 
