@@ -67,7 +67,7 @@ pub trait UI: Send + Sync {
     fn transfert_cancel(&self, transfer_id: &str);
     fn transfert_completed(&self, transfer_id: &str);
     fn transfert_received(&self, transfer_id: &str, peer: &str, bytes: u64, files: Vec<String>);
-    fn tranfert_error(&self, transfer_id: &str, error: &ToolError);
+    fn transfert_error(&self, transfer_id: &str, error: &ToolError);
 }
 ```
 
@@ -158,7 +158,7 @@ Tokio Runtime
 | `file_certif.rs` | Certificat TLS auto-signé + SkipServerVerification (session unique) |
 | `transfer.rs` | Transfert QUIC : endpoints, streams, chunks pipelinés, UI throttle |
 | `sender.rs` | Côté émetteur : parcours des chemins, ouverture des streams en parallèle |
-| `recever.rs` | Côté récepteur : serveur QUIC (port 58200), écriture dans Downloads/Toolé |
+| `receiver.rs` | Côté récepteur : serveur QUIC (port 58200), écriture dans Downloads/Toolé |
 
 ### desktop-app/src-tauri/src/
 
@@ -166,7 +166,7 @@ Tokio Runtime
 |---|---|
 | `main.rs` | Point d'entrée, appelle `app_lib::run()` |
 | `lib.rs` | Builder Tauri : manage state, invoke_handler, récepteur au démarrage |
-| `commands.rs` | AppUI + commandes : start_discovery, stop_discovery, get_hostname, get_device_id, get_peers, send_files, cancel_transfer, read_clipboard, close_window, get_file_infos |
+| `commands.rs` | AppUI + commandes : start_discovery, stop_discovery, get_device_id, get_peers, send_files, cancel_transfer, read_clipboard, get_file_infos |
 
 ### desktop-app/ui/
 
@@ -204,7 +204,6 @@ La fenêtre Tauri est configurée sans décoration native (`decorations: false`)
 | Commande | Rôle |
 |---|---|
 | `read_clipboard` | Lit le presse-papier système via `arboard` (Ctrl+V) |
-| `close_window` | Ferme la fenêtre (fallback) |
 | `get_file_infos` | Retourne taille et type (fichier/dossier) de chaque chemin |
 | `cancel_transfer` | Annule un transfert par son id (stop flag + abort) |
 

@@ -35,7 +35,7 @@ Le code est découpé en deux crates et une app :
 | `discovery.rs` | Écoute/broadcast UDP 58199, gestion du timeout des pairs |
 | `transfer.rs` | Endpoints QUIC, protocole par stream, chunks pipelinés |
 | `sender.rs` | Émetteur : collecte des chemins, envoi en parallèle (max 2) |
-| `recever.rs` | Récepteur QUIC 58200 → écrit les fichiers dans `Téléchargements/Toolé` |
+| `receiver.rs` | Récepteur QUIC 58200 → écrit les fichiers dans `Téléchargements/Toolé` |
 | `file_certif.rs` | Certificat TLS auto-signé persistant + vérification désactivée |
 | `utils.rs` | `device_id` stable (hostname + suffixe Crockford) |
 | `error.rs` | Type `ToolError` |
@@ -74,7 +74,7 @@ chaque méthode en **événement** `tool://*` émis vers la webview.
 | `transfert_cancel(id)` | `tool://transfer/cancel` |
 | `transfert_completed(id)` | `tool://transfer/done` |
 | `transfert_received(...)` | `tool://transfer/received` |
-| `tranfert_error(id, err)` | `tool://transfer/error` |
+| `transfert_error(id, err)` | `tool://transfer/error` |
 | `log(msg)` | `tool://log` |
 
 Le frontend s'abonne à ces événements dans les stores (`transfers.ts`,

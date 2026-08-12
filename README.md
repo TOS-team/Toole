@@ -24,8 +24,11 @@ Toolé est un logiciel de transfert de fichiers entre deux machines sur le même
 
 ## Plateformes
 
-- **Linux** — disponible
-- **Windows** — à venir
+- **Linux** — `.deb`, `.rpm`, `.AppImage`
+- **macOS** — `.dmg` (build non notarié)
+- **Windows** — `.msi`, `-setup.exe`
+
+Les paquets sont publiés à chaque release sur la page [Releases](https://github.com/TOS-team/Toole/releases).
 
 ---
 
