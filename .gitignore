@@ -15,7 +15,6 @@ Thumbs.db
 *~
 .idea/
 .vscode/
-AGENTS.md
 Cargo.lock
 
 # comptes de service Firebase (secrets, jamais à committer)
