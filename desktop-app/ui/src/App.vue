@@ -58,7 +58,6 @@ async function sendFiles() {
           peerAddr,
         });
         transfersStore.upsert(transferId, { peer: peer.id, files: names });
-        console.log("Transfert démarré vers", peer.id, ":", transferId);
       } catch (e) {
         sendError.value = `Envoi vers ${peer.id} : ${e}`;
         console.error("Erreur envoi vers", peer.id, ":", e);
@@ -67,8 +66,6 @@ async function sendFiles() {
   }
   view.value = "transfers";
 }
-
-
 
 // au montage je récupère l'identité de la machine, je démarre la découverte
 // des appareils et je m'abonne aux événements du processus Rust
@@ -133,7 +130,7 @@ window.addEventListener("beforeunload", () => {
       }"
     ></div>
 
-    <SidebarNav :hostname="deviceId" :active="view" @navigate="view = $event" />
+    <SidebarNav :active="view" @navigate="view = $event" />
 
       <main
         class="flex-1 min-w-0 flex flex-col relative z-10 overflow-hidden rounded-2xl border border-outline-variant bg-surface-container-lowest active-shadow"

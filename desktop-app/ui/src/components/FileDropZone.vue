@@ -12,8 +12,6 @@ import { formatSize, fileVisual } from "../utils";
 import { convertFileSrc } from "@tauri-apps/api/core";
 import Icon from "./Icon.vue";
 
-const props = defineProps<{ compact?: boolean }>();
-
 const filesStore = useFilesStore();
 const isDragOver = ref(false);
 const dropHint = ref(true);
@@ -151,7 +149,7 @@ onUnmounted(() => {
   <div
     class="flex flex-col glass-panel rounded-2xl border border-dashed border-outline-variant hover:border-primary/50 transition-all duration-300 cursor-pointer group relative overflow-hidden bg-surface/30"
     :class="[
-      props.compact ? 'p-3' : 'p-5 md:p-8',
+      'p-5 md:p-8',
       { '!border-primary !bg-primary/10': isDragOver },
     ]"
     @click="pickFiles"
@@ -208,7 +206,6 @@ onUnmounted(() => {
       class="relative z-10 flex-1 flex flex-col items-center justify-center text-center"
     >
       <div
-        v-if="!props.compact"
         class="h-20 w-20 rounded-2xl bg-surface-container-high border border-outline flex items-center justify-center mb-6 group-hover:scale-105 group-hover:border-primary/30 group-hover:shadow-[0_0_15px_color:color-mix(in_srgb,var(--color-primary)_20%,transparent)] transition-all duration-300 relative"
       >
         <Icon name="upload-file" :size="32" class="text-on-surface group-hover:text-primary transition-colors" />
@@ -219,11 +216,11 @@ onUnmounted(() => {
         </div>
       </div>
       <h2 class="text-headline-md font-headline-md text-on-background mb-3">
-        {{ props.compact ? "Fichiers à envoyer" : "Déposer des fichiers ici" }}
+        Déposer des fichiers ici
       </h2>
       <p class="text-body-md font-body-md text-on-surface-variant max-w-sm">
-        {{ props.compact ? "Cliquez pour ajouter" : "ou parcourir pour sélectionner." }}
-        <span v-if="!props.compact" class="text-label-sm text-primary/80 mt-2 block">Chiffrement de bout en bout activé</span>
+        ou parcourir pour sélectionner.
+        <span class="text-label-sm text-primary/80 mt-2 block">Chiffrement de bout en bout activé</span>
       </p>
     </div>
   </div>

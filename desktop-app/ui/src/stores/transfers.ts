@@ -111,10 +111,11 @@ export const useTransfersStore = defineStore('transfers', () => {
     { deep: true },
   )
 
-  // je formate un débit octets/seconde pour l'afficher dans la liste
+  // je formate un débit octets/seconde en unités décimales (×1000), comme
+  // formatSize, pour une métrique cohérente sur toute l'interface
   function formatSpeed(bytesPerSec: number): string {
-    if (bytesPerSec > 1_048_576) return `${(bytesPerSec / 1_048_576).toFixed(1)} Mo/s`
-    if (bytesPerSec > 1024) return `${(bytesPerSec / 1024).toFixed(1)} Ko/s`
+    if (bytesPerSec > 1000 * 1000) return `${(bytesPerSec / (1000 * 1000)).toFixed(1)} Mo/s`
+    if (bytesPerSec > 1000) return `${(bytesPerSec / 1000).toFixed(1)} Ko/s`
     return `${bytesPerSec.toFixed(0)} o/s`
   }
 

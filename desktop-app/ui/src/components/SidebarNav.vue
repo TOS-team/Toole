@@ -3,7 +3,7 @@
 // paramètres en bas. J'émets `navigate` quand l'utilisateur clique.
 import Icon from "./Icon.vue";
 
-defineProps<{ hostname: string; active: string }>();
+defineProps<{ active: string }>();
 const emit = defineEmits<{ (e: "navigate", id: string): void }>();
 
 const items = [

@@ -94,7 +94,7 @@ impl UI for AppUI {
         let _ = self.window.emit("tool://transfer/received", payload);
     }
 
-    fn tranfert_error(&self, transfer_id: &str, error: &ToolError) {
+    fn transfert_error(&self, transfer_id: &str, error: &ToolError) {
         let payload = serde_json::json!({
             "transfer_id": transfer_id,
             "error": error.to_string()
@@ -136,7 +136,10 @@ pub async fn start_discovery(
 
     let local_ip = toole_core::utils::local_ip();
     let peers = state.peers.clone();
-    let ui: Arc<dyn UI> = Arc::new(AppUI { peers, window: window.clone() });
+    let ui: Arc<dyn UI> = Arc::new(AppUI {
+        peers,
+        window: window.clone(),
+    });
 
     tokio::spawn(async move {
         if let Err(e) = toole_core::discovery::start_discovery(local_ip, stop, ui).await {
@@ -212,11 +215,6 @@ pub async fn cancel_transfer(
 // ───────────────────────────────────────────────
 
 #[tauri::command]
-pub fn get_hostname() -> String {
-    toole_core::utils::current_hostname()
-}
-
-#[tauri::command]
 pub fn get_device_id() -> String {
     toole_core::utils::device_id()
 }
@@ -232,11 +230,6 @@ pub fn read_clipboard() -> Result<String, String> {
     let mut cb = arboard::Clipboard::new().map_err(|e| format!("Clipboard error: {e}"))?;
     cb.get_text()
         .map_err(|e| format!("Clipboard read error: {e}"))
-}
-
-#[tauri::command]
-pub fn close_window(window: tauri::Window) -> Result<(), String> {
-    window.close().map_err(|e| e.to_string())
 }
 
 #[tauri::command]
