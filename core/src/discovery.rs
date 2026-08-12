@@ -49,11 +49,10 @@ pub async fn start_discovery(
 ) -> Result<(), ToolError> {
     let socket = Arc::new(UdpSocket::bind(format!("0.0.0.0:{DISCOVERY_PORT}")).await?);
     socket.set_broadcast(true)?;
+    ui.log(&format!("Decouverte demarree sur le port {DISCOVERY_PORT}"));
 
     let targets = broadcast_targets();
-    let me: IpAddr = local_ip
-        .parse()
-        .unwrap_or_else(|_| IpAddr::V4(Ipv4Addr::LOCALHOST));
+    let me: IpAddr = local_ip.parse().unwrap_or(IpAddr::V4(Ipv4Addr::LOCALHOST));
 
     let my_id = crate::utils::device_id();
     let mut last_seen: HashMap<String, Instant> = HashMap::new();

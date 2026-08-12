@@ -3,7 +3,7 @@ pub mod error;
 pub use error::ToolError;
 pub mod discovery;
 pub mod file_certif;
-pub mod recever;
+pub mod receiver;
 pub mod sender;
 pub mod transfer;
 pub mod utils;
@@ -54,5 +54,5 @@ pub trait UI: Send + Sync {
     fn transfert_received(&self, transfer_id: &str, peer: &str, bytes: u64, files: Vec<String>);
 
     // quand une erreur survient pendant un transfert
-    fn tranfert_error(&self, transfer_id: &str, error: &ToolError);
+    fn transfert_error(&self, transfer_id: &str, error: &ToolError);
 }

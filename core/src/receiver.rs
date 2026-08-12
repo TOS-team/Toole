@@ -43,8 +43,7 @@ pub async fn start_receiver(
                     ));
 
                     // l'id du transfert est donne par l'emetteur (lu dans le metadata)
-                    let transfer_id: Arc<Mutex<Option<String>>> =
-                        Arc::new(Mutex::new(None));
+                    let transfer_id: Arc<Mutex<Option<String>>> = Arc::new(Mutex::new(None));
                     let total = Arc::new(AtomicU64::new(0));
                     let files = Arc::new(Mutex::new(Vec::new()));
                     let bytes = Arc::new(AtomicU64::new(0));
@@ -70,10 +69,8 @@ pub async fn start_receiver(
                         .unwrap_or_else(|| uuid::Uuid::new_v4().to_string());
                     if let Err(e) = res {
                         eprintln!("Erreur connexion receveur: {e}");
-                        let err: ToolError = crate::transfer::io_err(format!(
-                            "reception: {e}"
-                        ));
-                        ui.tranfert_error(&tid, &err);
+                        let err: ToolError = crate::transfer::io_err(format!("reception: {e}"));
+                        ui.transfert_error(&tid, &err);
                     } else {
                         ui.transfert_received(&tid, &peer, total, received);
                     }

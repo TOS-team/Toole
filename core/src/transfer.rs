@@ -2,8 +2,7 @@ use crate::file_certif::{certificat, SkipServerVerification};
 use crate::{ToolError, UI};
 use quinn::{ClientConfig, Connection, Endpoint, RecvStream, SendStream, ServerConfig};
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
-use std::io::{Error as IoError, ErrorKind};
+use std::io::Error as IoError;
 use std::net::SocketAddr;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
@@ -13,24 +12,6 @@ use std::time::{Duration, Instant};
 use tokio::fs;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::task::JoinHandle;
-
-pub struct Transfer {
-    pub cancel_handle: Mutex<HashMap<String, JoinHandle<()>>>,
-}
-
-impl Transfer {
-    pub fn new() -> Self {
-        Transfer {
-            cancel_handle: Mutex::new(HashMap::new()),
-        }
-    }
-}
-
-impl Default for Transfer {
-    fn default() -> Self {
-        Self::new()
-    }
-}
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Metadata {
@@ -47,14 +28,15 @@ const PORT: u16 = 58200;
 
 /// limite les emissions de progression UI a ~20/s : le webview n'a pas besoin
 /// de 190 evenements/s et chaque IPC coûte cher en boucle serree
-/// je l'expose en pub pour pouvoir le tester unitairement dans le crate tests/
-pub struct UiThrottle {
+struct UiThrottle {
     last: Instant,
 }
 
 impl UiThrottle {
     fn new() -> Self {
-        UiThrottle { last: Instant::now() }
+        UiThrottle {
+            last: Instant::now(),
+        }
     }
 
     /// true si au moins 50ms se sont ecoulees depuis la derniere emission
@@ -69,7 +51,7 @@ impl UiThrottle {
 }
 
 pub fn io_err<E: std::fmt::Display>(e: E) -> ToolError {
-    IoError::new(ErrorKind::Other, e.to_string()).into()
+    IoError::other(e.to_string()).into()
 }
 
 pub async fn make_server_endpoint() -> Result<Endpoint, ToolError> {
@@ -154,7 +136,10 @@ pub async fn handle_incoming_connection(
                 let total = total.clone();
                 let had_error = had_error.clone();
                 handles.push(tokio::spawn(async move {
-                    if let Err(e) = receive_one(send, recv, &dest_dir, files, bytes, ui, transfer_id, total).await {
+                    if let Err(e) =
+                        receive_one(send, recv, &dest_dir, files, bytes, ui, transfer_id, total)
+                            .await
+                    {
                         // je marque l'échec pour que la connexion soit
                         // signalée en erreur (pas comme un transfert reçu)
                         had_error.store(true, Ordering::Relaxed);
@@ -211,13 +196,13 @@ async fn receive_one(
     // l'id du transfert vient de l'emetteur pour que les deux appareils
     // affichent la meme progression sous le meme id
     {
-        let mut tid = transfer_id.lock().unwrap();
+        let mut tid = transfer_id.lock().unwrap_or_else(|e| e.into_inner());
         if tid.is_none() {
             *tid = Some(metadata.transfer_id.clone());
             ui.show_progress_bar(&metadata.transfer_id);
         }
     }
-    let tid = transfer_id.lock().unwrap().clone().unwrap_or_default();
+    let tid = transfer_id.lock().unwrap_or_else(|e| e.into_inner()).clone().unwrap_or_default();
 
     if metadata.is_dir {
         fs::create_dir_all(&full_path).await?;
@@ -259,7 +244,9 @@ async fn receive_one(
     let mut complete = [0u8; 1];
     recv.read_exact(&mut complete).await?;
     if complete[0] != COMPLETE {
-        return Err(io_err("fin de fichier inattendue (protocole desynchronise)"));
+        return Err(io_err(
+            "fin de fichier inattendue (protocole desynchronise)",
+        ));
     }
     send.write_all(&[ACK]).await?;
 
@@ -326,7 +313,11 @@ pub fn collect_entries<'a>(
         Ok(())
     })
 }
-/// ← CORRECTION : retry applicatif supprimé — QUIC gère déjà la fiabilité
+
+/// envoie un fichier ou dossier dans la connexion QUIC établie : les paquets
+/// sont fiables grâce à QUIC (pas de retry applicatif), je copie le contenu en
+/// blocs et je signale la progression via l'interface UI.
+#[allow(clippy::too_many_arguments)]
 pub async fn send_entry(
     connection: Connection,
     abs_path: PathBuf,

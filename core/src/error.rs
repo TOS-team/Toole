@@ -14,9 +14,6 @@ pub enum ToolError {
     #[error("QUIC error: {0}")]
     QuinnError(String),
 
-    #[error("Transfer cancelled")]
-    Cancelled,
-
     #[error("Transfer error: {0}")]
     TransferError(String),
 
@@ -45,7 +42,7 @@ impl From<quinn::ReadError> for ToolError {
     }
 }
 
-// ← CORRECTION : quinn::ReadExactError (pas tokio::io::ReadExactError)
+// quinn::ReadExactError (pas tokio::io::ReadExactError)
 impl From<quinn::ReadExactError> for ToolError {
     fn from(e: quinn::ReadExactError) -> Self {
         ToolError::QuinnError(e.to_string())

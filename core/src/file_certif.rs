@@ -79,18 +79,12 @@ pub async fn certificat() -> Result<(String, String), ToolError> {
     ];
 
     let key_pair = KeyPair::generate_for(&rcgen::PKCS_ECDSA_P256_SHA256).map_err(|e| {
-        ToolError::IoError(std::io::Error::new(
-            std::io::ErrorKind::Other,
-            format!("key generation failed: {e}"),
-        ))
+        ToolError::IoError(std::io::Error::other(format!("key generation failed: {e}")))
     })?;
 
-    let cert = params.self_signed(&key_pair).map_err(|e| {
-        ToolError::IoError(std::io::Error::new(
-            std::io::ErrorKind::Other,
-            format!("self-sign failed: {e}"),
-        ))
-    })?;
+    let cert = params
+        .self_signed(&key_pair)
+        .map_err(|e| ToolError::IoError(std::io::Error::other(format!("self-sign failed: {e}"))))?;
 
     let cert_pem = cert.pem();
     let key_pem = key_pair.serialize_pem();
@@ -107,7 +101,7 @@ fn data_file() -> Result<(PathBuf, PathBuf), ToolError> {
     let data_dir = proj_dirs.data_dir();
     std::fs::create_dir_all(data_dir)?;
 
-    // ← CORRECTION : créer aussi le sous-dossier certs
+    // je créé aussi le sous-dossier certs
     let cert_dir = data_dir.join("certs");
     std::fs::create_dir_all(&cert_dir)?;
 

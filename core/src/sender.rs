@@ -79,7 +79,7 @@ pub async fn start_sender(
     if stop.load(Ordering::Relaxed) {
         ui.transfert_cancel(&transfer_id);
     } else if had_error {
-        ui.tranfert_error(&transfer_id, &io_err("un ou plusieurs fichiers ont echoue"));
+        ui.transfert_error(&transfer_id, &io_err("un ou plusieurs fichiers ont echoue"));
     } else {
         ui.transfert_completed(&transfer_id);
     }
