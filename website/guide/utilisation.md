@@ -25,8 +25,6 @@ droite.
 L'identifiant d'un appareil (`device_id`) est **stable** : il combine le nom de
 la machine et un suffixe court (base32 Crockford) généré une fois puis stocké.
 
-![Découverte](images/decouverte.png)
-
 ### Rafraîchir
 
 Cliquez sur l'icône **rafraîchir** (à côté de « Appareils (n) ») pour relancer
@@ -81,8 +79,6 @@ Sur la page Transferts, chaque transfert affiche :
 - le **débit** en temps réel (o/s, Ko/s ou Mo/s),
 - des **mini-barres par fichier** pour les transferts multi-fichiers.
 
-![Transfert](images/transfert.png)
-
 ### Annuler
 
 Cliquez sur le bouton **✕** d'un transfert en cours pour l'annuler. L'annulation
@@ -112,8 +108,6 @@ La page **Historique** liste les transferts **terminés, annulés ou en échec**
 L'historique est **persisté** en local (localStorage, max 200 entrées) : il
 survit au redémarrage de l'application.
 
-![Historique](images/historique.png)
-
 ## Paramètres
 
 La page **Paramètres** permet de personnaliser l'interface :
@@ -129,8 +123,6 @@ La page **Paramètres** permet de personnaliser l'interface :
 - **Couleur de la lueur** : 8 teintes au choix (rouge, orange, jaune, vert,
   cyan, bleu, violet, rose). La couleur devient aussi la couleur d'accent de
   l'interface.
-
-![Paramètres](images/parametres.png)
 
 ### À propos
 

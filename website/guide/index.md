@@ -26,20 +26,6 @@ Internet, de façon chiffrée (QUIC/TLS 1.3).
    parcourir, ou `Ctrl+V`).
 5. **Cochez** un ou plusieurs appareils puis cliquez sur **Transférer**.
 
-> Les captures d'écran sont dans [`images/`](images/) — [voir la liste](#captures-décran).
-
-## Captures d'écran
-
-*(à ajouter)*
-
-| Capture | Description |
-|---|---|
-| `images/accueil.png` | Page d'accueil avec la zone de dépôt |
-| `images/decouverte.png` | Appareils détectés dans le panneau latéral |
-| `images/transfert.png` | Transfert en cours avec barres de progression |
-| `images/historique.png` | Page historique |
-| `images/parametres.png` | Page paramètres (thème + halo) |
-
 ---
 
 > Lire ensuite : [Utilisation complète](utilisation.md)
