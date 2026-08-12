@@ -58,8 +58,29 @@ export const useUpdaterStore = defineStore("updater", () => {
       status.value = asap ? "up-to-date" : "idle";
       return false;
     } catch (e) {
+      // si le check est silencieux (démarrage, panneau ouvert d'office), je ne
+      // remonte jamais d'erreur : un utilisateur hors-ligne ne doit rien voir.
+      if (!asap) {
+        status.value = "idle";
+        error.value = "";
+        return false;
+      }
+      // check explicite : je choisis un message lisible selon la cause
+      const msg = String(e).toLowerCase();
+      if (msg.includes("json")) {
+        error.value = "Aucune version publiée pour le moment.";
+      } else if (
+        msg.includes("network") ||
+        msg.includes("fetch") ||
+        msg.includes("reqwest") ||
+        msg.includes("timed out") ||
+        msg.includes("connection")
+      ) {
+        error.value = "Vérifie ta connexion internet puis réessaie.";
+      } else {
+        error.value = String(e);
+      }
       status.value = "error";
-      error.value = String(e);
       return false;
     }
   }
