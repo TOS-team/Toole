@@ -17,6 +17,8 @@
         "title": "Toolé",
         "width": 890,
         "height": 550,
+        "minWidth": 640,
+        "minHeight": 400,
         "resizable": true,
         "fullscreen": false,
         "decorations": false,
