@@ -1,5 +1,9 @@
 # Toolé
 
+<p align="center">
+  <img alt="Toolé" src="docs/banner.png" width="800"/>
+</p>
+
 Toolé est un logiciel de transfert de fichiers entre deux machines sur le même réseau local, sans Internet, sans clé USB, sans compte cloud. Un clic sur **Envoyer**, un clic sur **Recevoir**, et le transfert démarre.
 
 ![Licence](https://img.shields.io/github/license/TOS-team/Toole)
