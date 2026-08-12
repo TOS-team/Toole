@@ -8,6 +8,7 @@ import { invoke } from "./tauri";
 import { usePeersStore } from "./stores/peers";
 import { useFilesStore } from "./stores/files";
 import { useTransfersStore } from "./stores/transfers";
+import { useUpdaterStore } from "./stores/updater";
 import Icon from "./components/Icon.vue";
 import SidebarNav from "./components/SidebarNav.vue";
 import PeerList from "./components/PeerList.vue";
@@ -100,6 +101,9 @@ onMounted(async () => {
   } catch (e) {
     console.error("startListening error:", e);
   }
+  // je vérifie silencieusement les mises à jour au lancement : si une
+  // nouvelle version existe, l'utilisateur la verra dans Paramètres
+  useUpdaterStore().checkForUpdate(false).catch(console.error);
 });
 
 // je coupe le polling et la découverte quand je quitte

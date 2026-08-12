@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Guide Toolé</title>
+  <meta name="description" content="Guide complet de Toolé : prise en main, utilisation, dépannage et guide développeur.">
+  <link rel="icon" href="../assets/toole-sticker.png" type="image/png">
+  <link rel="stylesheet" href="assets/vue.css">
+  <style>
+    /* je calque les couleurs du site vitrine sur le thème docsify */
+    :root {
+      --theme-color: #ff0033;
+    }
+    .sidebar {
+      background: #0a0f18;
+    }
+    .markdown-section a {
+      color: #ff0033;
+    }
+    .markdown-section code {
+      color: #00e5e5;
+      background: rgba(255, 255, 255, 0.08);
+      border-radius: 6px;
+      padding: 1px 7px;
+    }
+  </style>
+</head>
+<body>
+  <div id="app">Chargement du guide…</div>
+  <script>
+    window.$docsify = {
+      name: 'Guide Toolé',
+      repo: 'https://github.com/TOS-team/Toole',
+      homepage: 'index.md',
+      loadSidebar: true,
+      subMaxLevel: 2,
+      search: 'auto',
+      auto2top: true,
+      themeColor: '#ff0033',
+      maxLevel: 4,
+    };
+  </script>
+  <script src="assets/docsify.min.js"></script>
+  <script src="assets/search.min.js"></script>
+</body>
+</html>

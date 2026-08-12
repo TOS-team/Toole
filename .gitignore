@@ -17,3 +17,6 @@ Thumbs.db
 .vscode/
 AGENTS.md
 Cargo.lock
+
+# comptes de service Firebase (secrets, jamais à committer)
+*firebase-adminsdk*.json

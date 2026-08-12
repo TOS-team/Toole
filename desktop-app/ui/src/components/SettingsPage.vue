@@ -3,6 +3,7 @@
 // halo. Je préviens App.vue quand l'utilisateur veut ouvrir la modale "à
 // propos".
 import { useSettingsStore, GLOW_COLORS, type ThemeMode } from "../stores/settings";
+import UpdatePanel from "./UpdatePanel.vue";
 
 const emit = defineEmits<{ (e: "open-about"): void }>();
 
@@ -132,7 +133,7 @@ function colorStyle(id: string) {
       <section
         class="bg-surface-container-high rounded-2xl border border-outline/50 p-5"
       >
-        <h2 class="text-label-sm font-label-sm text-on-surface-variant uppercase mb-4">
+        <h2 class="text-label-sm font-label-sm text-on-surface-variant uppercase mb-1">
           Au sujet de
         </h2>
         <button
@@ -143,6 +144,8 @@ function colorStyle(id: string) {
           À propos de Toolé
         </button>
       </section>
+
+      <UpdatePanel />
     </div>
   </div>
 </template>

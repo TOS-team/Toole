@@ -1,6 +1,6 @@
 [package]
 name = "app"
-version = "0.1.0"
+version = "2.0.0"
 description = "A Tauri App"
 authors = ["you"]
 license = ""
@@ -25,6 +25,7 @@ log = "0.4"
 tauri = { version = "2.11.5", features = ["protocol-asset", "macos-private-api"] }
 tauri-plugin-log = "2"
 tauri-plugin-dialog = "2"
+tauri-plugin-updater = "2"
 toole_core = { path = "../../core" }
 tokio = { version = "1", features = ["fs", "rt-multi-thread", "macros", "time", "sync", "net", "io-util"] }
 uuid = { version = "1", features = ["v4"] }

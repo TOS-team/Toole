@@ -1,0 +1,727 @@
+<!DOCTYPE html>
+
+<html class="scroll-smooth" lang="fr"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Toolé — Transfert de fichiers P2P sur réseau local</title>
+<meta content="Toolé transfère vos fichiers entre appareils voisins, en local, chiffré et sans passer par Internet. Gratuit, open source." name="description"/>
+<link href="assets/toole-sticker.png" rel="icon" type="image/png"/>
+<script src="vendor/tailwind.js"></script>
+<script src="vendor/three.min.js"></script>
+<link href="vendor/fonts.css" rel="stylesheet"/>
+<script>
+  tailwind.config = {
+    darkMode: "class",
+    theme: {
+      extend: {
+        "colors": {
+                "surface-bright": "#2d3a49",
+                "surface-variant": "#293644",
+                "on-tertiary": "#68000e",
+                "on-error-container": "#ffdad6",
+                "surface": "#061422",
+                "tertiary": "#ffb3af",
+                "primary": "#c3c6d1",
+                "inverse-primary": "#5b5e67",
+                "secondary-fixed-dim": "#00dbe7",
+                "secondary-fixed": "#74f5ff",
+                "on-primary-fixed": "#181c23",
+                "on-tertiary-fixed-variant": "#930019",
+                "on-secondary-fixed": "#002022",
+                "on-secondary-container": "#006a70",
+                "on-error": "#690005",
+                "surface-container-low": "#0f1d2a",
+                "tertiary-container": "#1b0001",
+                "outline-variant": "#45474b",
+                "on-background": "#d6e4f7",
+                "on-surface": "#d6e4f7",
+                "error-container": "#93000a",
+                "inverse-on-surface": "#243240",
+                "background": "#061422",
+                "surface-container-lowest": "#020f1c",
+                "on-primary-container": "#757882",
+                "surface-container-highest": "#293644",
+                "on-primary": "#2d3039",
+                "surface-tint": "#c3c6d1",
+                "inverse-surface": "#d6e4f7",
+                "outline": "#909095",
+                "surface-dim": "#061422",
+                "primary-fixed": "#e0e2ed",
+                "tertiary-fixed-dim": "#ffb3af",
+                "on-primary-fixed-variant": "#43474f",
+                "on-secondary-fixed-variant": "#004f54",
+                "primary-container": "#05080f",
+                "on-secondary": "#00363a",
+                "on-tertiary-fixed": "#410006",
+                "secondary-container": "#00f1fe",
+                "surface-container-high": "#1e2b39",
+                "surface-container": "#13212e",
+                "secondary": "#ddfcff",
+                "primary-fixed-dim": "#c3c6d1",
+                "on-tertiary-container": "#f10030",
+                "tertiary-fixed": "#ffdad8",
+                "on-surface-variant": "#c6c6cb",
+                "error": "#ffb4ab"
+        },
+        "borderRadius": {
+                "DEFAULT": "0.125rem",
+                "lg": "0.25rem",
+                "xl": "0.5rem",
+                "full": "0.75rem"
+        },
+        "spacing": {
+                "unit": "4px",
+                "margin-desktop": "64px",
+                "margin-mobile": "20px",
+                "gutter": "24px",
+                "section-gap": "128px"
+        },
+        "fontFamily": {
+                "display-xl": [
+                        "Inter"
+                ],
+                "body-md": [
+                        "Inter"
+                ],
+                "body-lg": [
+                        "Inter"
+                ],
+                "display-xl-mobile": [
+                        "Inter"
+                ],
+                "label-caps": [
+                        "JetBrains Mono"
+                ],
+                "headline-lg-mobile": [
+                        "Inter"
+                ],
+                "code-md": [
+                        "JetBrains Mono"
+                ],
+                "headline-lg": [
+                        "Inter"
+                ]
+        },
+        "fontSize": {
+                "display-xl": [
+                        "72px",
+                        {
+                                "lineHeight": "1.1",
+                                "letterSpacing": "-0.04em",
+                                "fontWeight": "800"
+                        }
+                ],
+                "body-md": [
+                        "16px",
+                        {
+                                "lineHeight": "1.6",
+                                "letterSpacing": "0em",
+                                "fontWeight": "400"
+                        }
+                ],
+                "body-lg": [
+                        "18px",
+                        {
+                                "lineHeight": "1.6",
+                                "letterSpacing": "0em",
+                                "fontWeight": "400"
+                        }
+                ],
+                "display-xl-mobile": [
+                        "40px",
+                        {
+                                "lineHeight": "1.1",
+                                "letterSpacing": "-0.04em",
+                                "fontWeight": "800"
+                        }
+                ],
+                "label-caps": [
+                        "12px",
+                        {
+                                "lineHeight": "1",
+                                "letterSpacing": "0.1em",
+                                "fontWeight": "700"
+                        }
+                ],
+                "headline-lg-mobile": [
+                        "32px",
+                        {
+                                "lineHeight": "1.2",
+                                "letterSpacing": "-0.02em",
+                                "fontWeight": "700"
+                        }
+                ],
+                "code-md": [
+                        "14px",
+                        {
+                                "lineHeight": "1.5",
+                                "letterSpacing": "0em",
+                                "fontWeight": "500"
+                        }
+                ],
+                "headline-lg": [
+                        "48px",
+                        {
+                                "lineHeight": "1.2",
+                                "letterSpacing": "-0.02em",
+                                "fontWeight": "700"
+                        }
+                ]
+        }
+},
+    },
+  }
+</script>
+<style>
+    :root {
+      --accent: #ff0033;
+      --glass-bg: rgba(255, 255, 255, 0.03);
+      --glass-border: rgba(255, 255, 255, 0.1);
+      --glass-border-hover: rgba(255, 0, 51, 0.5);
+    }
+
+    body {
+      background-color: #05080f;
+      color: #e2e8f0;
+      font-family: 'Inter', sans-serif;
+      overflow-x: hidden;
+    }
+
+    h1, h2, h3 {
+      font-family: 'Inter', sans-serif;
+    }
+
+    /* WebGL Background */
+    #shader-bg {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      z-index: -2;
+      pointer-events: none;
+    }
+
+    /* Glassmorphism 2.0 */
+    .glass-nav {
+      background: rgba(5, 8, 15, 0.4);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border-bottom: 0.5px solid var(--glass-border);
+    }
+
+    .glass-card {
+      background: var(--glass-bg);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border: 0.5px solid var(--glass-border);
+      transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    
+    .glass-card:hover {
+      transform: translateY(-5px) scale(1.02);
+      border-color: var(--glass-border-hover);
+      box-shadow: 0 0 20px rgba(255, 0, 51, 0.15);
+    }
+
+    /* Kinetic Reveal Animation */
+    .reveal-text {
+      overflow: hidden;
+    }
+    
+    .reveal-text > * {
+      display: block;
+      transform: translateY(100%);
+      opacity: 0;
+      transition: transform 0.8s cubic-bezier(0.2, 1, 0.3, 1), opacity 0.8s ease;
+    }
+
+    .reveal-text.active > * {
+      transform: translateY(0);
+      opacity: 1;
+    }
+
+    /* Scroll Reveal */
+    .fade-up {
+      opacity: 0;
+      transform: translateY(30px);
+      transition: opacity 0.8s ease-out, transform 0.8s cubic-bezier(0.2, 1, 0.3, 1);
+    }
+    
+    .fade-up.visible {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    .delay-100 { transition-delay: 100ms; }
+    .delay-200 { transition-delay: 200ms; }
+    .delay-300 { transition-delay: 300ms; }
+
+    /* 3D Container */
+    #hero-canvas-container {
+      position: absolute;
+      top: 0;
+      right: 0;
+      width: 100%;
+      height: 100%;
+      z-index: -1;
+      pointer-events: auto; /* Let users interact if needed, or keep none */
+    }
+    @media (min-width: 1024px) {
+      #hero-canvas-container {
+        width: 50%;
+        left: 50%;
+      }
+    }
+
+    /* Custom Button */
+    .btn-brutal {
+      background: var(--accent);
+      color: white;
+      font-weight: 800;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      border: none;
+      transition: all 0.2s;
+    }
+    .btn-brutal:hover {
+      background: white;
+      color: var(--accent);
+      box-shadow: 0 0 20px rgba(255, 0, 51, 0.6);
+    }
+
+    /* je limite les animations quand l'utilisateur le demande */
+    @media (prefers-reduced-motion: reduce) {
+      .reveal-text > * {
+        transform: translateY(0);
+        opacity: 1;
+        transition: none;
+      }
+      .fade-up {
+        opacity: 1;
+        transform: translateY(0);
+        transition: none;
+      }
+      .glass-card:hover {
+        transform: none;
+      }
+    }
+
+    /* je masque le WebGL et la scène 3D sur mobile pour la lisibilité du texte */
+    @media (max-width: 767px) {
+      #shader-bg,
+      #hero-canvas-container {
+        display: none;
+      }
+    }
+  </style>
+</head>
+<body class="antialiased selection:bg-[#ff0033] selection:text-white">
+<!-- Shader Background -->
+<canvas id="shader-bg"></canvas>
+<header class="fixed top-0 w-full z-50 glass-nav">
+<div class="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between">
+<a class="flex items-center gap-3 text-white font-black text-2xl tracking-tighter" href="#top">
+<img alt="Logo Toolé" class="h-11 w-auto rounded-lg" src="assets/toole-sticker.png"/>
+<span>TOOLÉ</span>
+</a>
+<nav class="hidden md:flex gap-8 text-sm font-medium text-slate-300">
+<a class="hover:text-white transition-colors" href="#fonctionnalites">Fonctionnalités</a>
+<a class="hover:text-white transition-colors" href="#comment">Comment ça marche</a>
+<a class="hover:text-white transition-colors" href="#captures">Captures</a>
+<a class="hover:text-white transition-colors" href="#documentation">Documentation</a>
+<a class="hover:text-white transition-colors" href="https://github.com/TOS-team/Toole" target="_blank" rel="noopener" title="GitHub">
+<svg class="w-5 h-5" fill="currentColor" viewbox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M12 .297c-6.63 0-12 5.373-12 12 0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61C4.422 18.07 3.633 17.7 3.633 17.7c-1.087-.744.084-.729.084-.729 1.205.084 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.495.998.108-.776.417-1.305.76-1.605-2.665-.3-5.466-1.332-5.466-5.93 0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176 0 0 1.005-.322 3.3 1.23.96-.267 1.98-.399 3-.405 1.02.006 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22 0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22 0 1.606-.015 2.896-.015 3.286 0 .315.21.69.825.57C20.565 22.092 24 17.592 24 12.297c0-6.627-5.373-12-12-12"/></svg>
+</a>
+</nav>
+<a class="btn-brutal px-6 py-2.5 rounded text-xs" href="https://github.com/TOS-team/Toole/releases">TÉLÉCHARGER</a>
+</div>
+</header>
+<main class="relative pt-32 pb-20" id="top">
+<section class="relative min-h-[80vh] flex items-center max-w-7xl mx-auto px-6">
+<div id="hero-canvas-container"></div>
+<div class="w-full lg:w-1/2 relative z-10 pt-20 lg:pt-0">
+<p class="text-[#00f2ff] font-['JetBrains_Mono'] text-sm mb-6 uppercase tracking-widest fade-up visible">P2P · Réseau local · Chiffré</p>
+<h1 class="text-6xl md:text-7xl lg:text-8xl font-black leading-[0.9] tracking-tighter mb-8 text-white">
+<span class="reveal-text block"><span style="transition-delay: 0.1s">Envoyez vos</span></span>
+<span class="reveal-text block"><span style="transition-delay: 0.2s">fichiers, à</span></span>
+<span class="reveal-text block"><span style="transition-delay: 0.3s">la vitesse</span></span>
+<span class="reveal-text block"><span class="text-[#ff0033]" style="transition-delay: 0.4s">du réseau.</span></span>
+</h1>
+<p class="text-xl text-slate-400 mb-10 max-w-lg leading-relaxed fade-up delay-200 visible">
+          Toolé détecte les appareils voisins et transfère vos fichiers
+          directement entre machines, sans Internet, sans serveur, sans limite
+          de taille. Chiffré de bout en bout avec QUIC/TLS&nbsp;1.3.
+        </p>
+<div class="flex flex-wrap gap-4 items-center fade-up delay-300 visible">
+<a class="btn-brutal px-8 py-4 rounded-none text-sm" href="https://github.com/TOS-team/Toole/releases">TÉLÉCHARGER TOOLÉ</a>
+<a class="px-8 py-4 text-sm font-bold text-white border border-white/20 hover:bg-white hover:text-black transition-colors" href="#comment">VOIR COMMENT ÇA MARCHE</a>
+</div>
+<p class="mt-8 font-['JetBrains_Mono'] text-xs text-slate-500 uppercase tracking-widest fade-up delay-300 visible">
+          Gratuit · Open source · Linux · macOS · Windows
+        </p>
+</div>
+</section>
+<section class="py-32 max-w-7xl mx-auto px-6" id="fonctionnalites">
+<div class="mb-16 fade-up">
+<h2 class="text-4xl md:text-5xl font-black tracking-tight text-white mb-4">Pensé pour le local</h2>
+<p class="text-xl text-slate-400">Pas de compte, pas de cloud, pas de câble. Juste votre réseau.</p>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+<div class="glass-card p-8 rounded-xl fade-up">
+<svg class="w-10 h-10 text-[#00f2ff] mb-6" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewbox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M5 12V3m14 9V3M5 21v-3a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v3M7 8h10"></path></svg>
+<h3 class="text-xl font-bold text-white mb-3">Découverte automatique</h3>
+<p class="text-slate-400">Les appareils voisins apparaissent seuls, sans configuration ni adresse à taper.</p>
+</div>
+<div class="glass-card p-8 rounded-xl fade-up delay-100">
+<svg class="w-10 h-10 text-[#00f2ff] mb-6" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewbox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><rect height="11" rx="2" ry="2" width="18" x="3" y="11"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+<h3 class="text-xl font-bold text-white mb-3">Chiffré de bout en bout</h3>
+<p class="text-slate-400">Chaque paquet est chiffré et authentifié par QUIC et TLS 1.3.</p>
+</div>
+<div class="glass-card p-8 rounded-xl fade-up delay-200">
+<svg class="w-10 h-10 text-[#00f2ff] mb-6" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewbox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><polyline points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polyline></svg>
+<h3 class="text-xl font-bold text-white mb-3">À la vitesse du réseau</h3>
+<p class="text-slate-400">Des centaines de Mo/s en local, grâce au pipelining des chunks sans attente.</p>
+</div>
+<div class="glass-card p-8 rounded-xl fade-up">
+<svg class="w-10 h-10 text-[#00f2ff] mb-6" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewbox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
+<h3 class="text-xl font-bold text-white mb-3">Dossiers conservés</h3>
+<p class="text-slate-400">L'arborescence est préservée : un dossier envoyé arrive à l'identique.</p>
+</div>
+<div class="glass-card p-8 rounded-xl fade-up delay-100">
+<svg class="w-10 h-10 text-[#00f2ff] mb-6" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewbox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
+<h3 class="text-xl font-bold text-white mb-3">Multi-appareils</h3>
+<p class="text-slate-400">Envoyez à plusieurs machines en parallèle, sur une même connexion.</p>
+</div>
+<div class="glass-card p-8 rounded-xl fade-up delay-200">
+<svg class="w-10 h-10 text-[#00f2ff] mb-6" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewbox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+<h3 class="text-xl font-bold text-white mb-3">Historique local</h3>
+<p class="text-slate-400">Vos transferts sont enregistrés en local, avec progression et débit.</p>
+</div>
+</div>
+</section>
+<section class="py-32 relative" id="comment">
+<div class="absolute inset-0 bg-white/[0.02] border-y border-white/[0.05]"></div>
+<div class="max-w-7xl mx-auto px-6 relative z-10">
+<div class="mb-16 fade-up">
+<h2 class="text-4xl md:text-5xl font-black tracking-tight text-white mb-4">Comment ça marche</h2>
+<p class="text-xl text-slate-400">Deux protocoles, un seul objectif : le transfert direct entre machines.</p>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+<div class="glass-card p-8 rounded-xl flex gap-6 fade-up">
+<span class="text-5xl font-black text-[#00f2ff]/20">1</span>
+<div>
+<h3 class="text-xl font-bold text-white mb-3">Découverte</h3>
+<p class="text-slate-400">Chaque machine diffuse un message UDP en broadcast. Les voisins répondent et apparaissent dans la liste.</p>
+</div>
+</div>
+<div class="glass-card p-8 rounded-xl flex gap-6 fade-up delay-100">
+<span class="text-5xl font-black text-[#00f2ff]/20">2</span>
+<div>
+<h3 class="text-xl font-bold text-white mb-3">Sélection</h3>
+<p class="text-slate-400">Vous déposez des fichiers ou dossiers, cochez un ou plusieurs appareils, puis cliquez Transférer.</p>
+</div>
+</div>
+<div class="glass-card p-8 rounded-xl flex gap-6 fade-up">
+<span class="text-5xl font-black text-[#00f2ff]/20">3</span>
+<div>
+<h3 class="text-xl font-bold text-white mb-3">Transfert QUIC</h3>
+<p class="text-slate-400">Les fichiers sont envoyés par QUIC, chiffrés, par chunks pipelinés jusqu'à 1 Mo, sans ack applicatif.</p>
+</div>
+</div>
+<div class="glass-card p-8 rounded-xl flex gap-6 fade-up delay-100">
+<span class="text-5xl font-black text-[#00f2ff]/20">4</span>
+<div>
+<h3 class="text-xl font-bold text-white mb-3">Réception</h3>
+<p class="text-slate-400">Le récepteur écrit dans <code class="font-['JetBrains_Mono'] bg-black/50 px-2 py-1 rounded text-sm text-[#00f2ff]">Téléchargements/Toolé/</code> et garde l'arborescence. C'est prêt.</p>
+</div>
+</div>
+</div>
+</div>
+</section>
+<section class="py-32 max-w-7xl mx-auto px-6" id="captures">
+<div class="mb-16 fade-up">
+<h2 class="text-4xl md:text-5xl font-black tracking-tight text-white mb-4">Captures d'écran</h2>
+<p class="text-xl text-slate-400">Une interface claire, sombre, personnalisable.</p>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+<figure class="glass-card rounded-xl p-4 fade-up">
+<div class="aspect-video bg-black/40 rounded-lg flex items-center justify-center border border-white/5 mb-4">
+<span class="text-slate-500 font-medium">Accueil + découverte</span>
+</div>
+<figcaption class="text-slate-400 text-sm px-2">La zone de dépôt et les appareils détectés</figcaption>
+</figure>
+<figure class="glass-card rounded-xl p-4 fade-up delay-100">
+<div class="aspect-video bg-black/40 rounded-lg flex items-center justify-center border border-white/5 mb-4">
+<span class="text-slate-500 font-medium">Transfert en cours</span>
+</div>
+<figcaption class="text-slate-400 text-sm px-2">Progression globale et par fichier, débit</figcaption>
+</figure>
+<figure class="glass-card rounded-xl p-4 fade-up">
+<div class="aspect-video bg-black/40 rounded-lg flex items-center justify-center border border-white/5 mb-4">
+<span class="text-slate-500 font-medium">Historique</span>
+</div>
+<figcaption class="text-slate-400 text-sm px-2">Historique local des transferts</figcaption>
+</figure>
+<figure class="glass-card rounded-xl p-4 fade-up delay-100">
+<div class="aspect-video bg-black/40 rounded-lg flex items-center justify-center border border-white/5 mb-4">
+<span class="text-slate-500 font-medium">Paramètres</span>
+</div>
+<figcaption class="text-slate-400 text-sm px-2">Thème et halo personnalisables</figcaption>
+</figure>
+</div>
+</section>
+<section class="py-32 relative" id="documentation">
+<div class="absolute inset-0 bg-white/[0.02] border-y border-white/[0.05]"></div>
+<div class="max-w-7xl mx-auto px-6 relative z-10">
+<div class="mb-16 fade-up">
+<h2 class="text-4xl md:text-5xl font-black tracking-tight text-white mb-4">Documentation</h2>
+<p class="text-xl text-slate-400">Le guide complet : utilisation, dépannage et fonctionnement interne.</p>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+<a class="glass-card block p-8 rounded-xl fade-up" href="guide/">
+<svg class="w-10 h-10 text-[#ff0033] mb-6" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewbox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20"></path></svg>
+<h3 class="text-xl font-bold text-white mb-3">Guide utilisateur</h3>
+<p class="text-slate-400">Prise en main, utilisation complète, problèmes fréquents et solutions.</p>
+</a>
+<a class="glass-card block p-8 rounded-xl fade-up delay-100" href="guide/index.html#/developpeur">
+<svg class="w-10 h-10 text-[#ff0033] mb-6" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewbox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+<h3 class="text-xl font-bold text-white mb-3">Guide développeur</h3>
+<p class="text-slate-400">Comment Toolé fonctionne : architecture, protocole UDP et QUIC, code.</p>
+</a>
+<a class="glass-card block p-8 rounded-xl fade-up delay-200" href="https://github.com/TOS-team/Toole">
+<svg class="w-10 h-10 text-[#ff0033] mb-6" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewbox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M15 22v-4a4.8 4.8 0 0 0-1-3.5c3 0 6-2 6-5.5.08-1.25-.27-2.48-1-3.5.28-1.15.28-2.35 0-3.5 0 0-1 0-3 1.5-2.64-.5-5.36-.5-8 0C6 2 5 2 5 2c-.3 1.15-.3 2.35 0 3.5A5.403 5.403 0 0 0 4 9c0 3.5 3 5.5 6 5.5-.39.49-.68 1.05-.85 1.65-.17.6-.22 1.23-.15 1.85v4"></path><path d="M9 18c-4.51 2-5-2-7-2"></path></svg>
+<h3 class="text-xl font-bold text-white mb-3">Code source</h3>
+<p class="text-slate-400">Le dépôt GitHub : Rust, Tauri, Vue 3. Open source, contributions bienvenues.</p>
+</a>
+</div>
+</div>
+</section>
+</main>
+<footer class="glass-nav mt-auto">
+<div class="max-w-7xl mx-auto px-6 py-12 flex flex-col md:flex-row justify-between items-center gap-6">
+<p class="text-slate-500 text-sm">Toolé — transfert de fichiers P2P sur réseau local.</p>
+<div class="flex gap-6 text-sm font-medium text-slate-400">
+<a class="hover:text-white transition-colors" href="https://github.com/TOS-team/Toole/releases">Releases</a>
+<a class="hover:text-white transition-colors" href="https://github.com/TOS-team/Toole">GitHub</a>
+<a class="hover:text-white transition-colors" href="guide/">Guide</a>
+</div>
+</div>
+</footer>
+<script>
+    // je respecte le réglage "réduire les animations" de l'utilisateur
+    const prefersReduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+    // Reveal Text Animation Trigger
+    if (prefersReduced) {
+      document.querySelectorAll('.reveal-text').forEach(el => el.classList.add('active'));
+    } else {
+      setTimeout(() => {
+        document.querySelectorAll('.reveal-text').forEach(el => el.classList.add('active'));
+      }, 100);
+    }
+
+    // Scroll Observer for Fade Up Elements
+    if (prefersReduced) {
+      document.querySelectorAll('.fade-up').forEach(el => el.classList.add('visible'));
+    } else {
+      const observer = new IntersectionObserver((entries) => {
+        entries.forEach(entry => {
+          if (entry.isIntersecting) {
+            entry.target.classList.add('visible');
+            observer.unobserve(entry.target);
+          }
+        });
+      }, { threshold: 0.1, rootMargin: "0px 0px -50px 0px" });
+
+      document.querySelectorAll('.fade-up').forEach((el) => observer.observe(el));
+    }
+
+    // je garde un fond uni quand WebGL est indisponible (plante sinon)
+    const canvas = document.getElementById('shader-bg');
+    const gl = canvas && canvas.getContext('webgl');
+
+    if (gl) {
+      const vertexShaderSource = `
+        attribute vec2 position;
+        varying vec2 v_texCoord;
+        void main() {
+          gl_Position = vec4(position, 0.0, 1.0);
+          v_texCoord = position * 0.5 + 0.5;
+        }
+      `;
+
+      const fragmentShaderSource = `
+        precision highp float;
+        varying vec2 v_texCoord;
+        uniform float u_time;
+        uniform vec2 u_resolution;
+        
+        float noise(vec2 p) {
+            return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453);
+        }
+        
+        void main() {
+            vec2 uv = v_texCoord;
+            vec2 p = (gl_FragCoord.xy * 2.0 - u_resolution.xy) / min(u_resolution.x, u_resolution.y);
+            
+            vec3 color = vec3(0.02, 0.03, 0.06);
+            float t = u_time * 0.4;
+            
+            vec2 cyanPos = vec2(sin(t * 0.7) * 0.5, cos(t * 0.5) * 0.3);
+            float cyanGlow = 0.08 / length(p - cyanPos);
+            color += vec3(0.0, 0.95, 1.0) * cyanGlow * (0.6 + 0.4 * sin(u_time));
+            
+            vec2 redPos = vec2(cos(t * 0.8) * 0.6, sin(t * 0.6) * 0.4);
+            float redGlow = 0.05 / length(p - redPos);
+            color += vec3(1.0, 0.0, 0.2) * redGlow * (0.5 + 0.5 * cos(u_time * 1.2));
+        
+            float grain = noise(uv * u_time) * 0.03;
+            color += grain;
+        
+            gl_FragColor = vec4(color, 1.0);
+        }
+      `;
+
+      function compileShader(gl, type, source) {
+        const shader = gl.createShader(type);
+        gl.shaderSource(shader, source);
+        gl.compileShader(shader);
+        if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+          console.error(gl.getShaderInfoLog(shader));
+          gl.deleteShader(shader);
+          return null;
+        }
+        return shader;
+      }
+
+      const program = gl.createProgram();
+      gl.attachShader(program, compileShader(gl, gl.VERTEX_SHADER, vertexShaderSource));
+      gl.attachShader(program, compileShader(gl, gl.FRAGMENT_SHADER, fragmentShaderSource));
+      gl.linkProgram(program);
+      gl.useProgram(program);
+
+      const positionBuffer = gl.createBuffer();
+      gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
+      gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1,-1, 1,-1, -1,1, -1,1, 1,-1, 1,1]), gl.STATIC_DRAW);
+
+      const positionLocation = gl.getAttribLocation(program, "position");
+      gl.enableVertexAttribArray(positionLocation);
+      gl.vertexAttribPointer(positionLocation, 2, gl.FLOAT, false, 0, 0);
+
+      const timeLocation = gl.getUniformLocation(program, "u_time");
+      const resolutionLocation = gl.getUniformLocation(program, "u_resolution");
+
+      function resizeCanvas() {
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+        gl.viewport(0, 0, canvas.width, canvas.height);
+        gl.uniform2f(resolutionLocation, canvas.width, canvas.height);
+      }
+      window.addEventListener('resize', resizeCanvas);
+      resizeCanvas();
+
+      // je fige le fond quand les animations sont réduites
+      if (prefersReduced) {
+        gl.uniform1f(timeLocation, 0);
+        gl.drawArrays(gl.TRIANGLES, 0, 6);
+      } else {
+        function renderBackground(time) {
+          gl.uniform1f(timeLocation, time * 0.001);
+          gl.drawArrays(gl.TRIANGLES, 0, 6);
+          requestAnimationFrame(renderBackground);
+        }
+        requestAnimationFrame(renderBackground);
+      }
+    }
+
+    // Three.js Hero Scene
+    const container = document.getElementById('hero-canvas-container');
+
+    if (container && typeof THREE !== 'undefined') {
+      const width = container.clientWidth || window.innerWidth;
+      const height = container.clientHeight || window.innerHeight;
+
+      const scene = new THREE.Scene();
+      const camera = new THREE.PerspectiveCamera(75, width / height, 0.1, 1000);
+      const renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
+      renderer.setSize(width, height);
+      renderer.setPixelRatio(window.devicePixelRatio);
+      container.appendChild(renderer.domElement);
+
+      const coreGeom = new THREE.IcosahedronGeometry(1, 1);
+      const coreMat = new THREE.MeshPhongMaterial({
+          color: 0x00f2ff,
+          wireframe: true,
+          emissive: 0x00f2ff,
+          emissiveIntensity: 0.5
+      });
+      const core = new THREE.Mesh(coreGeom, coreMat);
+      scene.add(core);
+
+      const group = new THREE.Group();
+      const nodeGeom = new THREE.SphereGeometry(0.05, 16, 16);
+      const nodeMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
+
+      for (let i = 0; i < 12; i++) {
+          const node = new THREE.Mesh(nodeGeom, nodeMat);
+          const angle = (i / 12) * Math.PI * 2;
+          const radius = 2 + Math.random() * 0.5;
+          node.position.set(Math.cos(angle) * radius, Math.sin(angle) * radius, (Math.random() - 0.5) * 1);
+          group.add(node);
+      }
+      scene.add(group);
+
+      const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
+      scene.add(ambientLight);
+      const pointLight = new THREE.PointLight(0xff0033, 1, 10);
+      pointLight.position.set(2, 2, 2);
+      scene.add(pointLight);
+
+      camera.position.z = 5;
+
+      let mouseX = 0, mouseY = 0;
+      document.addEventListener('mousemove', (e) => {
+          mouseX = (e.clientX / window.innerWidth) * 2 - 1;
+          mouseY = -(e.clientY / window.innerHeight) * 2 + 1;
+      });
+
+      function renderStatic() {
+          renderer.render(scene, camera);
+      }
+
+      // je fige la scène quand les animations sont réduites
+      function animateHero() {
+          requestAnimationFrame(animateHero);
+
+          core.rotation.x += 0.005;
+          core.rotation.y += 0.005;
+
+          group.rotation.z += 0.002;
+          group.rotation.y += 0.001;
+
+          camera.position.x += (mouseX * 0.5 - camera.position.x) * 0.05;
+          camera.position.y += (mouseY * 0.5 - camera.position.y) * 0.05;
+          camera.lookAt(scene.position);
+
+          renderer.render(scene, camera);
+      }
+
+      window.addEventListener('resize', () => {
+          if(container) {
+            const w = container.clientWidth || window.innerWidth;
+            const h = container.clientHeight || window.innerHeight;
+            renderer.setSize(w, h);
+            camera.aspect = w / h;
+            camera.updateProjectionMatrix();
+          }
+      });
+
+      if (prefersReduced) {
+          renderStatic();
+      } else {
+          animateHero();
+      }
+    }
+  </script>
+</body></html>

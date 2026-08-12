@@ -28,6 +28,11 @@ pub fn run() {
             commands::get_file_infos,
         ])
         .setup(|app| {
+            // j'enregistre le plugin de mise à jour auto (desktop only) :
+            // il interroge latest.json sur GitHub et installe les updates signées
+            #[cfg(desktop)]
+            let _ = app.handle().plugin(tauri_plugin_updater::Builder::new().build());
+
             let window = app.get_webview_window("main").unwrap();
             let stop = Arc::new(AtomicBool::new(false));
 

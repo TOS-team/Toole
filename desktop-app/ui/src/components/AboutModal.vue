@@ -2,8 +2,10 @@
 // modale "à propos" : ouverte par le bouton des paramètres, fermée par
 // Échap ou en cliquant sur le fond
 import { ref, onMounted, onUnmounted } from "vue";
+import { getVersion } from "@tauri-apps/api/app";
 
 const isOpen = ref(false);
+const version = ref("");
 
 function open() {
   isOpen.value = true;
@@ -23,7 +25,14 @@ function onKeydown(e: KeyboardEvent) {
 
 defineExpose({ open, close });
 
-onMounted(() => {
+onMounted(async () => {
+  // je lis la version depuis le fichier, pas en dur, pour rester aligné
+  // avec la version de la release (tauri.conf.json)
+  try {
+    version.value = await getVersion();
+  } catch {
+    version.value = "—";
+  }
   window.addEventListener("keydown", onKeydown);
 });
 
@@ -67,7 +76,7 @@ onUnmounted(() => {
           sans compte cloud.
         </p>
         <p class="text-label-md font-label-md text-on-surface-variant mt-2.5">
-          Version 2.0.0 &bull; Interface locale &bull; Licence GPL-3.0
+          Version {{ version || "—" }} &bull; Interface locale &bull; Licence GPL-3.0
         </p>
       </div>
     </div>
