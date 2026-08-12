@@ -9,22 +9,22 @@ use std::sync::atomic::Ordering;
 use std::sync::Arc;
 use std::time::Duration;
 
-use toole_core::recever::start_receiver;
+use toole_core::receiver::start_receiver;
 use toole_core::sender::start_sender;
 use toole_tests::common::{
-    files_equal, shared_stop, temp_dir, write_random_file, MockUI,
+    files_equal, shared_stop, temp_dir, wait_for_log, write_random_file, MockUI,
 };
 
 const SIZE: usize = 64 * 1024 * 1024; // 64 Mo = 64 chunks de 1 Mo
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 async fn should_transferer_sans_perte_ni_corruption() {
-    let _guard = toole_tests::common::PORT_LOCK.lock().unwrap();
+    let _guard = toole_tests::common::PORT_LOCK.lock().await;
 
     let dir = temp_dir("integrity");
-    let src = dir.join("gros.bin");
+    let src = dir.path().join("gros.bin");
     let _original = write_random_file(&src, SIZE);
-    let dest = dir.join("dest");
+    let dest = dir.path().join("dest");
     std::fs::create_dir_all(&dest).unwrap();
 
     let ui = Arc::new(MockUI::new());
@@ -36,7 +36,7 @@ async fn should_transferer_sans_perte_ni_corruption() {
     let recv_task = tokio::spawn(async move {
         let _ = start_receiver(recv_ui, recv_dest, recv_stop).await;
     });
-    tokio::time::sleep(Duration::from_millis(300)).await;
+    wait_for_log(&ui, "Recepteur en ecoute", Duration::from_secs(5)).await;
 
     start_sender(
         ui.clone(),
@@ -63,11 +63,25 @@ async fn should_transferer_sans_perte_ni_corruption() {
     );
 
     // l'UI doit avoir été notifiée du succès des deux côtés
-    assert!(ui.is_completed("integrity"), "le sender doit notifier completed");
+    assert!(
+        ui.is_completed("integrity"),
+        "le sender doit notifier completed"
+    );
     let state = ui.state.lock().unwrap();
-    assert_eq!(state.received.len(), 1, "le receiver doit notifier 1 réception");
-    assert_eq!(state.received[0].2, SIZE as u64, "octets reçus annoncés = taille");
-    assert!(state.errors.is_empty(), "aucune erreur attendue, j'ai {:?}", state.errors);
+    assert_eq!(
+        state.received.len(),
+        1,
+        "le receiver doit notifier 1 réception"
+    );
+    assert_eq!(
+        state.received[0].2, SIZE as u64,
+        "octets reçus annoncés = taille"
+    );
+    assert!(
+        state.errors.is_empty(),
+        "aucune erreur attendue, j'ai {:?}",
+        state.errors
+    );
     drop(state);
 
     // le throttle : sans throttle on aurait ~64 (sender) + ~64 (receiver)
@@ -82,12 +96,12 @@ async fn should_transferer_sans_perte_ni_corruption() {
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 async fn should_emettre_des_progressions_par_fichier() {
-    let _guard = toole_tests::common::PORT_LOCK.lock().unwrap();
+    let _guard = toole_tests::common::PORT_LOCK.lock().await;
 
     let dir = temp_dir("fileprog");
-    let src = dir.join("avec_progres.bin");
+    let src = dir.path().join("avec_progres.bin");
     let _original = write_random_file(&src, 2 * 1024 * 1024);
-    let dest = dir.join("dest");
+    let dest = dir.path().join("dest");
     std::fs::create_dir_all(&dest).unwrap();
 
     let ui = Arc::new(MockUI::new());
@@ -99,7 +113,7 @@ async fn should_emettre_des_progressions_par_fichier() {
     let recv_task = tokio::spawn(async move {
         let _ = start_receiver(recv_ui, recv_dest, recv_stop).await;
     });
-    tokio::time::sleep(Duration::from_millis(300)).await;
+    wait_for_log(&ui, "Recepteur en ecoute", Duration::from_secs(5)).await;
 
     start_sender(
         ui.clone(),
@@ -118,8 +132,15 @@ async fn should_emettre_des_progressions_par_fichier() {
     // avec un total correspondant à la taille réelle
     let state = ui.state.lock().unwrap();
     let entries = &state.file_progress;
-    assert!(!entries.is_empty(), "je dois avoir des progressions par fichier");
+    assert!(
+        !entries.is_empty(),
+        "je dois avoir des progressions par fichier"
+    );
     let last = entries.last().unwrap();
     assert_eq!(last.0, "avec_progres.bin");
-    assert_eq!(last.2, 2 * 1024 * 1024, "le total par fichier doit être la taille");
+    assert_eq!(
+        last.2,
+        2 * 1024 * 1024,
+        "le total par fichier doit être la taille"
+    );
 }

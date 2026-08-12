@@ -12,22 +12,20 @@ use std::sync::atomic::Ordering;
 use std::sync::Arc;
 use std::time::Duration;
 
-use toole_core::recever::start_receiver;
+use toole_core::receiver::start_receiver;
 use toole_core::sender::start_sender;
-use toole_tests::common::{
-    shared_stop, temp_dir, write_random_file, MockUI,
-};
+use toole_tests::common::{shared_stop, temp_dir, wait_for_log, write_random_file, MockUI};
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 async fn should_annuler_proprement_et_notifier_ui() {
-    let _guard = toole_tests::common::PORT_LOCK.lock().unwrap();
+    let _guard = toole_tests::common::PORT_LOCK.lock().await;
 
     let dir = temp_dir("cancel");
-    let src = dir.join("annulable.bin");
+    let src = dir.path().join("annulable.bin");
     // fichier assez gros pour que l'envoi ne soit pas déjà terminé quand
     // j'annule (plusieurs secondes sur loopback)
     write_random_file(&src, 256 * 1024 * 1024);
-    let dest = dir.join("dest");
+    let dest = dir.path().join("dest");
     std::fs::create_dir_all(&dest).unwrap();
 
     let ui = Arc::new(MockUI::new());
@@ -39,7 +37,7 @@ async fn should_annuler_proprement_et_notifier_ui() {
     let recv_task = tokio::spawn(async move {
         let _ = start_receiver(recv_ui, recv_dest, recv_stop).await;
     });
-    tokio::time::sleep(Duration::from_millis(300)).await;
+    wait_for_log(&ui, "Recepteur en ecoute", Duration::from_secs(5)).await;
 
     let send_ui = ui.clone();
     let send_stop = stop.clone();

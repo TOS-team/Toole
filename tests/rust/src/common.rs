@@ -7,9 +7,10 @@
 //     bindent le port UDP 58200 (les tests cargo tournent en parallèle sinon)
 //   - helpers de fichiers temp / répertoires uniques
 
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
+use std::time::Duration;
 
 use toole_core::{Peer, ToolError, UI};
 
@@ -42,11 +43,6 @@ impl MockUI {
         }
     }
 
-    /// clone prête à être partagée entre le sender et le receiver d'un test
-    pub fn shared() -> Arc<dyn UI> {
-        Arc::new(MockUI::new())
-    }
-
     /// nombre de fois où update_progress_bar a été appelé (je vérifie que le
     /// throttle 50ms ne spamme pas le webview)
     pub fn progress_events(&self) -> usize {
@@ -72,9 +68,57 @@ impl MockUI {
     }
 }
 
+impl Default for MockUI {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+/// attend qu'un message contenant `needle` apparaisse dans les logs de l'UI.
+/// Remplace l'ancien délai fixe : on ne se connecte à un service réseau qu'une
+/// fois qu'il a signalé être prêt (jonction robuste sous charge CPU).
+pub async fn wait_for_log(ui: &MockUI, needle: &str, timeout: Duration) {
+    wait_until(
+        || {
+            let state = ui.state.lock().unwrap();
+            state.log_messages.iter().any(|m| m.contains(needle))
+        },
+        timeout,
+        &format!("le message de log {needle:?}"),
+    )
+    .await;
+}
+
+/// attend que l'UI ait détecté au moins un pair (découverte terminée).
+pub async fn wait_for_peer(ui: &MockUI, timeout: Duration) {
+    wait_until(
+        || !ui.state.lock().unwrap().peers_found.is_empty(),
+        timeout,
+        "un pair détecté",
+    )
+    .await;
+}
+
+/// boucle d'attente active : vérifie `pred` jusqu'à ce qu'elle soit vraie ou
+/// que le timeout soit atteint, au lieu de compter sur un délai fixe.
+async fn wait_until(mut pred: impl FnMut() -> bool, timeout: Duration, what: &str) {
+    let deadline = std::time::Instant::now() + timeout;
+    while !pred() {
+        assert!(
+            std::time::Instant::now() < deadline,
+            "timeout en attendant {what}"
+        );
+        tokio::time::sleep(Duration::from_millis(20)).await;
+    }
+}
+
 impl UI for MockUI {
     fn log(&self, msg: &str) {
-        self.state.lock().unwrap().log_messages.push(msg.to_string());
+        self.state
+            .lock()
+            .unwrap()
+            .log_messages
+            .push(msg.to_string());
     }
 
     fn peer_found(&self, peer: &Peer) {
@@ -82,7 +126,11 @@ impl UI for MockUI {
     }
 
     fn peer_lost(&self, hostname: &str) {
-        self.state.lock().unwrap().peers_lost.push(hostname.to_string());
+        self.state
+            .lock()
+            .unwrap()
+            .peers_lost
+            .push(hostname.to_string());
     }
 
     fn show_progress_bar(&self, _transfer_id: &str) {}
@@ -106,11 +154,19 @@ impl UI for MockUI {
     }
 
     fn transfert_cancel(&self, transfer_id: &str) {
-        self.state.lock().unwrap().cancelled.push(transfer_id.to_string());
+        self.state
+            .lock()
+            .unwrap()
+            .cancelled
+            .push(transfer_id.to_string());
     }
 
     fn transfert_completed(&self, transfer_id: &str) {
-        self.state.lock().unwrap().completed.push(transfer_id.to_string());
+        self.state
+            .lock()
+            .unwrap()
+            .completed
+            .push(transfer_id.to_string());
     }
 
     fn transfert_received(&self, transfer_id: &str, peer: &str, bytes: u64, files: Vec<String>) {
@@ -122,7 +178,7 @@ impl UI for MockUI {
         ));
     }
 
-    fn tranfert_error(&self, _transfer_id: &str, error: &ToolError) {
+    fn transfert_error(&self, _transfer_id: &str, error: &ToolError) {
         self.state.lock().unwrap().errors.push(error.to_string());
     }
 }
@@ -130,18 +186,19 @@ impl UI for MockUI {
 /// verrou global : les tests e2e bindent le port UDP 58200 (récepteur), et
 /// cargo les lance en parallèle par défaut. Je les sérialise pour éviter les
 /// conflits de port, au prix d'une exécution séquentielle (accepté).
-pub static PORT_LOCK: Mutex<()> = Mutex::new(());
+/// Mutex async plutôt que std pour ne pas bloquer la boucle d'événements.
+pub static PORT_LOCK: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(());
 
 /// crée un répertoire temp unique par test (préfixe donné) et le retourne,
-/// pour que chaque test isole ses fichiers sans marcher sur les autres
-pub fn temp_dir(prefix: &str) -> PathBuf {
-    let dir = std::env::temp_dir().join(format!(
-        "toole_test_{prefix}_{}",
-        std::process::id()
-    ));
-    let _ = std::fs::remove_dir_all(&dir);
-    std::fs::create_dir_all(&dir).expect("je dois pouvoir créer le répertoire temp");
-    dir
+/// pour que chaque test isole ses fichiers sans marcher sur les autres.
+/// TempDir est supprimé automatiquement à la fin du test (même en cas de
+/// panic) : j'évite ainsi d'accumuler des Go dans /tmp entre les runs, ce qui
+/// avait fini par faire échouer les tests (quota disque dépassé).
+pub fn temp_dir(prefix: &str) -> tempfile::TempDir {
+    tempfile::Builder::new()
+        .prefix(&format!("toole_test_{prefix}_"))
+        .tempdir()
+        .expect("je dois pouvoir créer le répertoire temp")
 }
 
 /// écrit un fichier de `size` octets (contenu pseudo-aléatoire mais
