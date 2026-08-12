@@ -35,6 +35,24 @@ async function pickFiles() {
   }
 }
 
+// la boîte de dialogue système ne mélange pas fichiers et dossiers : j'ouvre
+// un second sélecteur en mode répertoire pour pouvoir envoyer des dossiers
+async function pickFolder() {
+  try {
+    const selected = await open({
+      directory: true,
+      title: "Choisir un dossier à envoyer",
+    });
+    const p = Array.isArray(selected) ? selected[0] : selected;
+    if (!p) return;
+    const name = p.split("/").pop() || p.split("\\").pop() || p;
+    filesStore.addFiles([{ path: p, name }]);
+    dropHint.value = false;
+  } catch (e) {
+    console.error("pick_folder error:", e);
+  }
+}
+
 function onDragEnter(e: DragEvent) {
   e.preventDefault();
   isDragOver.value = true;
@@ -161,6 +179,37 @@ onUnmounted(() => {
       class="absolute inset-0 bg-gradient-to-b from-primary/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none"
     ></div>
 
+    <div
+      v-if="filesStore.files.length"
+      class="relative z-10 flex items-center justify-between mb-3"
+    >
+      <span class="text-label-md font-label-md text-on-surface-variant">
+        {{ filesStore.files.length }} {{ filesStore.files.length > 1 ? "fichiers" : "fichier" }}
+      </span>
+      <div class="flex items-center gap-3">
+        <button
+          type="button"
+          aria-label="Ajouter un dossier"
+          title="Choisir un dossier"
+          class="inline-flex items-center gap-1.5 text-on-surface-variant hover:text-primary transition-colors text-label-md font-label-md cursor-pointer"
+          @click.stop="pickFolder"
+        >
+          <Icon name="folder" :size="18" />
+          Dossier
+        </button>
+        <button
+          type="button"
+          aria-label="Vider la liste"
+          title="Retirer tous les fichiers"
+          class="inline-flex items-center gap-1.5 text-on-surface-variant hover:text-error transition-colors text-label-md font-label-md cursor-pointer"
+          @click.stop="filesStore.clearFiles()"
+        >
+          <Icon name="delete" :size="18" />
+          Vider
+        </button>
+      </div>
+    </div>
+
     <ul
       v-if="filesStore.files.length"
       class="relative z-10 w-full flex-1 min-h-0 flex flex-col gap-2 overflow-y-auto pr-1 mb-5"
@@ -222,6 +271,14 @@ onUnmounted(() => {
         ou parcourir pour sélectionner.
         <span class="text-label-sm text-primary/80 mt-2 block">Chiffrement de bout en bout activé</span>
       </p>
+      <button
+        type="button"
+        class="mt-5 inline-flex items-center gap-2 text-label-md font-label-md text-primary hover:text-primary/80 transition-colors cursor-pointer"
+        @click.stop="pickFolder"
+      >
+        <Icon name="folder" :size="16" />
+        Choisir un dossier
+      </button>
     </div>
   </div>
 </template>
