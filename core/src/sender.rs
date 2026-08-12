@@ -1,4 +1,6 @@
-use crate::transfer::{collect_entries, io_err, make_client_endpoint, send_entry};
+use crate::transfer::{
+    collect_entries, io_err, make_client_endpoint, send_entry, write_json_line, ACK, BatchHeader,
+};
 use crate::{ToolError, UI};
 use std::net::SocketAddr;
 use std::path::PathBuf;
@@ -33,6 +35,24 @@ pub async fn start_sender(
 
     ui.show_progress_bar(&transfer_id);
     let bytes_sent_counter = Arc::new(AtomicU64::new(0));
+
+    // en-tête de lot : le récepteur doit connaître le total d'avance pour
+    // afficher la même progression globale que nous dès le premier fichier
+    if !entries.is_empty() {
+        let (mut header_send, mut header_recv) = connection.open_bi().await.map_err(io_err)?;
+        let header = BatchHeader {
+            transfer_id: transfer_id.clone(),
+            total_bytes,
+        };
+        write_json_line(&mut header_send, &header).await?;
+        let mut ack = [0u8; 1];
+        header_recv.read_exact(&mut ack).await?;
+        if ack[0] != ACK {
+            return Err(io_err("en-tete de lot rejete par le receveur"));
+        }
+        header_send.finish()?;
+    }
+
     // on envoie au maximum 2 fichiers en parallele pour ne pas saturer la liaison
     let semaphore = Arc::new(Semaphore::new(2));
 

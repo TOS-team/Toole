@@ -21,8 +21,17 @@ pub struct Metadata {
     pub is_dir: bool,
 }
 
+/// en-tête de lot envoyé par l'émetteur sur le premier flux de la connexion :
+/// le récepteur connaît le transfer_id et le total du lot à l'avance, afin
+/// d'afficher la même progression globale que l'émetteur dès le premier fichier
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct BatchHeader {
+    pub transfer_id: String,
+    pub total_bytes: u64,
+}
+
 const CHUNK_SIZE: usize = 1_048_576; // 1 Mo
-const ACK: u8 = 0x01;
+pub const ACK: u8 = 0x01;
 const COMPLETE: u8 = 0x02;
 const PORT: u16 = 58200;
 
@@ -80,9 +89,9 @@ pub async fn make_server_endpoint() -> Result<Endpoint, ToolError> {
 fn transport_config() -> quinn::TransportConfig {
     use quinn::VarInt;
     let mut t = quinn::TransportConfig::default();
-    t.stream_receive_window(VarInt::from(8u32 * 1024 * 1024));
-    t.receive_window(VarInt::from(32u32 * 1024 * 1024));
-    t.send_window(32 * 1024 * 1024);
+t.stream_receive_window(VarInt::from(8u32 * 1024 * 1024));
+        t.receive_window(VarInt::from(32u32 * 1024 * 1024));
+        t.send_window(32 * 1024 * 1024);
     t
 }
 
@@ -120,6 +129,7 @@ pub async fn handle_incoming_connection(
     // émetteur) : dans ce cas je signalerai une erreur, pas une réception
     let had_error = Arc::new(AtomicBool::new(false));
     let mut handles: Vec<JoinHandle<()>> = Vec::new();
+    let mut header_received = false;
     loop {
         if stop.load(Ordering::Relaxed) {
             connection.close(0u32.into(), b"arret utilisateur");
@@ -127,7 +137,26 @@ pub async fn handle_incoming_connection(
         }
 
         match tokio::time::timeout(Duration::from_secs(1), connection.accept_bi()).await {
-            Ok(Ok((send, recv))) => {
+            Ok(Ok((mut send, mut recv))) => {
+                // le premier flux est l'en-tête de lot : il apporte transfer_id
+                // et total d'avance, pour que la progression du récepteur ait
+                // le même dénominateur que celle de l'émetteur dès le départ
+                if !header_received {
+                    header_received = true;
+                    let header: BatchHeader = read_json_line(&mut recv).await?;
+                    send.write_all(&[ACK]).await?;
+                    send.finish()?;
+                    {
+                        let mut tid = transfer_id.lock().unwrap_or_else(|e| e.into_inner());
+                        if tid.is_none() {
+                            *tid = Some(header.transfer_id.clone());
+                        }
+                    }
+                    total.store(header.total_bytes, Ordering::Relaxed);
+                    ui.show_progress_bar(&header.transfer_id);
+                    continue;
+                }
+
                 let dest_dir = dest_dir.clone();
                 let files = files.clone();
                 let bytes = bytes.clone();
@@ -191,15 +220,13 @@ async fn receive_one(
         fs::create_dir_all(parent).await?;
     }
 
-    total.fetch_add(metadata.size, Ordering::Relaxed);
-
-    // l'id du transfert vient de l'emetteur pour que les deux appareils
-    // affichent la meme progression sous le meme id
+    // l'id du transfert vient de l'en-tête de lot ; en secours (protocole
+    // ancien) je le prends du metadata, sans redéclencher la barre de
+    // progression qui a été signalée par l'en-tête
     {
         let mut tid = transfer_id.lock().unwrap_or_else(|e| e.into_inner());
         if tid.is_none() {
             *tid = Some(metadata.transfer_id.clone());
-            ui.show_progress_bar(&metadata.transfer_id);
         }
     }
     let tid = transfer_id.lock().unwrap_or_else(|e| e.into_inner()).clone().unwrap_or_default();
@@ -410,7 +437,7 @@ pub async fn send_entry(
     Ok(())
 }
 
-async fn write_json_line<T: Serialize>(send: &mut SendStream, value: &T) -> Result<(), ToolError> {
+pub async fn write_json_line<T: Serialize>(send: &mut SendStream, value: &T) -> Result<(), ToolError> {
     let mut encoded = serde_json::to_vec(value).map_err(io_err)?;
     encoded.push(b'\n');
     send.write_all(&encoded).await?;
