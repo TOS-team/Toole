@@ -77,13 +77,18 @@ async fn should_detecter_un_pair_emettant_toole_here() {
     let _ = task.await;
 
     let state = ui.state.lock().unwrap();
-    assert_eq!(
-        state.peers_found.len(),
-        1,
-        "je dois détecter exactement 1 pair: {:?}",
+    // je vérifie que le pair simulé est bien présent. Je ne peux pas exiger
+    // `len == 1` : de vrais appareils Toolé sur le LAN répondent au même
+    // broadcast, et ce n'est pas ce que ce test veut valider
+    assert!(
+        state.peers_found.iter().any(|p| p.id == "pc-test-ABC12"),
+        "je dois détecter le pair simulé: {:?}",
         state.peers_found
     );
-    let peer = &state.peers_found[0];
-    assert_eq!(peer.id, "pc-test-ABC12");
+    let peer = state
+        .peers_found
+        .iter()
+        .find(|p| p.id == "pc-test-ABC12")
+        .unwrap();
     assert_eq!(peer.addr, "127.0.0.1");
 }

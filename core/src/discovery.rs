@@ -98,8 +98,14 @@ pub async fn start_discovery(
                                 id: id.to_string(),
                                 addr: addr.ip().to_string(),
                             };
+                            // je ne notifie l'UI qu'à la première apparition
+                            // d'un pair : le remote répond à chaque broadcast
+                            // (3s) et à chaque cible → doublons sinon
+                            let is_new = !last_seen.contains_key(id);
                             last_seen.insert(id.to_string(), Instant::now());
-                            ui.peer_found(&peer);
+                            if is_new {
+                                ui.peer_found(&peer);
+                            }
                         }
                     }
                 }
