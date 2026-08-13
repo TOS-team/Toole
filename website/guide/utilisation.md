@@ -128,6 +128,25 @@ La page **Paramètres** permet de personnaliser l'interface :
 
 Le bouton **À propos de Toolé** ouvre une modale avec la version et les crédits.
 
+### Mises à jour
+
+Toolé vérifie les mises à jour **au démarrage** (en silence) et à l'ouverture de
+ce panneau :
+
+- **Rechercher une mise à jour** : interroge GitHub pour une version plus
+  récente.
+- Si une nouvelle version existe, un bouton **Installer et redémarrer**
+  télécharge puis relance l'application à jour.
+- La MAJ automatique est disponible sur **Windows** (via l'installeur
+  `setup.exe`) et sur **Linux — uniquement avec la version AppImage** (elle sert
+  aussi de support à la mise à jour).
+- Sur **macOS**, la MAJ automatique est désactivée (binaires non notariés) :
+  téléchargez le nouveau `.dmg` depuis le site ou GitHub et remplacez
+  l'application.
+
+Sans connexion internet, aucune erreur ne s'affiche : la vérification échoue
+silencieusement et le bouton reste disponible.
+
 ## Raccourcis clavier
 
 | Raccourci | Action |
