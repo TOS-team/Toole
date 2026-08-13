@@ -7,6 +7,7 @@
 //     bindent le port UDP 58200 (les tests cargo tournent en parallèle sinon)
 //   - helpers de fichiers temp / répertoires uniques
 
+use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
@@ -98,17 +99,33 @@ impl MockUI {
     }
 }
 
-/// registre de transferts factice pour les tests : il mémorise juste les
-/// transferts actifs pour vérifier le cycle register/unregister
+/// registre de transferts factice pour les tests : il mémorise les transferts
+/// actifs et leurs drapeaux d'arrêt pour vérifier le cycle register/unregister
+/// et pour déclencher une annulation côté réception, comme le ferait la
+/// commande cancel_transfer de l'app
 pub struct TestRegistry {
-    pub active: Arc<Mutex<Vec<String>>>,
+    pub active: Arc<Mutex<HashMap<String, Arc<AtomicBool>>>>,
 }
 
 impl TestRegistry {
     pub fn new() -> Self {
         TestRegistry {
-            active: Arc::new(Mutex::new(Vec::new())),
+            active: Arc::new(Mutex::new(HashMap::new())),
         }
+    }
+
+    /// je déclenche l'annulation d'un transfert en réception : le récepteur
+    /// ferme alors la connexion avec CLOSE_CANCEL et l'émetteur doit percevoir
+    /// une annulation (transfert_cancel), jamais une erreur
+    pub fn cancel(&self, transfer_id: &str) {
+        let stop = self.active.lock().unwrap().get(transfer_id).cloned();
+        if let Some(stop) = stop {
+            stop.store(true, Ordering::Relaxed);
+        }
+    }
+
+    pub fn is_registered(&self, transfer_id: &str) -> bool {
+        self.active.lock().unwrap().contains_key(transfer_id)
     }
 }
 
@@ -119,15 +136,15 @@ impl Default for TestRegistry {
 }
 
 impl TransferRegistry for TestRegistry {
-    fn register(&self, transfer_id: &str, _stop: Arc<AtomicBool>) {
-        self.active.lock().unwrap().push(transfer_id.to_string());
-    }
-
-    fn unregister(&self, transfer_id: &str) {
+    fn register(&self, transfer_id: &str, stop: Arc<AtomicBool>) {
         self.active
             .lock()
             .unwrap()
-            .retain(|id| id != transfer_id);
+            .insert(transfer_id.to_string(), stop);
+    }
+
+    fn unregister(&self, transfer_id: &str) {
+        self.active.lock().unwrap().remove(transfer_id);
     }
 }
 

@@ -13,6 +13,7 @@ import Icon from "./components/Icon.vue";
 import SidebarNav from "./components/SidebarNav.vue";
 import PeerList from "./components/PeerList.vue";
 import AboutModal from "./components/AboutModal.vue";
+import IncomingTransferModal from "./components/IncomingTransferModal.vue";
 import HistoryPage from "./components/HistoryPage.vue";
 import TransferPage from "./components/TransferPage.vue";
 import HomePage from "./components/HomePage.vue";
@@ -198,4 +199,5 @@ window.addEventListener("beforeunload", () => {
   </div>
 
   <AboutModal ref="aboutModal" />
+  <IncomingTransferModal />
 </template>

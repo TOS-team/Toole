@@ -154,6 +154,21 @@ pub fn quinn_to_err(e: quinn::ReadExactError) -> ToolError {
     }
 }
 
+/// convertit une erreur d'écriture quinn en ToolError, en distinguant
+/// l'annulation distante (connexion fermée avec CLOSE_CANCEL) des erreurs
+/// réseau : sans ça, un write_all qui échoue quand le récepteur annule serait
+/// signalé comme une erreur au lieu d'une annulation
+pub fn write_quinn_to_err(e: quinn::WriteError) -> ToolError {
+    match e {
+        quinn::WriteError::ConnectionLost(quinn::ConnectionError::ApplicationClosed(a))
+            if a.error_code.into_inner() == CLOSE_CANCEL as u64 =>
+        {
+            ToolError::RemoteCancel
+        }
+        e => e.into(),
+    }
+}
+
 /// limite les emissions de progression UI a ~20/s : le webview n'a pas besoin
 /// de 190 evenements/s et chaque IPC coûte cher en boucle serree
 struct UiThrottle {
@@ -298,7 +313,7 @@ pub async fn handle_incoming_connection(
 
                     match decision {
                         Decision::Accepted => {
-                            send.write_all(&[ACK]).await?;
+                            send.write_all(&[ACK]).await.map_err(write_quinn_to_err)?;
                             send.finish()?;
                             ui.show_progress_bar(&header.transfer_id);
                         }
@@ -530,14 +545,14 @@ async fn receive_one(
 
     if metadata.is_dir {
         fs::create_dir_all(&full_path).await?;
-        send.write_all(&[ACK]).await?;
+        send.write_all(&[ACK]).await.map_err(write_quinn_to_err)?;
         send.finish()?;
         files.lock().unwrap().push(name);
         return Ok(());
     }
 
     // Ack métadonnées
-    send.write_all(&[ACK]).await?;
+    send.write_all(&[ACK]).await.map_err(write_quinn_to_err)?;
 
     let mut out_file = fs::File::create(&full_path).await?;
     let mut received: u64 = 0;
@@ -573,7 +588,7 @@ async fn receive_one(
                 "fin de fichier inattendue (protocole desynchronise)",
             ));
         }
-        send.write_all(&[ACK]).await?;
+        send.write_all(&[ACK]).await.map_err(write_quinn_to_err)?;
 
         send.finish()?;
         Ok(())
@@ -605,7 +620,7 @@ pub async fn read_json_line<T: for<'de> Deserialize<'de>>(
     let mut byte = [0u8; 1];
 
     loop {
-        recv.read_exact(&mut byte).await?;
+        recv.read_exact(&mut byte).await.map_err(quinn_to_err)?;
         if byte[0] == b'\n' {
             break;
         }
@@ -729,8 +744,10 @@ pub async fn send_entry(
             break;
         }
 
-        send.write_all(&(n as u32).to_be_bytes()).await?;
-        send.write_all(&buf[..n]).await?;
+        send.write_all(&(n as u32).to_be_bytes())
+            .await
+            .map_err(write_quinn_to_err)?;
+        send.write_all(&buf[..n]).await.map_err(write_quinn_to_err)?;
 
         // Progression globale cumulee (lot) + per-fichier
         file_sent += n as u64;
@@ -742,7 +759,7 @@ pub async fn send_entry(
     }
 
     // Marqueur de complétion
-    send.write_all(&[COMPLETE]).await?;
+    send.write_all(&[COMPLETE]).await.map_err(write_quinn_to_err)?;
 
     // Ack final
     let mut final_ack = [0u8; 1];
@@ -759,6 +776,6 @@ pub async fn send_entry(
 pub async fn write_json_line<T: Serialize>(send: &mut SendStream, value: &T) -> Result<(), ToolError> {
     let mut encoded = serde_json::to_vec(value).map_err(io_err)?;
     encoded.push(b'\n');
-    send.write_all(&encoded).await?;
+    send.write_all(&encoded).await.map_err(write_quinn_to_err)?;
     Ok(())
 }
