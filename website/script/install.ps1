@@ -1,23 +1,20 @@
 #Requires -Version 5.1
-
-$REPO = "https://github.com/TOS-team/Toole"
+$REPO = "TOS-team/Toole"
 $INSTALL_DIR = "$env:LOCALAPPDATA\Toolé"
 
 function Info { param([string]$msg) Write-Host "[Toolé] $msg" -ForegroundColor Green }
 function Warn { param([string]$msg) Write-Host "[Toolé] $msg" -ForegroundColor Yellow }
 function Err  { param([string]$msg) Write-Host "[Toolé] $msg" -ForegroundColor Red }
 
-# Détection architecture
-$ARCH = if ([Environment]::Is64BitOperatingSystem) { "x64" } else { "x86" }
-
 Info "Recherche de la dernière version..."
-
 $release = Invoke-RestMethod -Uri "https://api.github.com/repos/$REPO/releases/latest"
 $VERSION = $release.tag_name.TrimStart('v')
-$ASSET = $release.assets | Where-Object { $_.name -like "*setup.exe" -or $_.name -like "*.msi" } | Select-Object -First 1
+
+# Cherche MSI ou setup.exe
+$ASSET = $release.assets | Where-Object { $_.name -like "*.msi" -or $_.name -like "*setup.exe" } | Select-Object -First 1
 
 if (-not $ASSET) {
-    Err "Aucun installateur trouvé pour Windows."
+    Err "Aucun installateur Windows trouvé."
     exit 1
 }
 
@@ -37,5 +34,4 @@ if ($FILENAME -like "*.msi") {
 }
 
 Remove-Item $TEMP -ErrorAction SilentlyContinue
-Info "✅ Toolé installé !"
-Info "Lance Toolé depuis le menu Démarrer."
+Info "✅ Toolé installé ! Lance depuis le menu Démarrer."
