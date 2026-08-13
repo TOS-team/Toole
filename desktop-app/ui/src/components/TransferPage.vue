@@ -1,6 +1,7 @@
 <script setup lang="ts">
-// page des transferts : je montre uniquement les transferts en attente ou en
-// cours (les finis sont dans l'historique)
+// page des transferts : je montre les transferts en attente de validation
+// (envois et demandes entrantes) et ceux en cours (les finis sont dans
+// l'historique)
 import { computed } from "vue";
 import { useTransfersStore } from "../stores/transfers";
 import TransferList from "./TransferList.vue";
@@ -8,7 +9,10 @@ import Icon from "./Icon.vue";
 
 const store = useTransfersStore();
 const active = computed(() =>
-  store.transfers.filter((t) => t.status === "pending" || t.status === "running"),
+  store.transfers.filter(
+    (t) =>
+      t.status === "pending" || t.status === "incoming" || t.status === "running",
+  ),
 );
 </script>
 

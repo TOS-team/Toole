@@ -98,6 +98,15 @@ onMounted(async () => {
   } catch (e) {
     console.error("startListening error:", e);
   }
+  // quand un appareil m'envoie des fichiers, je bascule sur la page des
+  // transferts pour afficher la demande (boutons accepter / refuser)
+  try {
+    await listen("tool://transfer/incoming", () => {
+      view.value = "transfers";
+    });
+  } catch (e) {
+    console.error("incoming listener error:", e);
+  }
   // je vérifie silencieusement les mises à jour au lancement : si une
   // nouvelle version existe, l'utilisateur la verra dans Paramètres
   useUpdaterStore().checkForUpdate(false).catch(console.error);
