@@ -114,7 +114,7 @@ jobs:
             ```
             La mise à jour automatique est désactivée sur macOS.
             - **Windows** : `-setup.exe`
-          releaseDraft: true
+          releaseDraft: false
           prerelease: false
           args: ${{ matrix.args }}
 
@@ -125,7 +125,7 @@ jobs:
         run: |
           set -e
           VERSION=$(node -p "require('./desktop-app/ui/package.json').version")
-          APP_DIR="desktop-app/src-tauri/target/release/bundle/appimage"
+          APP_DIR="target/release/bundle/appimage"
           APP_IMG=$(ls "$APP_DIR"/*.AppImage | head -1)
           cd "$(dirname "$APP_IMG")"
           ARCHIVE="Toole-${VERSION}-linux-x86_64.tar.gz"
