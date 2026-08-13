@@ -35,9 +35,9 @@ jobs:
           - platform: ubuntu-22.04
             args: --bundles deb,rpm,appimage
           - platform: macos-latest
-            args: --bundles app,dmg --target universal-apple-darwin
+            args: --bundles dmg --target universal-apple-darwin
           - platform: windows-latest
-            args: --bundles nsis,msi
+            args: --bundles nsis
     runs-on: ${{ matrix.platform }}
     env:
       TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
@@ -107,16 +107,13 @@ jobs:
             Transfert de fichiers P2P sur réseau local, chiffré (QUIC/TLS 1.3).
 
             ### Téléchargements
-            - **Linux** : `.deb`, `.rpm`, `.AppImage` (la MAJ auto passe par l'AppImage)
-            - **macOS** : `.dmg` — build non notarié, Gatekeeper peut refuser :
-              ```sh
-              xattr -cr /Applications/Toolé.app
-              ```
-              La mise à jour automatique est désactivée sur macOS (pas de signature Developer ID).
-            - **Windows** : `.msi`, `-setup.exe` (la MAJ auto passe par ces installateurs)
-
-            ### Développeurs
-            Le `latest.json` de la mise à jour automatique est généré sur cette release.
+            - **Linux** : `.deb` (Ubuntu/Debian), `.rpm` (Fedora), `.AppImage` (portable, sert à la MAJ auto)
+            - **macOS** : `.dmg` universel (Intel + Apple Silicon) — build non notarié, Gatekeeper peut refuser :
+            ```sh
+            xattr -cr /Applications/Toolé.app
+            ```
+            La mise à jour automatique est désactivée sur macOS.
+            - **Windows** : `-setup.exe`
           releaseDraft: true
           prerelease: false
           args: ${{ matrix.args }}
