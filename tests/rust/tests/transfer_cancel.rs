@@ -12,9 +12,10 @@ use std::sync::atomic::Ordering;
 use std::sync::Arc;
 use std::time::Duration;
 
-use toole_core::receiver::start_receiver;
 use toole_core::sender::start_sender;
-use toole_tests::common::{shared_stop, temp_dir, wait_for_log, write_random_file, MockUI};
+use toole_tests::common::{
+    shared_stop, start_receiver_task, temp_dir, wait_for_log, write_random_file, MockUI,
+};
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 async fn should_annuler_proprement_et_notifier_ui() {
@@ -31,12 +32,8 @@ async fn should_annuler_proprement_et_notifier_ui() {
     let ui = Arc::new(MockUI::new());
     let stop = shared_stop();
 
-    let recv_ui = ui.clone();
-    let recv_stop = stop.clone();
-    let recv_dest = dest.clone();
-    let recv_task = tokio::spawn(async move {
-        let _ = start_receiver(recv_ui, recv_dest, recv_stop).await;
-    });
+    let (recv_task, _decisions, _registry) =
+        start_receiver_task(ui.clone(), dest.clone(), stop.clone());
     wait_for_log(&ui, "Recepteur en ecoute", Duration::from_secs(5)).await;
 
     let send_ui = ui.clone();

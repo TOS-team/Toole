@@ -21,13 +21,16 @@ function statusLabel(t: Transfer): string {
   if (t.status === "done") return "Terminé";
   if (t.status === "error") return t.error?.slice(0, 24) ?? "Erreur";
   if (t.status === "cancelled") return "Annulé";
+  if (t.status === "refused") return "Refusé";
+  if (t.status === "incoming") return "En attente de votre validation…";
+  if (t.status === "pending") return "En attente de validation…";
   return t.speed;
 }
 
 function statusColor(t: Transfer): string {
   if (t.status === "done") return "text-tertiary-fixed-dim";
   if (t.status === "error") return "text-error";
-  if (t.status === "cancelled") return "text-on-surface-variant";
+  if (t.status === "cancelled" || t.status === "refused") return "text-on-surface-variant";
   return "text-on-surface";
 }
 
@@ -40,14 +43,21 @@ function barColor(t: Transfer): string {
 function cardClass(t: Transfer): Record<string, boolean> {
   return {
     "border-primary/30": t.status === "running",
+    "border-primary/40": t.status === "incoming" || t.status === "pending",
     "border-tertiary/60": t.status === "done",
     "border-error/60": t.status === "error",
+    "border-outline/40": t.status === "cancelled" || t.status === "refused",
   };
 }
 
 // je demande l'annulation au processus Rust par l'identifiant du transfert
 async function cancel(id: string) {
   await invoke("cancel_transfer", { transferId: id });
+}
+
+// je réponds à la demande d'acceptation d'un transfert entrant
+async function respond(id: string, accepted: boolean) {
+  await store.respond(id, accepted);
 }
 </script>
 
@@ -87,16 +97,40 @@ async function cancel(id: string) {
             {{ formatSize(t.bytesSent) }} / {{ formatSize(t.totalBytes) }}
           </p>
         </div>
-        <button
-          v-if="t.status === 'running'"
-          type="button"
-          aria-label="Annuler le transfert"
-          title="Annuler"
-          class="text-on-surface-variant hover:text-error transition-colors cursor-pointer"
-          @click="cancel(t.id)"
-        >
-          <Icon name="close" :size="16" />
-        </button>
+        <div class="flex items-center gap-1 shrink-0">
+          <!-- transfert entrant : j'accepter ou je refuse -->
+          <template v-if="t.status === 'incoming'">
+            <button
+              type="button"
+              aria-label="Accepter le transfert"
+              title="Accepter"
+              class="p-1 rounded-lg bg-primary/15 text-primary hover:bg-primary/25 transition-colors cursor-pointer"
+              @click="respond(t.id, true)"
+            >
+              <Icon name="check" :size="16" />
+            </button>
+            <button
+              type="button"
+              aria-label="Refuser le transfert"
+              title="Refuser"
+              class="p-1 rounded-lg text-on-surface-variant hover:bg-error/15 hover:text-error transition-colors cursor-pointer"
+              @click="respond(t.id, false)"
+            >
+              <Icon name="close" :size="16" />
+            </button>
+          </template>
+          <!-- transfert en cours ou en attente : croix d'annulation -->
+          <button
+            v-else-if="t.status === 'running' || t.status === 'pending'"
+            type="button"
+            aria-label="Annuler le transfert"
+            title="Annuler"
+            class="text-on-surface-variant hover:text-error transition-colors cursor-pointer"
+            @click="cancel(t.id)"
+          >
+            <Icon name="close" :size="16" />
+          </button>
+        </div>
       </div>
 
       <div class="w-full bg-surface-container-lowest h-1.5 rounded-full overflow-hidden mt-3 mb-2">

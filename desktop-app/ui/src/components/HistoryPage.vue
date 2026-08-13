@@ -11,19 +11,21 @@ const store = useTransfersStore();
 // je ne montre que les transferts finis (pas les transferts en cours)
 const history = computed(() =>
   store.transfers.filter((t) =>
-    ["done", "cancelled", "error"].includes(t.status),
+    ["done", "cancelled", "refused", "error"].includes(t.status),
   ),
 );
 
 function statusLabel(t: Transfer): string {
   if (t.status === "done") return "Terminé";
   if (t.status === "cancelled") return "Annulé";
+  if (t.status === "refused") return "Refusé";
   return t.error?.slice(0, 40) ?? "Erreur";
 }
 
 function statusClass(t: Transfer): string {
   if (t.status === "done") return "text-tertiary-fixed-dim bg-tertiary/15";
-  if (t.status === "cancelled") return "text-on-surface-variant bg-surface-variant";
+  if (t.status === "cancelled" || t.status === "refused")
+    return "text-on-surface-variant bg-surface-variant";
   return "text-error bg-error/15";
 }
 

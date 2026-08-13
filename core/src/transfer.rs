@@ -2,6 +2,7 @@ use crate::file_certif::{certificat, SkipServerVerification};
 use crate::{ToolError, UI};
 use quinn::{ClientConfig, Connection, Endpoint, RecvStream, SendStream, ServerConfig};
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use std::io::Error as IoError;
 use std::net::SocketAddr;
 use std::path::{Path, PathBuf};
@@ -11,6 +12,7 @@ use std::sync::Mutex;
 use std::time::{Duration, Instant};
 use tokio::fs;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
+use tokio::sync::oneshot;
 use tokio::task::JoinHandle;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -22,18 +24,125 @@ pub struct Metadata {
 }
 
 /// en-tête de lot envoyé par l'émetteur sur le premier flux de la connexion :
-/// le récepteur connaît le transfer_id et le total du lot à l'avance, afin
-/// d'afficher la même progression globale que l'émetteur dès le premier fichier
+/// le récepteur connaît le transfer_id, le total du lot, l'émetteur et la
+/// liste des fichiers à l'avance, afin d'afficher la demande d'acceptation et
+/// la même progression globale que l'émetteur dès le premier fichier. sender
+/// et files sont tolérants (serde default) pour rester compatibles avec un
+/// ancien émetteur qui n'envoie pas ces champs.
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct BatchHeader {
     pub transfer_id: String,
     pub total_bytes: u64,
+    #[serde(default)]
+    pub sender: String,
+    #[serde(default)]
+    pub files: Vec<String>,
 }
 
 const CHUNK_SIZE: usize = 1_048_576; // 1 Mo
 pub const ACK: u8 = 0x01;
 const COMPLETE: u8 = 0x02;
+/// réponse du récepteur pour refuser le transfert à la demande d'acceptation
+pub const REFUSE: u8 = 0x03;
+/// code de fermeture QUIC d'une fin normale de transfert
+pub const CLOSE_OK: u32 = 0;
+/// code de fermeture QUIC d'une annulation : le pair sait distinguer
+/// « annulé » d'une simple erreur réseau
+pub const CLOSE_CANCEL: u32 = 1;
+/// délai d'attente de la décision du destinataire (émetteur et récepteur)
+pub const DECISION_TIMEOUT: Duration = Duration::from_secs(30);
 const PORT: u16 = 58200;
+
+/// registre des demandes d'acceptation en attente : le récepteur y dépose un
+/// canal oneshot sous le transfer_id, et la commande respond_transfer le
+/// résout quand l'utilisateur clique sur accepter/refuser. auto_accept permet
+/// aux tests de sauter la validation (comportement historique).
+pub struct DecisionBoard {
+    pending: Mutex<HashMap<String, oneshot::Sender<bool>>>,
+    auto_accept: AtomicBool,
+}
+
+impl DecisionBoard {
+    pub fn new() -> Self {
+        DecisionBoard {
+            pending: Mutex::new(HashMap::new()),
+            auto_accept: AtomicBool::new(false),
+        }
+    }
+
+    pub fn set_auto_accept(&self, v: bool) {
+        self.auto_accept.store(v, Ordering::Relaxed);
+    }
+
+    pub fn auto_accept(&self) -> bool {
+        self.auto_accept.load(Ordering::Relaxed)
+    }
+
+    /// je dépose un canal d'attente pour ce transfert et je rends la partie
+    /// réceptrice ; l'app résout la décision via `resolve`.
+    pub fn register(&self, transfer_id: &str) -> oneshot::Receiver<bool> {
+        let (tx, rx) = oneshot::channel();
+        self.pending
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .insert(transfer_id.to_string(), tx);
+        rx
+    }
+
+    /// je résous la décision de l'utilisateur ; false si le transfert est
+    /// inconnu ou déjà traité
+    pub fn resolve(&self, transfer_id: &str, accepted: bool) -> bool {
+        let tx = self
+            .pending
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .remove(transfer_id);
+        match tx {
+            Some(tx) => {
+                let _ = tx.send(accepted);
+                true
+            }
+            None => false,
+        }
+    }
+
+    /// je vérifie si un transfert attend encore une décision (utile en test)
+    pub fn has_pending(&self, transfer_id: &str) -> bool {
+        self.pending
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .contains_key(transfer_id)
+    }
+}
+
+impl Default for DecisionBoard {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+/// je détecte si une erreur de lecture quinn correspond à une annulation
+/// distante : soit un flux reset par l'émetteur (arrêt utilisateur), soit une
+/// connexion fermée avec le code CLOSE_CANCEL
+pub fn is_remote_cancel(e: &quinn::ReadExactError) -> bool {
+    match e {
+        quinn::ReadExactError::ReadError(quinn::ReadError::Reset(_)) => true,
+        quinn::ReadExactError::ReadError(quinn::ReadError::ConnectionLost(
+            quinn::ConnectionError::ApplicationClosed(a),
+        )) => a.error_code.into_inner() == CLOSE_CANCEL as u64,
+        _ => false,
+    }
+}
+
+/// convertit une erreur de lecture quinn en ToolError, en distinguant
+/// l'annulation distante (RemoteCancel) des autres erreurs réseau
+pub fn quinn_to_err(e: quinn::ReadExactError) -> ToolError {
+    if is_remote_cancel(&e) {
+        ToolError::RemoteCancel
+    } else {
+        e.into()
+    }
+}
 
 /// limite les emissions de progression UI a ~20/s : le webview n'a pas besoin
 /// de 190 evenements/s et chaque IPC coûte cher en boucle serree
@@ -86,12 +195,20 @@ pub async fn make_server_endpoint() -> Result<Endpoint, ToolError> {
 /// fenetres QUIC larges (defaut quinn = 1,25 Mo par stream, ca plafonne le debit)
 /// initial_rtt garde au defaut quinn (333ms) : une valeur optimiste fait partir le
 /// pacing trop vite et provoque des pertes puis l'effondrement de Cubic sur WiFi
+/// j'ajoute aussi un idle timeout court + keepalive : une déconnexion soudaine
+/// (app fermée, réseau coupé) est détectée en ~15 s au lieu des 30 s par défaut,
+/// et le keepalive maintient la connexion vivante pendant la période silencieuse
+/// de la demande d'acceptation (jusqu'à 30 s de réflexion utilisateur)
 fn transport_config() -> quinn::TransportConfig {
     use quinn::VarInt;
     let mut t = quinn::TransportConfig::default();
-t.stream_receive_window(VarInt::from(8u32 * 1024 * 1024));
-        t.receive_window(VarInt::from(32u32 * 1024 * 1024));
-        t.send_window(32 * 1024 * 1024);
+    t.stream_receive_window(VarInt::from(8u32 * 1024 * 1024));
+    t.receive_window(VarInt::from(32u32 * 1024 * 1024));
+    t.send_window(32 * 1024 * 1024);
+    t.max_idle_timeout(Some(
+        quinn::IdleTimeout::try_from(Duration::from_secs(15)).unwrap(),
+    ));
+    t.keep_alive_interval(Some(Duration::from_secs(3)));
     t
 }
 
@@ -124,28 +241,31 @@ pub async fn handle_incoming_connection(
     ui: Arc<dyn UI>,
     transfer_id: Arc<Mutex<Option<String>>>,
     total: Arc<AtomicU64>,
+    decisions: Arc<DecisionBoard>,
+    registry: Arc<dyn crate::TransferRegistry>,
 ) -> Result<(), ToolError> {
     // je mémorise si un flux a échoué en cours de route (ex: annulation côté
     // émetteur) : dans ce cas je signalerai une erreur, pas une réception
     let had_error = Arc::new(AtomicBool::new(false));
+    // je mémorise si le pair a annulé explicitement (reset ou code CLOSE_CANCEL)
+    // pour signaler une annulation, pas une erreur
+    let cancelled_by_peer = Arc::new(AtomicBool::new(false));
     let mut handles: Vec<JoinHandle<()>> = Vec::new();
     let mut header_received = false;
     loop {
         if stop.load(Ordering::Relaxed) {
-            connection.close(0u32.into(), b"arret utilisateur");
-            return Ok(());
+            connection.close(CLOSE_CANCEL.into(), b"arret utilisateur");
+            return Err(ToolError::Cancelled);
         }
 
         match tokio::time::timeout(Duration::from_secs(1), connection.accept_bi()).await {
             Ok(Ok((mut send, mut recv))) => {
-                // le premier flux est l'en-tête de lot : il apporte transfer_id
-                // et total d'avance, pour que la progression du récepteur ait
-                // le même dénominateur que celle de l'émetteur dès le départ
+                // le premier flux est l'en-tête de lot : il apporte transfer_id,
+                // le total et la liste des fichiers, et demande la validation de
+                // l'utilisateur (accepter / refuser) avant de recevoir
                 if !header_received {
                     header_received = true;
                     let header: BatchHeader = read_json_line(&mut recv).await?;
-                    send.write_all(&[ACK]).await?;
-                    send.finish()?;
                     {
                         let mut tid = transfer_id.lock().unwrap_or_else(|e| e.into_inner());
                         if tid.is_none() {
@@ -153,7 +273,29 @@ pub async fn handle_incoming_connection(
                         }
                     }
                     total.store(header.total_bytes, Ordering::Relaxed);
-                    ui.show_progress_bar(&header.transfer_id);
+                    // je m'enregistre pour que la croix de la carte puisse
+                    // annuler cette réception depuis l'interface
+                    registry.register(&header.transfer_id, stop.clone());
+
+                    // je demande la décision à l'utilisateur et j'attends sa réponse
+                    ui.transfert_incoming(
+                        &header.transfer_id,
+                        &header.sender,
+                        header.total_bytes,
+                        header.files.clone(),
+                    );
+                    let accepted = await_decision(&decisions, &header.transfer_id, &stop).await;
+
+                    if accepted {
+                        send.write_all(&[ACK]).await?;
+                        send.finish()?;
+                        ui.show_progress_bar(&header.transfer_id);
+                    } else {
+                        send.write_all(&[REFUSE]).await?;
+                        send.finish()?;
+                        connection.close(CLOSE_CANCEL.into(), b"transfert refuse");
+                        return Err(ToolError::Refused);
+                    }
                     continue;
                 }
 
@@ -164,36 +306,110 @@ pub async fn handle_incoming_connection(
                 let transfer_id = transfer_id.clone();
                 let total = total.clone();
                 let had_error = had_error.clone();
+                let cancelled_by_peer = cancelled_by_peer.clone();
                 handles.push(tokio::spawn(async move {
-                    if let Err(e) =
-                        receive_one(send, recv, &dest_dir, files, bytes, ui, transfer_id, total)
-                            .await
+                    if let Err(e) = receive_one(
+                        send,
+                        recv,
+                        &dest_dir,
+                        files,
+                        bytes,
+                        ui,
+                        transfer_id,
+                        total,
+                        cancelled_by_peer.clone(),
+                    )
+                    .await
                     {
-                        // je marque l'échec pour que la connexion soit
-                        // signalée en erreur (pas comme un transfert reçu)
-                        had_error.store(true, Ordering::Relaxed);
-                        eprintln!("Erreur reception fichier: {e}");
+                        match e {
+                            ToolError::RemoteCancel => {
+                                // l'émetteur a annulé explicitement : je le
+                                // signale en annulation, pas en erreur
+                                cancelled_by_peer.store(true, Ordering::Relaxed);
+                            }
+                            e => {
+                                // je marque l'échec pour que la connexion soit
+                                // signalée en erreur (pas comme un transfert reçu)
+                                had_error.store(true, Ordering::Relaxed);
+                                eprintln!("Erreur reception fichier: {e}");
+                            }
+                        }
                     }
                 }));
+            }
+            Ok(Err(quinn::ConnectionError::ApplicationClosed(a)))
+                if a.error_code.into_inner() == CLOSE_CANCEL as u64 =>
+            {
+                // le pair a fermé avec le code d'annulation (refus ou arrêt)
+                for h in handles {
+                    let _ = h.await;
+                }
+                return Err(ToolError::RemoteCancel);
             }
             Ok(Err(quinn::ConnectionError::ApplicationClosed(_)))
             | Ok(Err(quinn::ConnectionError::LocallyClosed)) => {
                 // j'attends la fin des tâches de flux : elles posent
-                // `had_error` si un fichier a échoué, et elles terminent vite
-                // une fois la connexion fermée
+                // `had_error` / `cancelled_by_peer` si un fichier a échoué ou a
+                // été annulé, et elles terminent vite une fois la connexion fermée
                 for h in handles {
                     let _ = h.await;
                 }
+                if cancelled_by_peer.load(Ordering::Relaxed) {
+                    return Err(ToolError::RemoteCancel);
+                }
                 // si un flux a échoué (ex: annulation côté émetteur), je
                 // signale une erreur plutôt qu'une réception
-                return if had_error.load(Ordering::Relaxed) {
-                    Err(io_err("connexion fermee avec un flux en echec"))
-                } else {
-                    Ok(())
-                };
+                if had_error.load(Ordering::Relaxed) {
+                    return Err(io_err("connexion fermee avec un flux en echec"));
+                }
+                // contrôle de complétude : si l'émetteur a disparu en cours de
+                // route, je refuse de notifier une réception alors que des
+                // octets manquent
+                let done = bytes.load(Ordering::Relaxed);
+                let expected = total.load(Ordering::Relaxed);
+                if done < expected {
+                    return Err(io_err("connexion interrompue : reception incomplete"));
+                }
+                return Ok(());
             }
-            Ok(Err(e)) => return Err(e.into()),
+            Ok(Err(e)) => {
+                // perte de connexion (ex: pair qui disparaît brutalement) :
+                // j'attends la fin des flux pour laisser le nettoyage des
+                // fichiers partiels se terminer, puis je signale l'erreur
+                for h in handles {
+                    let _ = h.await;
+                }
+                return Err(e.into());
+            }
             Err(_) => continue, // timeout : on revérifie `stop`
+        }
+    }
+}
+
+/// attend la décision de l'utilisateur (ou auto-accepte en test). Renvoie false
+/// si le transfert est annulé pendant l'attente ou si le délai est dépassé.
+async fn await_decision(
+    decisions: &DecisionBoard,
+    transfer_id: &str,
+    stop: &Arc<AtomicBool>,
+) -> bool {
+    if decisions.auto_accept() {
+        return true;
+    }
+    let mut rx = decisions.register(transfer_id);
+    let deadline = Instant::now() + DECISION_TIMEOUT;
+    loop {
+        if stop.load(Ordering::Relaxed) {
+            return false;
+        }
+        if Instant::now() >= deadline {
+            return false;
+        }
+        match tokio::time::timeout(Duration::from_millis(100), &mut rx).await {
+            Ok(Ok(true)) => return true,
+            Ok(Ok(false)) => return false,
+            Ok(Err(_)) => return false, // canal fermé (app qui s'éteint)
+            Err(_) => continue,
         }
     }
 }
@@ -208,6 +424,7 @@ async fn receive_one(
     ui: Arc<dyn UI>,
     transfer_id: Arc<Mutex<Option<String>>>,
     total: Arc<AtomicU64>,
+    cancelled_by_peer: Arc<AtomicBool>,
 ) -> Result<(), ToolError> {
     let metadata = read_json_line::<Metadata>(&mut recv).await?;
     let full_path = dest_dir.join(&metadata.rel_path);
@@ -229,7 +446,11 @@ async fn receive_one(
             *tid = Some(metadata.transfer_id.clone());
         }
     }
-    let tid = transfer_id.lock().unwrap_or_else(|e| e.into_inner()).clone().unwrap_or_default();
+    let tid = transfer_id
+        .lock()
+        .unwrap_or_else(|e| e.into_inner())
+        .clone()
+        .unwrap_or_default();
 
     if metadata.is_dir {
         fs::create_dir_all(&full_path).await?;
@@ -246,40 +467,59 @@ async fn receive_one(
     let mut received: u64 = 0;
     let mut throttle = UiThrottle::new();
 
-    while received < metadata.size {
-        let mut len_buf = [0u8; 4];
-        recv.read_exact(&mut len_buf).await?;
-        let len = u32::from_be_bytes(len_buf) as usize;
+    let res: Result<(), ToolError> = async {
+        while received < metadata.size {
+            let mut len_buf = [0u8; 4];
+            recv.read_exact(&mut len_buf).await.map_err(quinn_to_err)?;
+            let len = u32::from_be_bytes(len_buf) as usize;
 
-        let mut data = vec![0u8; len];
-        recv.read_exact(&mut data).await?;
+            let mut data = vec![0u8; len];
+            recv.read_exact(&mut data).await.map_err(quinn_to_err)?;
 
-        out_file.write_all(&data).await?;
-        received += len as u64;
+            out_file.write_all(&data).await?;
+            received += len as u64;
 
-        // progression cote receveur, aluminee sur celle de l'emetteur
-        let done = bytes.fetch_add(len as u64, Ordering::Relaxed) + len as u64;
-        if throttle.ready() || received == metadata.size {
-            ui.update_progress_bar(&tid, done, total.load(Ordering::Relaxed));
-            ui.file_progress_bar(&tid, &name, received, metadata.size);
+            // progression cote receveur, aluminee sur celle de l'emetteur
+            let done = bytes.fetch_add(len as u64, Ordering::Relaxed) + len as u64;
+            if throttle.ready() || received == metadata.size {
+                ui.update_progress_bar(&tid, done, total.load(Ordering::Relaxed));
+                ui.file_progress_bar(&tid, &name, received, metadata.size);
+            }
+        }
+
+        out_file.flush().await?;
+
+        // Marqueur de complétion, puis ack final
+        let mut complete = [0u8; 1];
+        recv.read_exact(&mut complete).await.map_err(quinn_to_err)?;
+        if complete[0] != COMPLETE {
+            return Err(io_err(
+                "fin de fichier inattendue (protocole desynchronise)",
+            ));
+        }
+        send.write_all(&[ACK]).await?;
+
+        send.finish()?;
+        Ok(())
+    }
+    .await;
+
+    match &res {
+        Ok(()) => {
+            files.lock().unwrap().push(name);
+        }
+        Err(ToolError::RemoteCancel) => {
+            // l'émetteur a annulé : pas de nettoyage nécessaire côté récepteur
+            // (je ne laisse pas de réception tronquée : je signale l'annulation)
+            cancelled_by_peer.store(true, Ordering::Relaxed);
+        }
+        Err(_) => {
+            // je supprime le fichier partiel : jamais de réception tronquée
+            // dans le dossier de destination
+            let _ = fs::remove_file(&full_path).await;
         }
     }
-
-    out_file.flush().await?;
-
-    // Marqueur de complétion, puis ack final
-    let mut complete = [0u8; 1];
-    recv.read_exact(&mut complete).await?;
-    if complete[0] != COMPLETE {
-        return Err(io_err(
-            "fin de fichier inattendue (protocole desynchronise)",
-        ));
-    }
-    send.write_all(&[ACK]).await?;
-
-    send.finish()?;
-    files.lock().unwrap().push(name);
-    Ok(())
+    res
 }
 
 pub async fn read_json_line<T: for<'de> Deserialize<'de>>(
@@ -388,7 +628,7 @@ pub async fn send_entry(
 
     // Ack métadonnées
     let mut ack = [0u8; 1];
-    recv.read_exact(&mut ack).await?;
+    recv.read_exact(&mut ack).await.map_err(quinn_to_err)?;
     if ack[0] != ACK {
         return Err(io_err("metadonnees rejetees par le receveur"));
     }
@@ -427,7 +667,7 @@ pub async fn send_entry(
 
     // Ack final
     let mut final_ack = [0u8; 1];
-    recv.read_exact(&mut final_ack).await?;
+    recv.read_exact(&mut final_ack).await.map_err(quinn_to_err)?;
     send.finish()?;
 
     if final_ack[0] != ACK {

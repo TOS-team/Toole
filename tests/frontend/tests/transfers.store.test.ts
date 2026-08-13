@@ -9,6 +9,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { createPinia, setActivePinia } from "pinia";
 import { emit, resetEmit } from "../src/mocks/tauri-event";
+import { mockReply, resetMock, calledCommands } from "../src/mocks/tauri-core";
 import { useTransfersStore } from "../../../desktop-app/ui/src/stores/transfers";
 
 const KEY = "toole.transfers";
@@ -20,6 +21,7 @@ function freshStore() {
 
 beforeEach(() => {
   resetEmit();
+  resetMock();
   localStorage.clear();
 });
 
@@ -140,6 +142,36 @@ describe("pipeline d'événements Tauri", () => {
     expect(store.transfers[3].peer).toBe("pc-1");
     expect(store.transfers[3].files).toEqual(["a.bin", "b.bin"]);
     expect(store.transfers[3].bytesSent).toBe(4096);
+  });
+it("affiche une demande entrante puis la refus", async () => {
+    const store = freshStore();
+    await store.startListening();
+
+    emit("tool://transfer/incoming", {
+      transfer_id: "t-inc",
+      sender: "pc-1",
+      total_bytes: 4096,
+      files: ["a.bin", "b.bin"],
+    });
+    expect(store.transfers[0]).toMatchObject({
+      id: "t-inc",
+      status: "incoming",
+      peer: "pc-1",
+      totalBytes: 4096,
+      files: ["a.bin", "b.bin"],
+    });
+    expect(store.activeCount).toBe(1);
+
+    emit("tool://transfer/refused", "t-inc");
+    expect(store.transfers[0].status).toBe("refused");
+    expect(store.activeCount).toBe(0);
+  });
+
+  it("répond à une demande via respond_transfer", async () => {
+    mockReply("respond_transfer", null);
+    const store = freshStore();
+    await store.respond("t-inc", true);
+    expect(calledCommands()).toContain("respond_transfer");
   });
 });
 

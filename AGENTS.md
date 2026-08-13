@@ -15,8 +15,8 @@ Toolé détecte les appareils voisins par UDP broadcast et transfère des fichie
 
 ## Structure
 
-- `core/` — bibliothèque Rust pure (sans Tauri). Modules : `discovery` (UDP broadcast, port 58199), `transfer` (framing des flux QUIC), `sender` (émetteur, 2 fichiers max en parallèle), `receiver` (récepteur QUIC port 58200 → `Downloads/Toolé`), `file_certif` (certificat auto-signé persisté), `utils` (`device_id`), `error` (`ToolError`), `lib` (trait `UI` à 10 méthodes), `examples/bench.rs` (bench loopback)
-- `desktop-app/src-tauri/` — app Tauri : `commands.rs` (8 commandes `#[tauri::command]`, `AppUI` implémente le trait `UI` via events `tool://…`), `lib.rs` (builder, plugins, récepteur au setup), `capabilities/default.json` (ACL)
+- `core/` — bibliothèque Rust pure (sans Tauri). Modules : `discovery` (UDP broadcast, port 58199), `transfer` (framing des flux QUIC, `DecisionBoard` pour la demande d'acceptation), `sender` (émetteur, 2 fichiers max en parallèle), `receiver` (récepteur QUIC port 58200 → `Downloads/Toolé`), `file_certif` (certificat auto-signé persisté), `utils` (`device_id`), `error` (`ToolError`), `lib` (trait `UI` à 12 méthodes + trait `TransferRegistry`), `examples/bench.rs` (bench loopback)
+- `desktop-app/src-tauri/` — app Tauri : `commands.rs` (9 commandes `#[tauri::command]`, `AppUI` implémente le trait `UI` via events `tool://…`), `lib.rs` (builder, plugins, récepteur au setup), `capabilities/default.json` (ACL)
 - `desktop-app/ui/` — Vue 3 + Pinia + Tailwind v4 + Vite. Stores : `peers`, `files`, `transfers`, `settings`, `updater`. `tauri.ts` wrappe `invoke`
 - `tests/rust/` — tests d'intégration cargo (`-p toole_tests`) : discovery, protocol, transfer_*, utils
 - `tests/frontend/` — vitest + jsdom, avec mocks Tauri (alias vers `tests/frontend/src/mocks/`)
@@ -46,9 +46,12 @@ Pas de linter configuré : fais au minimum `cargo check -p app` et `npm run buil
 ## Points clés du code à préserver
 
 - **Framing des flux** : `len` u32 BE + data (chunk 1 Mo max), pas d'ack par chunk (fiabilité QUIC), marqueur `COMPLETE 0x02`, ack final `0x01`.
-- **Metadata** : `{ transfer_id, rel_path, size, is_dir }` en JSON + `\n`. En-tête de lot (`BatchHeader`) toujours sur le premier flux ; ACK avant d'envoyer les fichiers.
+- **Handshake / décision** : le 1er flux porte le `BatchHeader` (`{ transfer_id, total_bytes, sender, files }` en JSON + `\n`, `sender`/`files` avec `#[serde(default)]`) ; le récepteur présente la demande à l'utilisateur puis répond `ACK 0x01` (accepter) ou `REFUSE 0x03` (refuser) avant tout envoi de fichier. Délai de décision : 30 s (`DECISION_TIMEOUT`).
+- **Metadata** : `{ transfer_id, rel_path, size, is_dir }` en JSON + `\n`.
 - **Progression UI** limitée à ~20 événements/s (`UiThrottle`) pour ne pas saturer le pont frontend.
-- **Annulation** : stop flag + `send.reset` ; le récepteur signale une erreur, jamais une réception tronquée.
+- **Codes de fermeture QUIC** : `CLOSE_OK 0` (fin normale), `CLOSE_CANCEL 1` (annulation/refus). Le récepteur distingue annulation (reset ou `CLOSE_CANCEL` → `transfert_cancel`) d'une erreur réseau (autre code/perte → `transfert_error`).
+- **Annulation croisée** : les deux côtés peuvent annuler (croix de la carte) ; le récepteur supprime les fichiers partiels, jamais de réception tronquée.
+- **Déconnexion soudaine** : `max_idle_timeout 15 s` + `keep_alive_interval 3 s` dans `transport_config` ; détection de la perte en ~15 s + contrôle de complétude `done < expected`.
 - **Découverte** : broadcast `TOOLE_HERE:<device_id>` (hostname + suffixe base32 stable), toutes les 3 s, timeout pair 9 s.
 - **Linux** : `WEBKIT_DISABLE_DMABUF_RENDERER=1` dans `main.rs` (workaround NVIDIA), ne pas le retirer.
 - `Cargo.lock` est tracké à la racine (ne pas l'ignorer malgré `.gitignore`).

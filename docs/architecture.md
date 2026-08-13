@@ -65,6 +65,8 @@ pub trait UI: Send + Sync {
     fn update_progress_bar(&self, transfer_id: &str, bytes_sent: u64, total_bytes: u64);
     fn file_progress_bar(&self, transfer_id: &str, file_name: &str, file_bytes_sent: u64, file_total_bytes: u64);
     fn transfert_cancel(&self, transfer_id: &str);
+    fn transfert_incoming(&self, transfer_id: &str, sender: &str, total_bytes: u64, files: Vec<String>);
+    fn transfert_refused(&self, transfer_id: &str);
     fn transfert_completed(&self, transfer_id: &str);
     fn transfert_received(&self, transfer_id: &str, peer: &str, bytes: u64, files: Vec<String>);
     fn transfert_error(&self, transfer_id: &str, error: &ToolError);
@@ -74,6 +76,9 @@ pub trait UI: Send + Sync {
 Dans `desktop-app/src-tauri/src/commands.rs`, la structure `AppUI` implémente ce trait et émet des événements Tauri vers le frontend :
 - `peer_found`/`peer_lost` maintiennent une liste partagée `Arc<Mutex<Vec<Peer>>>` et émettent `tool://peer_found` / `tool://peer_lost`
 - Les méthodes de progression émettent `tool://transfer/start`, `tool://transfer/progress`, `tool://transfer/file_progress`, `tool://transfer/done`, `tool://transfer/cancel`, `tool://transfer/received`, `tool://transfer/error`
+- `transfert_incoming` émet `tool://transfer/incoming` (demande d'acceptation : transfer_id, sender, total_bytes, files) et `transfert_refused` émet `tool://transfer/refused`
+
+Le récepteur dépose chaque demande d'acceptation dans un **`DecisionBoard`** partagé (map `transfer_id → oneshot`). Quand l'utilisateur clique sur Accepter / Refuser, la commande `respond_transfer(transfer_id, accepted)` résout la décision, qui est renvoyée à l'émetteur (`ACK 0x01` / `REFUSE 0x03`).
 
 Le frontend récupère la liste des pairs via la commande `get_peers` appelée toutes les 2s (polling), et s'abonne aux événements `tool://transfer/*` pour la progression.
 
@@ -166,7 +171,7 @@ Tokio Runtime
 |---|---|
 | `main.rs` | Point d'entrée, appelle `app_lib::run()` |
 | `lib.rs` | Builder Tauri : manage state, invoke_handler, récepteur au démarrage |
-| `commands.rs` | AppUI + commandes : start_discovery, stop_discovery, get_device_id, get_peers, send_files, cancel_transfer, read_clipboard, get_file_infos |
+| `commands.rs` | AppUI + commandes : start_discovery, stop_discovery, get_device_id, get_peers, send_files, cancel_transfer, respond_transfer, read_clipboard, get_file_infos |
 
 ### desktop-app/ui/
 

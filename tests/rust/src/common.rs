@@ -7,12 +7,13 @@
 //     bindent le port UDP 58200 (les tests cargo tournent en parallèle sinon)
 //   - helpers de fichiers temp / répertoires uniques
 
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
-use toole_core::{Peer, ToolError, UI};
+use toole_core::transfer::DecisionBoard;
+use toole_core::{Peer, ToolError, TransferRegistry, UI};
 
 /// état collecté par MockUI pendant un test
 #[derive(Debug, Default)]
@@ -24,7 +25,9 @@ pub struct UiState {
     pub file_progress: Vec<(String, u64, u64)>,
     pub completed: Vec<String>,
     pub cancelled: Vec<String>,
+    pub refused: Vec<String>,
     pub errors: Vec<String>,
+    pub incoming: Vec<(String, String, u64, Vec<String>)>,
     pub received: Vec<(String, String, u64, Vec<String>)>,
 }
 
@@ -66,6 +69,150 @@ impl MockUI {
             .iter()
             .any(|id| id == transfer_id)
     }
+
+    pub fn is_refused(&self, transfer_id: &str) -> bool {
+        self.state
+            .lock()
+            .unwrap()
+            .refused
+            .iter()
+            .any(|id| id == transfer_id)
+    }
+
+    pub fn has_error(&self, _transfer_id: &str) -> bool {
+        self.state.lock().unwrap().errors.iter().any(|_| true)
+    }
+
+    pub fn has_incoming(&self, transfer_id: &str) -> bool {
+        self.state
+            .lock()
+            .unwrap()
+            .incoming
+            .iter()
+            .any(|(id, _, _, _)| id == transfer_id)
+    }
+}
+
+/// registre de transferts factice pour les tests : il mémorise juste les
+/// transferts actifs pour vérifier le cycle register/unregister
+pub struct TestRegistry {
+    pub active: Arc<Mutex<Vec<String>>>,
+}
+
+impl TestRegistry {
+    pub fn new() -> Self {
+        TestRegistry {
+            active: Arc::new(Mutex::new(Vec::new())),
+        }
+    }
+}
+
+impl Default for TestRegistry {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl TransferRegistry for TestRegistry {
+    fn register(&self, transfer_id: &str, _stop: Arc<AtomicBool>) {
+        self.active.lock().unwrap().push(transfer_id.to_string());
+    }
+
+    fn unregister(&self, transfer_id: &str) {
+        self.active
+            .lock()
+            .unwrap()
+            .retain(|id| id != transfer_id);
+    }
+}
+
+/// lance un récepteur réel en arrière-plan avec un DecisionBoard en
+/// auto-accept (comportement historique des tests) et un registre factice.
+/// Je renvoie le handle de tâche + le board + le registre pour que les tests
+/// puissent résoudre une décision manuellement si besoin.
+pub fn start_receiver_task(
+    ui: Arc<MockUI>,
+    dest: PathBuf,
+    stop: Arc<AtomicBool>,
+) -> (
+    tokio::task::JoinHandle<()>,
+    Arc<DecisionBoard>,
+    Arc<TestRegistry>,
+) {
+    start_receiver_task_ex(ui, dest, stop, true)
+}
+
+/// variante avec contrôle du mode auto-accept : quand auto_accept est false,
+/// le récepteur attend une décision manuelle via board.resolve(...)
+pub fn start_receiver_task_ex(
+    ui: Arc<MockUI>,
+    dest: PathBuf,
+    stop: Arc<AtomicBool>,
+    auto_accept: bool,
+) -> (
+    tokio::task::JoinHandle<()>,
+    Arc<DecisionBoard>,
+    Arc<TestRegistry>,
+) {
+    let decisions = Arc::new(DecisionBoard::new());
+    decisions.set_auto_accept(auto_accept);
+    let registry = Arc::new(TestRegistry::new());
+    let b = decisions.clone();
+    let r = registry.clone();
+    let task = tokio::spawn(async move {
+        let _ = toole_core::receiver::start_receiver(ui, dest, stop, b, r).await;
+    });
+    (task, decisions, registry)
+}
+
+/// attend qu'une demande d'acceptation soit présentée au récepteur
+pub async fn wait_for_incoming(ui: &MockUI, timeout: Duration) {
+    wait_until(
+        || !ui.state.lock().unwrap().incoming.is_empty(),
+        timeout,
+        "une demande d'acceptation",
+    )
+    .await;
+}
+
+/// attend qu'un transfert soit bien en attente de décision sur le board
+pub async fn wait_for_pending(board: &DecisionBoard, transfer_id: &str, timeout: Duration) {
+    wait_until(
+        || board.has_pending(transfer_id),
+        timeout,
+        &format!("la décision {transfer_id:?} en attente"),
+    )
+    .await;
+}
+
+/// attend qu'une erreur soit signalée par l'UI
+pub async fn wait_for_error(ui: &MockUI, timeout: Duration) {
+    wait_until(
+        || !ui.state.lock().unwrap().errors.is_empty(),
+        timeout,
+        "une erreur",
+    )
+    .await;
+}
+
+/// attend que la progression du transfert ait démarré (au moins un événement)
+pub async fn wait_for_progress(ui: &MockUI, timeout: Duration) {
+    wait_until(
+        || ui.progress_events() > 0,
+        timeout,
+        "le démarrage de la progression",
+    )
+    .await;
+}
+
+/// attend qu'un transfert soit notifié refusé
+pub async fn wait_for_refused(ui: &MockUI, transfer_id: &str, timeout: Duration) {
+    wait_until(
+        || ui.is_refused(transfer_id),
+        timeout,
+        &format!("le refus de {transfer_id:?}"),
+    )
+    .await;
 }
 
 impl Default for MockUI {
@@ -166,6 +313,29 @@ impl UI for MockUI {
             .lock()
             .unwrap()
             .completed
+            .push(transfer_id.to_string());
+    }
+
+    fn transfert_incoming(
+        &self,
+        transfer_id: &str,
+        sender: &str,
+        total_bytes: u64,
+        files: Vec<String>,
+    ) {
+        self.state.lock().unwrap().incoming.push((
+            transfer_id.to_string(),
+            sender.to_string(),
+            total_bytes,
+            files,
+        ));
+    }
+
+    fn transfert_refused(&self, transfer_id: &str) {
+        self.state
+            .lock()
+            .unwrap()
+            .refused
             .push(transfer_id.to_string());
     }
 

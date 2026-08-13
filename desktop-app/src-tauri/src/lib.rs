@@ -11,10 +11,12 @@ pub fn run() {
         .plugin(tauri_plugin_process::init())
         .manage(commands::DiscoveryState {
             stop_flag: Mutex::new(Arc::new(AtomicBool::new(false))),
+            handle: Mutex::new(None),
             peers: Arc::new(Mutex::new(Vec::new())),
         })
         .manage(commands::TransferState {
-            active: Mutex::new(std::collections::HashMap::new()),
+            active: Arc::new(Mutex::new(std::collections::HashMap::new())),
+            decisions: Arc::new(toole_core::transfer::DecisionBoard::new()),
         })
         .invoke_handler(tauri::generate_handler![
             commands::start_discovery,
@@ -23,6 +25,7 @@ pub fn run() {
             commands::get_peers,
             commands::send_files,
             commands::cancel_transfer,
+            commands::respond_transfer,
             commands::read_clipboard,
             commands::get_file_infos,
         ])
@@ -51,8 +54,23 @@ pub fn run() {
             let peers = Arc::new(Mutex::new(Vec::new()));
             let ui: Arc<dyn toole_core::UI> = Arc::new(commands::AppUI { peers, window });
 
+            let transfer_state: tauri::State<'_, commands::TransferState> = app.state();
+            let decisions = transfer_state.decisions.clone();
+            let registry: Arc<dyn toole_core::TransferRegistry> =
+                Arc::new(commands::TransferRegistryHandle {
+                    active: transfer_state.active.clone(),
+                });
+
             tauri::async_runtime::spawn(async move {
-                if let Err(e) = toole_core::receiver::start_receiver(ui, dest_dir, stop).await {
+                if let Err(e) = toole_core::receiver::start_receiver(
+                    ui,
+                    dest_dir,
+                    stop,
+                    decisions,
+                    registry,
+                )
+                .await
+                {
                     eprintln!("Receiver error: {e}");
                 }
             });

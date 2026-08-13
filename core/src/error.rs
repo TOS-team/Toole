@@ -17,6 +17,15 @@ pub enum ToolError {
     #[error("Transfer error: {0}")]
     TransferError(String),
 
+    #[error("Transfert annulé par l'utilisateur")]
+    Cancelled,
+
+    #[error("Transfert annulé par le destinataire")]
+    RemoteCancel,
+
+    #[error("Transfert refusé par le destinataire")]
+    Refused,
+
     #[error("Stream closed")]
     ClosedStream(#[from] quinn::ClosedStream),
 

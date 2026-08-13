@@ -5,10 +5,11 @@
 import { defineStore } from "pinia"
 import { ref, computed, watch } from 'vue'
 import { listen } from '@tauri-apps/api/event'
+import { invoke } from '../tauri'
 
 export interface Transfer {
   id: string
-  status: 'pending' | 'running' | 'done' | 'error' | 'cancelled'
+  status: 'pending' | 'incoming' | 'running' | 'done' | 'error' | 'cancelled' | 'refused'
   percent: number
   bytesSent: number
   totalBytes: number
@@ -30,7 +31,7 @@ export interface FileProgress {
 const KEY = 'toole.transfers'
 const MAX_HISTORY = 200
 
-const TERMINAL: Transfer['status'][] = ['done', 'error', 'cancelled']
+const TERMINAL: Transfer['status'][] = ['done', 'error', 'cancelled', 'refused']
 
 // je relis l'historique persisté et je le valide entrée par entrée : les
 // statuts inconnus deviennent des erreurs et les champs manquants ont des
@@ -154,6 +155,31 @@ export const useTransfersStore = defineStore('transfers', () => {
       upsert(event.payload, { status: 'running' })
     })
 
+    // un transfert entrant attend la validation de l'utilisateur : je crée la
+    // carte en statut 'incoming' avec les infos du lot (émetteur, taille,
+    // fichiers) pour afficher les boutons accepter / refuser
+    await listen<{
+      transfer_id: string
+      sender: string
+      total_bytes: number
+      files: string[]
+    }>('tool://transfer/incoming', (event) => {
+      const { transfer_id, sender, total_bytes, files } = event.payload
+      upsert(transfer_id, {
+        status: 'incoming',
+        peer: sender,
+        totalBytes: total_bytes,
+        files,
+        percent: 0,
+        bytesSent: 0,
+        speed: 'En attente de validation…',
+      })
+    })
+
+    await listen<string>('tool://transfer/refused', (event) => {
+      upsert(event.payload, { status: 'refused', speed: 'Refusé' })
+    })
+
     await listen<{ transfer_id: string; bytes_sent: number; total_bytes: number; percent: number }>(
       'tool://transfer/progress',
       (event) => {
@@ -224,8 +250,27 @@ export const useTransfersStore = defineStore('transfers', () => {
     )
   }
 
-  // je compte les transferts encore actifs (pour le badge de la barre latérale)
-  const activeCount = computed(() => transfers.value.filter(t => t.status === 'running').length)
+  // je réponds à une demande d'acceptation (accepter / refuser le transfert)
+  async function respond(id: string, accepted: boolean) {
+    await invoke("respond_transfer", { transferId: id, accepted })
+  }
 
-  return { transfers, upsert, remove, clearHistory, startListening, activeCount }
+  // je compte les transferts encore actifs (badge de la barre latérale) :
+  // les envois en attente de validation et les demandes entrantes comptent
+  const activeCount = computed(
+    () =>
+      transfers.value.filter(t =>
+        t.status === 'running' || t.status === 'pending' || t.status === 'incoming',
+      ).length,
+  )
+
+  return {
+    transfers,
+    upsert,
+    remove,
+    clearHistory,
+    startListening,
+    respond,
+    activeCount,
+  }
 })

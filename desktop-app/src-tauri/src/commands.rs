@@ -76,6 +76,26 @@ impl UI for AppUI {
         let _ = self.window.emit("tool://transfer/file_progress", payload);
     }
 
+    fn transfert_incoming(
+        &self,
+        transfer_id: &str,
+        sender: &str,
+        total_bytes: u64,
+        files: Vec<String>,
+    ) {
+        let payload = serde_json::json!({
+            "transfer_id": transfer_id,
+            "sender": sender,
+            "total_bytes": total_bytes,
+            "files": files
+        });
+        let _ = self.window.emit("tool://transfer/incoming", payload);
+    }
+
+    fn transfert_refused(&self, transfer_id: &str) {
+        let _ = self.window.emit("tool://transfer/refused", transfer_id);
+    }
+
     fn transfert_cancel(&self, transfer_id: &str) {
         let _ = self.window.emit("tool://transfer/cancel", transfer_id);
     }
@@ -109,11 +129,40 @@ impl UI for AppUI {
 
 pub struct DiscoveryState {
     pub stop_flag: Mutex<Arc<AtomicBool>>,
+    /// handle de la tâche de découverte en cours : je m'en sers pour attendre
+    /// qu'elle ait libéré la socket UDP avant d'en relancer une nouvelle
+    /// (sinon le bind du refresh échoue en « port déjà utilisé »)
+    pub handle: Mutex<Option<tokio::task::JoinHandle<()>>>,
     pub peers: Arc<Mutex<Vec<Peer>>>,
 }
 
 pub struct TransferState {
-    pub active: Mutex<HashMap<String, (Arc<AtomicBool>, tokio::task::AbortHandle)>>,
+    /// transferts actifs (envois et réceptions) : drapeau d'arrêt + handle
+    /// d'abandon. Le handle est None pour les réceptions (l'annulation passe
+    /// par le drapeau, la connexion se ferme gracieusement).
+    pub active: Arc<Mutex<HashMap<String, (Arc<AtomicBool>, Option<tokio::task::AbortHandle>)>>>,
+    /// registre des demandes d'acceptation en attente : respond_transfer y
+    /// résout la décision de l'utilisateur pour le récepteur
+    pub decisions: Arc<toole_core::transfer::DecisionBoard>,
+}
+
+/// implémentation du registre de transferts côté Tauri : il se branche sur la
+/// même map que TransferState pour que cancel_transfer gère les réceptions
+pub struct TransferRegistryHandle {
+    pub active: Arc<Mutex<HashMap<String, (Arc<AtomicBool>, Option<tokio::task::AbortHandle>)>>>,
+}
+
+impl toole_core::TransferRegistry for TransferRegistryHandle {
+    fn register(&self, transfer_id: &str, stop: Arc<AtomicBool>) {
+        self.active
+            .lock()
+            .unwrap()
+            .insert(transfer_id.to_string(), (stop, None));
+    }
+
+    fn unregister(&self, transfer_id: &str) {
+        self.active.lock().unwrap().remove(transfer_id);
+    }
 }
 
 // ───────────────────────────────────────────────
@@ -125,9 +174,14 @@ pub async fn start_discovery(
     state: State<'_, DiscoveryState>,
     window: WebviewWindow,
 ) -> Result<(), String> {
-    let old = state.stop_flag.lock().unwrap();
-    old.store(true, Ordering::Relaxed);
-    drop(old);
+    // je stoppe l'ancienne découverte si elle tourne encore et j'attends
+    // qu'elle ait libéré la socket 58199 : sinon le bind ci-dessous échoue
+    // (AddressInUse) et la découverte ne redémarre jamais après un refresh
+    state.stop_flag.lock().unwrap().store(true, Ordering::Relaxed);
+    let old = state.handle.lock().unwrap().take();
+    if let Some(old) = old {
+        let _ = old.await;
+    }
 
     state.peers.lock().unwrap().clear();
 
@@ -141,20 +195,26 @@ pub async fn start_discovery(
         window: window.clone(),
     });
 
-    tokio::spawn(async move {
+    let handle = tokio::spawn(async move {
         if let Err(e) = toole_core::discovery::start_discovery(local_ip, stop, ui).await {
             eprintln!("Discovery error: {e}");
             let _ = window.emit("tool://discovery/error", e.to_string());
         }
     });
+    *state.handle.lock().unwrap() = Some(handle);
 
     Ok(())
 }
 
 #[tauri::command]
 pub async fn stop_discovery(state: State<'_, DiscoveryState>) -> Result<(), String> {
-    let flag = state.stop_flag.lock().unwrap();
-    flag.store(true, Ordering::Relaxed);
+    state.stop_flag.lock().unwrap().store(true, Ordering::Relaxed);
+    // j'attends la fin de la tâche pour que la socket soit libérée avant que
+    // la commande ne rende la main (le refresh enchaîne sur start_discovery)
+    let h = state.handle.lock().unwrap().take();
+    if let Some(h) = h {
+        let _ = h.await;
+    }
     Ok(())
 }
 
@@ -192,7 +252,7 @@ pub async fn send_files(
         .active
         .lock()
         .unwrap()
-        .insert(transfer_id.clone(), (stop, handle.abort_handle()));
+        .insert(transfer_id.clone(), (stop, Some(handle.abort_handle())));
 
     Ok(transfer_id)
 }
@@ -205,9 +265,24 @@ pub async fn cancel_transfer(
     let mut active = state.active.lock().unwrap();
     if let Some((stop, handle)) = active.remove(&transfer_id) {
         stop.store(true, Ordering::Relaxed);
-        handle.abort();
+        if let Some(h) = handle {
+            h.abort();
+        }
     }
     Ok(())
+}
+
+#[tauri::command]
+pub async fn respond_transfer(
+    transfer_id: String,
+    accepted: bool,
+    state: State<'_, TransferState>,
+) -> Result<(), String> {
+    if state.decisions.resolve(&transfer_id, accepted) {
+        Ok(())
+    } else {
+        Err(format!("transfert {transfer_id} inconnu ou deja traite"))
+    }
 }
 
 // ───────────────────────────────────────────────

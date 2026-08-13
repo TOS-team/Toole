@@ -13,10 +13,10 @@ use std::sync::atomic::Ordering;
 use std::sync::Arc;
 use std::time::Duration;
 
-use toole_core::receiver::start_receiver;
 use toole_core::sender::start_sender;
 use toole_tests::common::{
-    files_equal, shared_stop, temp_dir, wait_for_log, write_random_file, MockUI,
+    files_equal, shared_stop, start_receiver_task, temp_dir, wait_for_log, write_random_file,
+    MockUI,
 };
 
 /// lance un récepteur + un émetteur sur le même port, envoie les fichiers
@@ -41,12 +41,8 @@ async fn run_transfer(files: Vec<(String, Vec<u8>)>) -> Arc<MockUI> {
     let ui = Arc::new(MockUI::new());
     let stop = shared_stop();
 
-    let recv_ui = ui.clone();
-    let recv_stop = stop.clone();
-    let recv_dest = dest.clone();
-    let recv_task = tokio::spawn(async move {
-        let _ = start_receiver(recv_ui, recv_dest, recv_stop).await;
-    });
+    let (recv_task, _decisions, _registry) =
+        start_receiver_task(ui.clone(), dest.clone(), stop.clone());
     // j'attends que le récepteur ait signalé son écoute avant de me connecter
     wait_for_log(&ui, "Recepteur en ecoute", Duration::from_secs(5)).await;
 
@@ -152,12 +148,8 @@ async fn should_transferer_un_dossier() {
     let ui = Arc::new(MockUI::new());
     let stop = shared_stop();
 
-    let recv_ui = ui.clone();
-    let recv_stop = stop.clone();
-    let recv_dest = dest.clone();
-    let recv_task = tokio::spawn(async move {
-        let _ = start_receiver(recv_ui, recv_dest, recv_stop).await;
-    });
+    let (recv_task, _decisions, _registry) =
+        start_receiver_task(ui.clone(), dest.clone(), stop.clone());
     wait_for_log(&ui, "Recepteur en ecoute", Duration::from_secs(5)).await;
 
     start_sender(
