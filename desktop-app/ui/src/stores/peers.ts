@@ -17,11 +17,16 @@ export const usePeersStore = defineStore("peers", () => {
     peers.value.filter((p) => selectedIds.value.has(p.id)),
   );
 
-  // je remplace la liste et je purge les sélections dont l'appareil a disparu
+  // je remplace la liste et je purge les sélections dont l'appareil a disparu.
+  // Une liste vide est une fenêtre transitoire : start_discovery vide la liste
+  // backend avant de la reconstruire, donc un poll tombant là purgerait toutes
+  // les sélections à chaque refresh — je ne purge que si la liste a du contenu.
   function updatePeers(list: Peer[]) {
     const incoming = new Set(list.map((p) => p.id));
-    for (const id of selectedIds.value) {
-      if (!incoming.has(id)) selectedIds.value.delete(id);
+    if (incoming.size > 0) {
+      for (const id of selectedIds.value) {
+        if (!incoming.has(id)) selectedIds.value.delete(id);
+      }
     }
     peers.value = list;
   }

@@ -202,7 +202,7 @@ Tokio Runtime
 
 ### Fenêtre et permissions
 
-La fenêtre Tauri est configurée sans décoration native (`decorations: false`) avec fond transparent (`transparent: true`) et titlebar personnalisée (zone de drag `data-tauri-drag-region`, boutons Réduire et Fermer). Les permissions Tauri v2 sont déclarées dans `capabilities/default.json` : `core:default`, `core:window:allow-start-dragging`, `core:window:allow-minimize`, `core:window:allow-close`, `dialog:default`.
+La fenêtre Tauri est configurée sans décoration native (`decorations: false`) avec fond transparent (`transparent: true`) et titlebar personnalisée (zone de drag `data-tauri-drag-region`, boutons Réduire et Fermer). Les permissions Tauri v2 sont déclarées dans `capabilities/default.json` : `core:default`, `core:window:allow-start-dragging`, `core:window:allow-minimize`, `core:window:allow-toggle-maximize`, `core:window:allow-close`, `dialog:default`, `process:default`, `updater:default`.
 
 ### Commandes Tauri additionnelles
 

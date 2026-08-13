@@ -14,7 +14,8 @@ use std::time::Duration;
 
 use toole_core::sender::start_sender;
 use toole_tests::common::{
-    shared_stop, start_receiver_task, temp_dir, wait_for_log, write_random_file, MockUI,
+    shared_stop, start_receiver_task, temp_dir, wait_for_log, wait_for_progress, wait_until,
+    write_random_file, MockUI,
 };
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
@@ -49,13 +50,20 @@ async fn should_annuler_proprement_et_notifier_ui() {
         .await
     });
 
-    // je laisse l'envoi commencer puis j'annule
-    tokio::time::sleep(Duration::from_millis(500)).await;
+    // j'attends que l'envoi ait vraiment démarré (au moins un événement de
+// progression) avant d'annuler, pour être sûr de couper en plein transfert
+    wait_for_progress(&ui, Duration::from_secs(10)).await;
     stop.store(true, Ordering::Relaxed);
 
+    // j'attends la notification d'annulation au lieu d'un délai fixe (robuste
+    // sous charge), puis je laisse les tâches se terminer
+    wait_until(
+        || ui.is_cancelled("cancel-test"),
+        Duration::from_secs(5),
+        "la notification d'annulation",
+    )
+    .await;
     let _ = sender_task.await;
-    // petit délai pour que le receiver voie la fermeture et sorte
-    tokio::time::sleep(Duration::from_millis(300)).await;
     let _ = recv_task.await;
 
     // l'UI doit voir l'annulation, jamais une complétion

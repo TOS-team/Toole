@@ -1,5 +1,5 @@
 # je construis et publie les releases multi-plateformes de Toolé
-# formats : deb, rpm, AppImage (Linux) · dmg (macOS) · msi, nsis/exe (Windows)
+# formats : deb, rpm, AppImage (Linux) · dmg (macOS) · nsis/exe (Windows)
 # secrets requis : TAURI_SIGNING_PRIVATE_KEY, TAURI_SIGNING_PRIVATE_KEY_PASSWORD
 name: release
 
@@ -114,7 +114,10 @@ jobs:
             ```
             La mise à jour automatique est désactivée sur macOS.
             - **Windows** : `-setup.exe`
-          releaseDraft: false
+          # la release reste en brouillon tant que toutes les plateformes ne
+          # sont pas prêtes : le job « publish » la rend publique à la fin,
+          # pour ne jamais exposer une release aux artefacts partiels
+          releaseDraft: true
           prerelease: false
           args: ${{ matrix.args }}
 

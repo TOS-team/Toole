@@ -11,7 +11,6 @@ use std::sync::atomic::Ordering;
 use std::sync::Arc;
 use std::time::Duration;
 
-use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use toole_core::sender::start_sender;
 use toole_core::transfer::{
     make_client_endpoint, make_server_endpoint, read_json_line, write_json_line, ACK, BatchHeader,

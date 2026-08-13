@@ -14,7 +14,12 @@ import Icon from "./Icon.vue";
 
 const filesStore = useFilesStore();
 const isDragOver = ref(false);
-const dropHint = ref(true);
+
+// je tire le nom de fichier d'un chemin, peu importe le séparateur (Windows
+// utilise « \ » : split sur "/" seul rendrait le chemin complet en nom)
+function basename(p: string): string {
+  return p.split(/[\\/]/).pop() || p;
+}
 
 // je propose la boîte de dialogue système pour choisir un ou plusieurs fichiers
 async function pickFiles() {
@@ -26,10 +31,9 @@ async function pickFiles() {
     if (!selected) return;
     const entries: FileEntry[] = selected.map((p) => ({
       path: p,
-      name: p.split("/").pop() || p.split("\\").pop() || p,
+      name: basename(p),
     }));
     filesStore.addFiles(entries);
-    dropHint.value = false;
   } catch (e) {
     console.error("pick_files error:", e);
   }
@@ -45,9 +49,7 @@ async function pickFolder() {
     });
     const p = Array.isArray(selected) ? selected[0] : selected;
     if (!p) return;
-    const name = p.split("/").pop() || p.split("\\").pop() || p;
-    filesStore.addFiles([{ path: p, name }]);
-    dropHint.value = false;
+    filesStore.addFiles([{ path: p, name: basename(p) }]);
   } catch (e) {
     console.error("pick_folder error:", e);
   }
@@ -68,18 +70,19 @@ function onDragLeave() {
   isDragOver.value = false;
 }
 
-// extrait des chemins de fichiers depuis du texte (file:// ou /path)
+// extrait des chemins de fichiers depuis du texte (file://, /path ou C:\path)
 function extractPathsFromText(text: string): FileEntry[] {
   const entries: FileEntry[] = [];
   for (const line of text.split("\n")) {
     let p = line.trim();
     if (!p) continue;
     if (p.startsWith("file://")) p = p.slice(7);
-    if (p.startsWith("/")) {
-      entries.push({
-        path: p,
-        name: p.split("/").pop() || p.split("\\").pop() || p,
-      });
+    // j'accepte tout chemin absolu : POSIX (/tmp/x), Windows (C:\x, \\serv\x)
+    const isPosix = p.startsWith("/");
+    const isWindowsDrive = /^[A-Za-z]:[\\/]/.test(p);
+    const isUnc = p.startsWith("\\\\");
+    if (isPosix || isWindowsDrive || isUnc) {
+      entries.push({ path: p, name: basename(p) });
     }
   }
   return entries;
@@ -96,7 +99,6 @@ async function onKeydown(e: KeyboardEvent) {
     const entries = extractPathsFromText(text);
     if (!entries.length) return;
     filesStore.addFiles(entries);
-    dropHint.value = false;
   } catch (err) {
     console.error("clipboard read error:", err);
   }
@@ -117,7 +119,6 @@ function onPaste(e: ClipboardEvent) {
       if (!entries.length) return;
       e.preventDefault();
       filesStore.addFiles(entries);
-      dropHint.value = false;
     }
     return;
   }
@@ -125,7 +126,6 @@ function onPaste(e: ClipboardEvent) {
   if (!entries.length) return;
   e.preventDefault();
   filesStore.addFiles(entries);
-  dropHint.value = false;
 }
 
 // ecoute le drag-and-drop natif Tauri (v2) pour recup les chemins des fichiers
@@ -147,10 +147,9 @@ onMounted(async () => {
       if (!paths.length) return;
       const entries: FileEntry[] = paths.map((p) => ({
         path: p,
-        name: p.split("/").pop() || p.split("\\").pop() || p,
+        name: basename(p),
       }));
       filesStore.addFiles(entries);
-      dropHint.value = false;
     }
   });
 });

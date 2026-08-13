@@ -15,7 +15,17 @@ use std::time::Instant;
 
 use toole_core::receiver::start_receiver;
 use toole_core::sender::start_sender;
-use toole_core::{Peer, ToolError, UI};
+use toole_core::transfer::DecisionBoard;
+use toole_core::{Peer, ToolError, TransferRegistry, UI};
+
+/// registre no-op : le bench ne lance pas l'app, aucune annulation UI n'est
+/// attendue pendant le transfert loopback
+struct NoopRegistry;
+
+impl TransferRegistry for NoopRegistry {
+    fn register(&self, _transfer_id: &str, _stop: Arc<std::sync::atomic::AtomicBool>) {}
+    fn unregister(&self, _transfer_id: &str) {}
+}
 
 /// UI muette qui signale quand le récepteur écoute (via son log de démarrage)
 struct BenchUI {
@@ -40,6 +50,15 @@ impl UI for BenchUI {
         _file_total_bytes: u64,
     ) {
     }
+    fn transfert_incoming(
+        &self,
+        _transfer_id: &str,
+        _sender: &str,
+        _total_bytes: u64,
+        _files: Vec<String>,
+    ) {
+    }
+    fn transfert_refused(&self, _transfer_id: &str) {}
     fn transfert_cancel(&self, _transfer_id: &str) {}
     fn transfert_completed(&self, _transfer_id: &str) {}
     fn transfert_received(&self, _transfer_id: &str, _peer: &str, _bytes: u64, _files: Vec<String>) {
@@ -108,8 +127,18 @@ async fn main() -> Result<(), ToolError> {
     };
     let recv_stop = stop.clone();
     let recv_dest = dest.clone();
+    // le bench accepte automatiquement la demande de validation (auto_accept)
+    let decisions = Arc::new(DecisionBoard::new());
+    decisions.set_auto_accept(true);
     let recv_task = tokio::spawn(async move {
-        let _ = start_receiver(Arc::new(recv_ui), recv_dest, recv_stop).await;
+        let _ = start_receiver(
+            Arc::new(recv_ui),
+            recv_dest,
+            recv_stop,
+            decisions,
+            Arc::new(NoopRegistry),
+        )
+        .await;
     });
     wait_ready(&ready).await;
 

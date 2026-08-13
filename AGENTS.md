@@ -52,7 +52,7 @@ Pas de linter configuré : fais au minimum `cargo check -p app` et `npm run buil
 - **Codes de fermeture QUIC** : `CLOSE_OK 0` (fin normale), `CLOSE_CANCEL 1` (annulation/refus). Le récepteur distingue annulation (reset ou `CLOSE_CANCEL` → `transfert_cancel`) d'une erreur réseau (autre code/perte → `transfert_error`).
 - **Annulation croisée** : les deux côtés peuvent annuler (croix de la carte) ; le récepteur supprime les fichiers partiels, jamais de réception tronquée.
 - **Déconnexion soudaine** : `max_idle_timeout 15 s` + `keep_alive_interval 3 s` dans `transport_config` ; détection de la perte en ~15 s + contrôle de complétude `done < expected`.
-- **Découverte** : broadcast `TOOLE_HERE:<device_id>` (hostname + suffixe base32 stable), toutes les 3 s, timeout pair 9 s.
+- **Découverte** : broadcast `TOOLE_DISCOVERY` (hostname + suffixe base32 stable), toutes les 3 s, timeout pair 9 s, réponse unicast `TOOLE_HERE:<device_id>`.
 - **Linux** : `WEBKIT_DISABLE_DMABUF_RENDERER=1` dans `main.rs` (workaround NVIDIA) + `GIO_MODULE_DIR=/dev/null` **uniquement sous AppImage** (`APPIMAGE`/`APPDIR` posés par le runtime) : les libs embarquées (GLib 2.72, build Ubuntu 22.04) crash WebKitWebProcess avec les modules GIO système (GLib ≥ 2.76) → fenêtre qui ne s'ouvre pas. Ne pas retirer ni étendre à tout Linux.
 - `Cargo.lock` est tracké à la racine (ne pas l'ignorer malgré `.gitignore`).
 

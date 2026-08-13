@@ -106,6 +106,16 @@ impl DecisionBoard {
         }
     }
 
+    /// je retire une demande en attente sans la résoudre (timeout, annulation
+    /// ou arrêt de l'app) : le canal oneshot resterait sinon orphelin dans la
+    /// map et un respond_transfer tardif résoudrait un canal mort
+    pub fn remove(&self, transfer_id: &str) {
+        self.pending
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .remove(transfer_id);
+    }
+
     /// je vérifie si un transfert attend encore une décision (utile en test)
     pub fn has_pending(&self, transfer_id: &str) -> bool {
         self.pending
@@ -284,17 +294,39 @@ pub async fn handle_incoming_connection(
                         header.total_bytes,
                         header.files.clone(),
                     );
-                    let accepted = await_decision(&decisions, &header.transfer_id, &stop).await;
+                    let decision = await_decision(&decisions, &header.transfer_id, &stop, &connection).await;
 
-                    if accepted {
-                        send.write_all(&[ACK]).await?;
-                        send.finish()?;
-                        ui.show_progress_bar(&header.transfer_id);
-                    } else {
-                        send.write_all(&[REFUSE]).await?;
-                        send.finish()?;
-                        connection.close(CLOSE_CANCEL.into(), b"transfert refuse");
-                        return Err(ToolError::Refused);
+                    match decision {
+                        Decision::Accepted => {
+                            send.write_all(&[ACK]).await?;
+                            send.finish()?;
+                            ui.show_progress_bar(&header.transfer_id);
+                        }
+                        Decision::Refused | Decision::TimedOut => {
+                            // je laisse le temps au REFUSE d'être lu avant toute
+                            // fermeture : une fermeture immédiate envoie un
+                            // CONNECTION_CLOSE qui peut éclipser la donnée de
+                            // flux encore en transit, et l'émetteur notifierait
+                            // « annulé » au lieu de « refusé ». C'est l'émetteur
+                            // qui ferme, une fois le REFUSE lu.
+                            if send.write_all(&[REFUSE]).await.is_err() {
+                                // l'émetteur a déjà fermé (annulation pendant
+                                // l'attente) : le refus n'a plus de sens
+                                return Err(ToolError::RemoteCancel);
+                            }
+                            send.finish()?;
+                            return Err(ToolError::Refused);
+                        }
+                        Decision::Cancelled => {
+                            connection.close(CLOSE_CANCEL.into(), b"annulation utilisateur");
+                            return Err(ToolError::RemoteCancel);
+                        }
+                        Decision::RemoteCancelled => {
+                            return Err(ToolError::RemoteCancel);
+                        }
+                        Decision::RemoteError => {
+                            return Err(io_err("l'emetteur a ferme pendant la decision"));
+                        }
                     }
                     continue;
                 }
@@ -386,33 +418,77 @@ pub async fn handle_incoming_connection(
     }
 }
 
-/// attend la décision de l'utilisateur (ou auto-accepte en test). Renvoie false
-/// si le transfert est annulé pendant l'attente ou si le délai est dépassé.
+/// motif de sortie de l'attente de décision : je distingue le refus explicite
+/// de l'utilisateur du timeout et de l'annulation pour des notifications UI
+/// cohérentes entre émetteur et récepteur
+enum Decision {
+    Accepted,
+    Refused,
+    TimedOut,
+    Cancelled,
+    /// l'émetteur a fermé la connexion pendant l'attente (annulation ou perte)
+    RemoteCancelled,
+    RemoteError,
+}
+
+/// attend la décision de l'utilisateur (ou auto-accepte en test). Je rends le
+/// motif exact pour que l'app distingue refus, timeout et annulation, et je
+/// surveille aussi la connexion : si l'émetteur annule pendant l'attente, la
+/// carte du récepteur ne doit pas rester bloquée 30 s en « en attente ».
 async fn await_decision(
     decisions: &DecisionBoard,
     transfer_id: &str,
     stop: &Arc<AtomicBool>,
-) -> bool {
+    connection: &Connection,
+) -> Decision {
     if decisions.auto_accept() {
-        return true;
+        return Decision::Accepted;
     }
-    let mut rx = decisions.register(transfer_id);
-    let deadline = Instant::now() + DECISION_TIMEOUT;
-    loop {
-        if stop.load(Ordering::Relaxed) {
-            return false;
-        }
-        if Instant::now() >= deadline {
-            return false;
-        }
-        match tokio::time::timeout(Duration::from_millis(100), &mut rx).await {
-            Ok(Ok(true)) => return true,
-            Ok(Ok(false)) => return false,
-            Ok(Err(_)) => return false, // canal fermé (app qui s'éteint)
-            Err(_) => continue,
+let mut rx = decisions.register(transfer_id);
+        let deadline = Instant::now() + DECISION_TIMEOUT;
+        let mut closed = Box::pin(connection.closed());
+        loop {
+            if stop.load(Ordering::Relaxed) {
+                decisions.remove(transfer_id);
+                return Decision::Cancelled;
+            }
+            if Instant::now() >= deadline {
+                // le délai est écoulé : je retire la demande en attente pour ne
+                // pas laisser un canal orphelin résolvable par un clic tardif
+                decisions.remove(transfer_id);
+                return Decision::TimedOut;
+            }
+            tokio::select! {
+                r = &mut rx => {
+                    match r {
+                        Ok(true) => return Decision::Accepted,
+                        Ok(false) => return Decision::Refused,
+                        // canal fermé (app qui s'éteint) : la demande ne peut
+                        // plus être résolue, je la retire du registre
+                        Err(_) => {
+                            decisions.remove(transfer_id);
+                            return Decision::Cancelled;
+                        }
+                    }
+                }
+                err = &mut closed => {
+                    // l'émetteur a fermé pendant l'attente : je retire la
+                    // demande et je rends la main sans attendre le timeout
+                    decisions.remove(transfer_id);
+                    let is_cancel = matches!(
+                        &err,
+                        quinn::ConnectionError::ApplicationClosed(a)
+                            if a.error_code.into_inner() == CLOSE_CANCEL as u64
+                    );
+                    if is_cancel {
+                        return Decision::RemoteCancelled;
+                    }
+                    return Decision::RemoteError;
+                }
+                _ = tokio::time::sleep(Duration::from_millis(100)) => continue,
+            }
         }
     }
-}
 
 #[allow(clippy::too_many_arguments)]
 async fn receive_one(
@@ -607,7 +683,10 @@ pub async fn send_entry(
         };
         write_json_line(&mut send, &metadata).await?;
         let mut ack = [0u8; 1];
-        recv.read_exact(&mut ack).await?;
+        recv.read_exact(&mut ack).await.map_err(quinn_to_err)?;
+        if ack[0] != ACK {
+            return Err(io_err("dossier rejete par le receveur"));
+        }
         send.finish()?;
         return Ok(());
     }

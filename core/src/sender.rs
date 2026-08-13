@@ -168,6 +168,11 @@ pub async fn start_sender(
         endpoint.wait_idle().await;
         ui.transfert_cancel(&transfer_id);
     } else if had_error {
+        // je ferme avec CLOSE_OK et non CLOSE_CANCEL : le récepteur distingue
+        // une annulation (CLOSE_CANCEL/reset → transfert_cancel) d'un échec
+        // (autre code → transfert_error). Ici c'est bien un échec, pas une
+        // annulation ; le contrôle de complétude `done < expected` côté
+        // récepteur confirme la perte de données.
         connection.close(CLOSE_OK.into(), b"erreur");
         endpoint.wait_idle().await;
         ui.transfert_error(&transfer_id, &io_err("un ou plusieurs fichiers ont echoue"));

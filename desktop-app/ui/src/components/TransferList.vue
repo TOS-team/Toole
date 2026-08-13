@@ -50,14 +50,32 @@ function cardClass(t: Transfer): Record<string, boolean> {
   };
 }
 
-// je demande l'annulation au processus Rust par l'identifiant du transfert
+// je demande l'annulation au processus Rust par l'identifiant du transfert.
+// Je mets d'abord la carte à jour (optimiste) pour désactiver le bouton et
+// éviter un double clic ; en cas d'erreur je restaure l'état précédent.
 async function cancel(id: string) {
-  await invoke("cancel_transfer", { transferId: id });
+  store.upsert(id, { status: "cancelled", speed: "Annulé" });
+  try {
+    await invoke("cancel_transfer", { transferId: id });
+  } catch (e) {
+    console.error("cancel error:", e);
+    store.upsert(id, { status: "running" });
+  }
 }
 
-// je réponds à la demande d'acceptation d'un transfert entrant
+// je réponds à la demande d'acceptation d'un transfert entrant (même logique
+// optimiste pour ne pas pouvoir cliquer deux fois sur Accepter)
 async function respond(id: string, accepted: boolean) {
-  await store.respond(id, accepted);
+  store.upsert(id, {
+    status: accepted ? "running" : "refused",
+    speed: accepted ? "Envoi…" : "Refusé",
+  });
+  try {
+    await store.respond(id, accepted);
+  } catch (e) {
+    console.error("respond error:", e);
+    store.upsert(id, { status: "incoming" });
+  }
 }
 </script>
 

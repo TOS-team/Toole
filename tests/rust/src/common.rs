@@ -26,7 +26,7 @@ pub struct UiState {
     pub completed: Vec<String>,
     pub cancelled: Vec<String>,
     pub refused: Vec<String>,
-    pub errors: Vec<String>,
+    pub errors: Vec<(String, String)>,
     pub incoming: Vec<(String, String, u64, Vec<String>)>,
     pub received: Vec<(String, String, u64, Vec<String>)>,
 }
@@ -79,8 +79,13 @@ impl MockUI {
             .any(|id| id == transfer_id)
     }
 
-    pub fn has_error(&self, _transfer_id: &str) -> bool {
-        self.state.lock().unwrap().errors.iter().any(|_| true)
+    pub fn has_error(&self, transfer_id: &str) -> bool {
+        self.state
+            .lock()
+            .unwrap()
+            .errors
+            .iter()
+            .any(|(id, _)| id == transfer_id)
     }
 
     pub fn has_incoming(&self, transfer_id: &str) -> bool {
@@ -248,7 +253,7 @@ pub async fn wait_for_peer(ui: &MockUI, timeout: Duration) {
 
 /// boucle d'attente active : vérifie `pred` jusqu'à ce qu'elle soit vraie ou
 /// que le timeout soit atteint, au lieu de compter sur un délai fixe.
-async fn wait_until(mut pred: impl FnMut() -> bool, timeout: Duration, what: &str) {
+pub async fn wait_until(mut pred: impl FnMut() -> bool, timeout: Duration, what: &str) {
     let deadline = std::time::Instant::now() + timeout;
     while !pred() {
         assert!(
@@ -348,8 +353,12 @@ impl UI for MockUI {
         ));
     }
 
-    fn transfert_error(&self, _transfer_id: &str, error: &ToolError) {
-        self.state.lock().unwrap().errors.push(error.to_string());
+    fn transfert_error(&self, transfer_id: &str, error: &ToolError) {
+        self.state
+            .lock()
+            .unwrap()
+            .errors
+            .push((transfer_id.to_string(), error.to_string()));
     }
 }
 

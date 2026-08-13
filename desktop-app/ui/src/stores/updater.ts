@@ -55,6 +55,9 @@ export const useUpdaterStore = defineStore("updater", () => {
         status.value = "available";
         return true;
       }
+      // plus rien de disponible : je purge l'annonce précédente s'il y en avait
+      newVersion.value = "";
+      notes.value = "";
       status.value = asap ? "up-to-date" : "idle";
       return false;
     } catch (e) {
@@ -93,13 +96,17 @@ export const useUpdaterStore = defineStore("updater", () => {
     downloaded.value = 0;
     contentLength.value = 0;
 
-    const update = await check(); // je récupère la mise à jour annoncée
-    if (!update) {
-      status.value = "up-to-date";
-      return;
-    }
-
     try {
+      // je récupère la mise à jour annoncée (le réseau peut couper ici : je
+      // reste dans le try pour que l'erreur soit remontée proprement)
+      const update = await check();
+      if (!update) {
+        status.value = "up-to-date";
+        newVersion.value = "";
+        notes.value = "";
+        return;
+      }
+
       await update.downloadAndInstall((event: DownloadEvent) => {
         switch (event.event) {
           case "Started":

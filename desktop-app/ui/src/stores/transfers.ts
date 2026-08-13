@@ -144,9 +144,13 @@ export const useTransfersStore = defineStore('transfers', () => {
     transfers.value = transfers.value.filter(t => t.id !== id)
   }
 
-  // j'efface l'historique mais je garde les transferts toujours en cours
+  // j'efface l'historique mais je garde les transferts toujours en cours,
+  // y compris les demandes d'acceptation encore affichées (sinon la carte
+  // Accepter/Refuser disparaît sous les pieds de l'utilisateur)
   function clearHistory() {
-    transfers.value = transfers.value.filter(t => t.status === 'pending' || t.status === 'running')
+    transfers.value = transfers.value.filter(
+      t => t.status === 'pending' || t.status === 'running' || t.status === 'incoming',
+    )
   }
 
   // je m'abonne aux événements de transfert émis par le processus Rust

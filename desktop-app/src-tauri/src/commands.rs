@@ -241,11 +241,16 @@ pub async fn send_files(
     let ui: Arc<dyn UI> = Arc::new(AppUI { peers, window });
     let transfer_id_clone = transfer_id.clone();
     let stop_clone = stop.clone();
+    let active = state.active.clone();
 
     let handle = tokio::spawn(async move {
+        let tid = transfer_id_clone.clone();
         if let Err(e) = start_sender(ui, transfer_id_clone, path_bufs, addr, stop_clone).await {
             eprintln!("Sender error: {e}");
         }
+        // l'envoi est terminé (succès, erreur ou annulation) : je retire
+        // l'entrée du registre, sinon la map grossit à chaque transfert
+        active.lock().unwrap().remove(&tid);
     });
 
     state
@@ -261,12 +266,20 @@ pub async fn send_files(
 pub async fn cancel_transfer(
     transfer_id: String,
     state: State<'_, TransferState>,
+    window: WebviewWindow,
 ) -> Result<(), String> {
     let mut active = state.active.lock().unwrap();
     if let Some((stop, handle)) = active.remove(&transfer_id) {
         stop.store(true, Ordering::Relaxed);
+        // si l'envoi est bloqué (backpressure QUIC), le drapeau d'arrêt ne
+        // suffit pas : j'interromps la tâche, et comme elle ne pourra pas
+        // émettre son événement terminal, je le fais ici pour que la carte
+        // frontend passe bien en « annulé »
         if let Some(h) = handle {
-            h.abort();
+            if !h.is_finished() {
+                h.abort();
+                let _ = window.emit("tool://transfer/cancel", &transfer_id);
+            }
         }
     }
     Ok(())
