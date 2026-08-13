@@ -134,6 +134,20 @@ n'apparaît toujours pas :
    numéro de version : elle utilise les bibliothèques du système et n'a pas
    ces limitations.
 
+## « The signature was created with a different key »
+
+Lors d'une mise à jour automatique, l'app vérifie la signature du fichier
+téléchargé avec la clé publique embarquée. Cette erreur signifie que la clé
+de signature des releases (dans les secrets GitHub) ne correspond pas à la
+clé embarquée dans l'app. Cela arrive si le couple de clés a été régénéré
+sans mettre à jour `plugins.updater.pubkey` dans
+`desktop-app/src-tauri/tauri.conf.json`.
+
+La solution : aligner `pubkey` avec la clé privée `TAURI_SIGNING_PRIVATE_KEY`
+des secrets, reconstruire la release, puis **réinstaller une fois** l'app de
+base à la main (`.deb`/`.AppImage`) — l'installation existante porte encore
+l'ancienne clé et refusera toute mise à jour.
+
 ---
 
 > [Sommaire](index.md) · Besoin de comprendre le fonctionnement ? →

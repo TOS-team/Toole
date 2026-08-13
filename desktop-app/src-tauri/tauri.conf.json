@@ -52,7 +52,7 @@
   },
   "plugins": {
     "updater": {
-      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEIzMTI5Q0JGM0M2MzA3NEUKUldST0IyTTh2NXdTc3kvNklEZHRUbk04NCtUSTN6SmpRK05BaEJESE52UFBnSnZCOWRtVEVWK1EK",
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEZFM0UwOTcwM0RBREFDREYKUldUZnJLMDljQWsrL2hGakpyalVEeURwNEdrWVhsL3hZdWtwNk1wVzFTbkd4ZEErV3R2V3VlTloK",
       "endpoints": [
         "https://github.com/TOS-team/Toole/releases/latest/download/latest.json"
       ],
