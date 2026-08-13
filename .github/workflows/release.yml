@@ -107,7 +107,7 @@ jobs:
             Transfert de fichiers P2P sur réseau local, chiffré (QUIC/TLS 1.3).
 
             ### Téléchargements
-            - **Linux** : `.deb` (Ubuntu/Debian), `.rpm` (Fedora), `.AppImage` (portable, sert à la MAJ auto)
+            - **Linux** : `.deb` (Ubuntu/Debian), `.rpm` (Fedora), `.AppImage` (portable, sert à la MAJ auto), `.tar.gz` (archive portable extraite, sans FUSE)
             - **macOS** : `.dmg` universel (Intel + Apple Silicon) — build non notarié, Gatekeeper peut refuser :
             ```sh
             xattr -cr /Applications/Toolé.app
@@ -117,6 +117,25 @@ jobs:
           releaseDraft: true
           prerelease: false
           args: ${{ matrix.args }}
+
+      - name: je publie aussi une archive portable Linux (.tar.gz)
+        if: matrix.platform == 'ubuntu-22.04'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -e
+          VERSION=$(node -p "require('./desktop-app/ui/package.json').version")
+          APP_DIR="desktop-app/src-tauri/target/release/bundle/appimage"
+          APP_IMG=$(ls "$APP_DIR"/*.AppImage | head -1)
+          cd "$(dirname "$APP_IMG")"
+          ARCHIVE="Toole-${VERSION}-linux-x86_64.tar.gz"
+          if APPIMAGE_EXTRACT_AND_RUN=1 "./$(basename "$APP_IMG")" --appimage-extract >/dev/null 2>&1; then
+            tar -czf "$ARCHIVE" squashfs-root
+          else
+            # extract impossible (fuse manquant) : j'archive l'AppImage telle quelle
+            tar -czf "$ARCHIVE" "$(basename "$APP_IMG")"
+          fi
+          gh release upload "v${VERSION}" "$ARCHIVE" --clobber --repo "${{ github.repository }}"
 
   publish:
     needs: build
