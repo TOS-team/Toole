@@ -42,6 +42,16 @@ sudo ufw allow 58200/udp
 
 Autorisez Toolé dans *Préférences Système → Réseau → Pare-feu → Options*.
 
+## Informations Windows — Éditeur de l'application
+
+Sur Windows, les propriétés du fichier (`Toolé.exe` ou l'installeur) affichent
+comme **Éditeur** la valeur **Tiligré Open Space** (onglet *Détails* →
+*Éditeur*).
+
+> L'avertissement SmartScreen « **Éditeur inconnu** » au lancement peut
+> néanmoins subsister : il ne disparaît qu'avec une **signature de code**
+> (certificat Authenticode), qui n'est pas fournie par l'application.
+
 ## Le transfert échoue en cours de route
 
 - **« Un ou plusieurs fichiers ont échoué »** : le récepteur a fermé la
