@@ -205,4 +205,4 @@ tâche Tokio dédiée ; chaque stream dans une sous-tâche.
 
 ---
 
-> [Sommaire](index.md) · Références techniques : [docs/](../docs/)
+> [Sommaire](index.md) · Références techniques : [docs/ sur GitHub](https://github.com/TOS-team/Toole/tree/main/docs)
