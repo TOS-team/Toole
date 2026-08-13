@@ -138,8 +138,8 @@ ce panneau :
 - Si une nouvelle version existe, un bouton **Installer et redémarrer**
   télécharge puis relance l'application à jour.
 - La MAJ automatique est disponible sur **Windows** (via l'installeur
-  `setup.exe`) et sur **Linux — uniquement avec la version AppImage** (elle sert
-  aussi de support à la mise à jour).
+  `setup.exe`) et sur **Linux** (via le paquet `.deb` ou `.rpm` correspondant à
+  votre distribution).
 - Sur **macOS**, la MAJ automatique est désactivée (binaires non notariés) :
   téléchargez le nouveau `.dmg` depuis le site ou GitHub et remplacez
   l'application.
