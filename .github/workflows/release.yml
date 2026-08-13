@@ -55,7 +55,7 @@ jobs:
       - name: j'installe rust stable
         uses: dtolnay/rust-toolchain@stable
         with:
-          targets: ${{ contains(matrix.platform, 'macos') && 'universal-apple-darwin' || '' }}
+          targets: ${{ contains(matrix.platform, 'macos') && 'aarch64-apple-darwin,x86_64-apple-darwin' || '' }}
 
       - name: je cache les builds rust
         uses: swatinem/rust-cache@v2
