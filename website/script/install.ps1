@@ -1,6 +1,6 @@
 #Requires -Version 5.1
 
-$REPO = "TON_USER/toole"
+$REPO = "https://github.com/TOS-team/Toole"
 $INSTALL_DIR = "$env:LOCALAPPDATA\Toolé"
 
 function Info { param([string]$msg) Write-Host "[Toolé] $msg" -ForegroundColor Green }
