@@ -4,7 +4,7 @@ Toolé détecte les appareils voisins par UDP broadcast et transfère des fichie
 
 ## Règles d'or (à lire avant tout)
 
-1. **Ne « simplifie » jamais `beforeDevCommand`/`beforeBuildCommand`** (en `cd ui` direct). Le `sh -c '[ -d ui ] || cd ..; cd ui && npm run dev'` est volontaire : Tauri exécute ces commandes depuis `desktop-app/`, pas depuis `src-tauri/`. Casser ça = plus de lancement en dev.
+1. **Ne repasse jamais les hooks `beforeDevCommand`/`beforeBuildCommand` en `sh -c '…'`**. Tauri les exécute avec `cwd` = le dossier parent du `dist` (`desktop-app/`) : sur Windows le hook tourne via `cmd /S /C` où `sh` n'existe pas (build cassé). Le seul formé fiable partout est `cd ui && npm run …`.
 2. **La fenêtre est dupliquée volontairement** dans `tauri.conf.json` **et** `tauri.linux.conf.json`, `tauri.macos.conf.json`, `tauri.windows.conf.json`. Toute modif de fenêtre (taille, min, resizable…) doit être répercutée sur **les 4 fichiers** (macOS ajoute `titleBarStyle: "Overlay"` + `hiddenTitle: true`).
 3. **ACL Tauri (capabilities)** : tout appel à une API/plugin Tauri depuis le front (window, dialog, process, updater…) doit avoir sa permission dans `capabilities/default.json`, sinon erreur de permission au runtime. Les commandes IPC custom ne passent **pas** par les capabilities.
 4. **Nouvelle commande Tauri** : ajoute-la dans `desktop-app/src-tauri/src/commands.rs` **et** dans `invoke_handler` de `lib.rs` (généré par `generate_handler!`). Sinon l'invoke renvoie une erreur.
