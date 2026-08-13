@@ -111,6 +111,29 @@ port 58199 est déjà utilisé par un autre processus. Dans ce cas :
   génération échoue (dossier non accessible en écriture), l'application peut
   ne pas démarrer.
 
+## L'AppImage ne s'ouvre pas (Linux)
+
+L'AppImage embarque les bibliothèques du poste de build (GLib 2.72, Ubuntu
+22.04). Sur une distribution récente (GLib ≥ 2.76), les modules GIO du système
+(gvfs…) exigent des symboles absents et font crasher WebKitWebProcess : la
+fenêtre ne s'ouvre jamais.
+
+Toolé détecte l'exécution sous AppImage (`APPIMAGE`/`APPDIR`) et neutralise
+automatiquement ces modules (`GIO_MODULE_DIR=/dev/null`). Si la fenêtre
+n'apparaît toujours pas :
+
+1. Lancez l'AppImage depuis un terminal pour voir l'erreur exacte :
+   ```bash
+   ./Toolé_2.0.0_amd64.AppImage
+   ```
+2. Sur Wayland avec un GPU NVIDIA, ajoutez éventuellement :
+   ```bash
+   WEBKIT_DISABLE_COMPOSITING_MODE=1 ./Toolé_2.0.0_amd64.AppImage
+   ```
+3. En dernier recours, utilisez la **version archive** (`.tar.gz`) du même
+   numéro de version : elle utilise les bibliothèques du système et n'a pas
+   ces limitations.
+
 ---
 
 > [Sommaire](index.md) · Besoin de comprendre le fonctionnement ? →
