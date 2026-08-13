@@ -110,6 +110,12 @@ pub async fn start_discovery(
                     }
                 }
             }
+            _ = tokio::time::sleep(Duration::from_millis(200)) => {
+                // je relance la boucle toutes les 200 ms pour re-tester `stop` :
+                // l'arrêt libère ainsi la socket en ~200 ms max (au lieu
+                // d'attendre le prochain broadcast), ce qui permet au refresh
+                // de relancer la découverte sans race sur le port UDP
+            }
         }
     }
 
