@@ -7,7 +7,8 @@ set -e
 REPO="TOS-team/Toole"
 
 echo "📡 Recherche de la dernière version de Toolé..."
-LATEST_TAG=$(curl -s "https://api.github.com/repos/${REPO}/releases/latest" | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/')
+# Ajout de -f pour éviter les faux téléchargements
+LATEST_TAG=$(curl -fsSL "https://api.github.com/repos/${REPO}/releases/latest" | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/')
 
 if [ -z "$LATEST_TAG" ]; then
   echo "❌ Impossible de récupérer la dernière version."
@@ -25,6 +26,18 @@ TMP_DIR=$(mktemp -d)
 trap 'rm -rf "$TMP_DIR"' EXIT
 OS="$(uname -s)"
 
+# Fonction pour télécharger et gérer l'encodage de l'accent "é"
+download_asset() {
+  FILE_NAME="$1"
+  # Remplace "é" par "%C3%A9" pour l'URL GitHub
+  URL_NAME=$(echo "$FILE_NAME" | sed 's/é/%C3%A9/g')
+  URL="https://github.com/${REPO}/releases/download/${LATEST_TAG}/${URL_NAME}"
+
+  echo "⬇️ Téléchargement de $FILE_NAME..."
+  # -f force l'arrêt si l'URL renvoie une erreur 404
+  curl -fsSL "$URL" -o "${TMP_DIR}/${FILE_NAME}"
+}
+
 # ==========================================
 # DÉTECTION OS ET INSTALLATION
 # ==========================================
@@ -34,76 +47,56 @@ Linux*)
 
   # 1. CAS UBUNTU / DEBIAN / MINT / POP!_OS
   if command -v dpkg >/dev/null 2>&1; then
-    FILE_NAME="Toolé_${VERSION}_amd64.deb"
-    URL="https://github.com/${REPO}/releases/download/${LATEST_TAG}/${FILE_NAME}"
-
-    echo "⬇️ Téléchargement de $FILE_NAME..."
-    curl -sSL "$URL" -o "${TMP_DIR}/${FILE_NAME}"
-
+    download_asset "Toolé_${VERSION}_amd64.deb"
     echo "📦 Installation du paquet .deb..."
-    sudo dpkg -i "${TMP_DIR}/${FILE_NAME}" || sudo apt-get install -f -y
+    sudo dpkg -i "${TMP_DIR}/Toolé_${VERSION}_amd64.deb" || sudo apt-get install -f -y
 
   # 2. CAS FEDORA / REDHAT / CENTOS / ROCKY
   elif command -v rpm >/dev/null 2>&1; then
-    FILE_NAME="Toolé-${VERSION}-1.x86_64.rpm"
-    URL="https://github.com/${REPO}/releases/download/${LATEST_TAG}/${FILE_NAME}"
-
-    echo "⬇️ Téléchargement de $FILE_NAME..."
-    curl -sSL "$URL" -o "${TMP_DIR}/${FILE_NAME}"
-
+    download_asset "Toolé-${VERSION}-1.x86_64.rpm"
     echo "📦 Installation du paquet .rpm..."
-    sudo rpm -i "${TMP_DIR}/${FILE_NAME}"
+    sudo rpm -i "${TMP_DIR}/Toolé-${VERSION}-1.x86_64.rpm"
 
   # 3. CAS ARCH LINUX / MANJARO / AUTRES (Extraction manuelle du .deb)
   else
     echo "⚙️ Distribution générique/Arch détectée : installation manuelle du binaire..."
-    FILE_NAME="Toolé_${VERSION}_amd64.deb"
-    URL="https://github.com/${REPO}/releases/download/${LATEST_TAG}/${FILE_NAME}"
-
-    echo "⬇️ Téléchargement de $FILE_NAME..."
-    curl -sSL "$URL" -o "${TMP_DIR}/${FILE_NAME}"
+    download_asset "Toolé_${VERSION}_amd64.deb"
 
     cd "$TMP_DIR"
-
-    # Extraction du .deb (fonctionne avec bsdtar sur Arch, ou ar sur d'autres)
     echo "📦 Extraction de l'archive..."
-    if command -v bsdtar >/dev/null 2>&1; then
-      bsdtar -xf "$FILE_NAME"
+
+    # Priorité à 'ar' (l'outil standard pour les .deb) puis 'bsdtar'
+    if command -v ar >/dev/null 2>&1; then
+      ar x "Toolé_${VERSION}_amd64.deb"
+    elif command -v bsdtar >/dev/null 2>&1; then
+      bsdtar -xf "Toolé_${VERSION}_amd64.deb"
     else
-      ar x "$FILE_NAME"
+      echo "❌ Utilitaires d'extraction (ar ou bsdtar) introuvables sur ce système."
+      exit 1
     fi
 
-    # Extraction de l'archive interne data.tar.* (contient les fichiers système)
+    # Extraction de l'archive interne data.tar.* (contient les fichiers)
     tar -xf data.tar.*
 
-    # Déplacement des fichiers extraits (ex: le dossier usr/bin et usr/share) vers la racine du système
     echo "🚚 Déplacement des fichiers dans le système..."
     sudo cp -r usr/* /usr/
-
-    # Sécurité supplémentaire pour garantir que le binaire est exécutable
     sudo chmod +x /usr/bin/toole 2>/dev/null || true
   fi
   ;;
 
 Darwin*)
   echo "🍎 Système détecté : macOS"
-  FILE_NAME="Toolé_${VERSION}_universal.dmg"
-  URL="https://github.com/${REPO}/releases/download/${LATEST_TAG}/${FILE_NAME}"
-
-  echo "⬇️ Téléchargement de $FILE_NAME..."
-  curl -sSL "$URL" -o "${TMP_DIR}/${FILE_NAME}"
+  download_asset "Toolé_${VERSION}_universal.dmg"
 
   echo "📦 Montage du fichier .dmg..."
   MOUNT_DIR=$(mktemp -d)
-  hdiutil attach "${TMP_DIR}/${FILE_NAME}" -mountpoint "$MOUNT_DIR" -quiet
+  hdiutil attach "${TMP_DIR}/Toolé_${VERSION}_universal.dmg" -mountpoint "$MOUNT_DIR" -quiet
 
   echo "🚚 Installation dans /Applications..."
   sudo cp -R "$MOUNT_DIR/"*.app /Applications/
 
-  # Trouver le nom exact de l'application (ex: Toolé.app)
+  # Trouver le nom exact de l'application
   APP_NAME=$(ls "$MOUNT_DIR" | grep '\.app$' | head -n 1)
-
-  # Démonter le .dmg proprement
   hdiutil detach "$MOUNT_DIR" -quiet
 
   if [ -n "$APP_NAME" ]; then
@@ -114,10 +107,8 @@ Darwin*)
 
 *)
   echo "❌ Système d'exploitation non supporté par ce script : $OS"
-  echo "Pour Windows, utilisez le script PowerShell (install.ps1)."
   exit 1
   ;;
 esac
 
 echo "✅ Toolé a été installé avec succès !"
-echo "execter la commande toole"
