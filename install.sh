@@ -1,329 +1,168 @@
-#!/bin/bash
-# Script d'installation universel pour Toolé
-# Transfert de fichiers P2P sur réseau local, chiffré (QUIC/TLS 1.3)
+#!/bin/sh
+set -e
 
-set -e # Arrêter en cas d'erreur
+# ==========================================
+# CONFIGURATION
+# ==========================================
+REPO="TOS-team/Toole"
+API_URL="https://api.github.com/repos/${REPO}/releases/latest"
 
-# Configuration
-GITHUB_REPO="TOS-team/Toole"
-APP_NAME="Toolé"
-GITHUB_API="https://api.github.com/repos/${GITHUB_REPO}"
-
-# Couleurs pour le terminal
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-BLUE='\033[0;34m'
-CYAN='\033[0;36m'
-NC='\033[0m' # No Color
-
-# Fonctions d'affichage
-print_banner() {
-  echo -e "${CYAN}"
-  echo "╔════════════════════════════════════════╗"
-  echo "║         Installation de Toolé          ║"
-  echo "║  Transfert P2P chiffré sur réseau local║"
-  echo "╚════════════════════════════════════════╝"
-  echo -e "${NC}"
-}
-
-info() {
-  echo -e "${BLUE}[INFO]${NC} $1"
-}
-
-success() {
-  echo -e "${GREEN}[SUCCESS]${NC} $1"
-}
-
-error() {
-  echo -e "${RED}[ERROR]${NC} $1"
-  exit 1
-}
-
-warning() {
-  echo -e "${YELLOW}[WARNING]${NC} $1"
-}
-
-# Détection de l'OS
-detect_os() {
-  case "$(uname -s)" in
-  Linux*) OS="linux" ;;
-  Darwin*) OS="macos" ;;
-  CYGWIN* | MINGW* | MSYS*) OS="windows" ;;
-  *) error "OS non supporté: $(uname -s)" ;;
-  esac
-  info "Système d'exploitation détecté: $OS"
-}
-
-# Détection de l'architecture
-detect_arch() {
-  case "$(uname -m)" in
-  x86_64 | amd64) ARCH="x64" ;;
-  arm64 | aarch64) ARCH="arm64" ;;
-  *) error "Architecture non supportée: $(uname -m)" ;;
-  esac
-  info "Architecture détectée: $ARCH"
-}
+echo "╔════════════════════════════════════════╗"
+echo "║         Installation de Toolé          ║"
+echo "║  Transfert P2P chiffré sur réseau local║"
+echo "╚════════════════════════════════════════╝"
+echo ""
 
 # Vérification des dépendances
 check_dependencies() {
-  info "Vérification des dépendances..."
+  echo "🔍 Vérification des dépendances..."
+  MISSING_DEPS=""
 
-  for cmd in curl; do
-    if ! command -v $cmd &>/dev/null; then
-      error "$cmd est requis mais n'est pas installé. Veuillez l'installer d'abord."
-    fi
-  done
+  if ! command -v curl >/dev/null 2>&1; then
+    MISSING_DEPS="$MISSING_DEPS curl"
+  fi
 
-  # Vérifier wget comme alternative
-  if ! command -v wget &>/dev/null && ! command -v curl &>/dev/null; then
-    error "curl ou wget est requis pour l'installation"
+  if ! command -v sudo >/dev/null 2>&1; then
+    MISSING_DEPS="$MISSING_DEPS sudo"
+  fi
+
+  if [ -n "$MISSING_DEPS" ]; then
+    echo "❌ Dépendances manquantes:$MISSING_DEPS"
+    echo "   Installez-les d'abord puis relancez le script."
+    exit 1
   fi
 }
 
-# Récupération de la dernière version
-get_latest_version() {
-  info "Récupération de la dernière version..."
+check_dependencies
 
-  if command -v curl &>/dev/null; then
-    LATEST_VERSION=$(curl -s "${GITHUB_API}/releases/latest" | grep '"tag_name"' | sed -E 's/.*"([^"]+)".*/\1/')
+echo "📡 Recherche de la dernière version de Toolé..."
+
+# On récupère le tag de la dernière version (ex: v2.0.3)
+LATEST_TAG=$(curl -s "$API_URL" | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/')
+
+if [ -z "$LATEST_TAG" ]; then
+  echo "❌ Impossible de récupérer la dernière version."
+  exit 1
+fi
+
+echo "🚀 Version trouvée : $LATEST_TAG"
+echo ""
+
+# ==========================================
+# PRÉPARATION
+# ==========================================
+TMP_DIR=$(mktemp -d)
+trap 'rm -rf "$TMP_DIR"' EXIT
+OS="$(uname -s)"
+
+# 🚀 NOUVELLE MÉTHODE : On extrait l'URL exacte générée par GitHub
+download_asset() {
+  EXT="$1"
+  LOCAL_NAME="$2"
+
+  # Cherche la ligne "browser_download_url" qui se termine par l'extension voulue
+  URL=$(curl -s "$API_URL" | grep '"browser_download_url":' | grep "\.${EXT}\"" | cut -d '"' -f 4 | head -n 1)
+
+  if [ -z "$URL" ]; then
+    echo "❌ Impossible de trouver un fichier d'installation (.${EXT}) pour la version ${LATEST_TAG}."
+    exit 1
+  fi
+
+  echo "⬇️  Téléchargement de $(basename "$URL")..."
+  curl -fsSL "$URL" -o "${TMP_DIR}/${LOCAL_NAME}"
+}
+
+# ==========================================
+# DÉTECTION OS ET INSTALLATION
+# ==========================================
+case "$OS" in
+Linux*)
+  echo "🐧 Système détecté : Linux"
+
+  # 1. CAS UBUNTU / DEBIAN / MINT
+  if command -v dpkg >/dev/null 2>&1; then
+    download_asset "deb" "toole.deb"
+    echo "📦 Installation du paquet .deb..."
+    sudo dpkg -i "${TMP_DIR}/toole.deb" || sudo apt-get install -f -y
+
+  # 2. CAS FEDORA / REDHAT / CENTOS
+  elif command -v rpm >/dev/null 2>&1; then
+    download_asset "rpm" "toole.rpm"
+    echo "📦 Installation du paquet .rpm..."
+    sudo rpm -i "${TMP_DIR}/toole.rpm"
+
+  # 3. CAS ARCH LINUX / AUTRES (Extraction manuelle)
   else
-    LATEST_VERSION=$(wget -qO- "${GITHUB_API}/releases/latest" | grep '"tag_name"' | sed -E 's/.*"([^"]+)".*/\1/')
-  fi
+    echo "⚙️  Distribution générique/Arch détectée : installation manuelle du binaire..."
+    download_asset "deb" "toole.deb"
 
-  if [ -z "$LATEST_VERSION" ]; then
-    error "Impossible de récupérer la dernière version"
-  fi
+    cd "$TMP_DIR"
+    echo "📦 Extraction de l'archive..."
 
-  info "Dernière version disponible: $LATEST_VERSION"
-}
-
-# Installation sur Linux
-install_linux() {
-  info "Installation sur Linux..."
-
-  # Déterminer le gestionnaire de paquets
-  if command -v apt-get &>/dev/null; then
-    # Debian/Ubuntu - Installation du .deb
-    DEB_FILE="Toolé_${LATEST_VERSION#v}_amd64.deb"
-    DOWNLOAD_URL="https://github.com/${GITHUB_REPO}/releases/download/${LATEST_VERSION}/${DEB_FILE}"
-
-    info "Téléchargement du paquet .deb..."
-    TMP_DIR=$(mktemp -d)
-
-    if command -v curl &>/dev/null; then
-      curl -L -o "${TMP_DIR}/${DEB_FILE}" "$DOWNLOAD_URL"
+    # Priorité à bsdtar puis ar
+    if command -v bsdtar >/dev/null 2>&1; then
+      bsdtar -xf "toole.deb"
+      bsdtar -xf data.tar.*
+    elif command -v ar >/dev/null 2>&1; then
+      ar x "toole.deb"
+      tar -xf data.tar.*
     else
-      wget -O "${TMP_DIR}/${DEB_FILE}" "$DOWNLOAD_URL"
+      echo "❌ Utilitaires d'extraction (ar ou bsdtar) introuvables."
+      exit 1
     fi
 
-    info "Installation du paquet..."
-    if [ "$EUID" -ne 0 ]; then
-      sudo apt-get install -y "${TMP_DIR}/${DEB_FILE}"
-    else
-      apt-get install -y "${TMP_DIR}/${DEB_FILE}"
-    fi
-
-    rm -rf "$TMP_DIR"
-
-  elif command -v dnf &>/dev/null || command -v yum &>/dev/null; then
-    # Fedora/RHEL - Installation du .rpm
-    RPM_FILE="Toolé-${LATEST_VERSION#v}-1.x86_64.rpm"
-    DOWNLOAD_URL="https://github.com/${GITHUB_REPO}/releases/download/${LATEST_VERSION}/${RPM_FILE}"
-
-    info "Téléchargement du paquet .rpm..."
-    TMP_DIR=$(mktemp -d)
-
-    if command -v curl &>/dev/null; then
-      curl -L -o "${TMP_DIR}/${RPM_FILE}" "$DOWNLOAD_URL"
-    else
-      wget -O "${TMP_DIR}/${RPM_FILE}" "$DOWNLOAD_URL"
-    fi
-
-    info "Installation du paquet..."
-    if command -v dnf &>/dev/null; then
-      if [ "$EUID" -ne 0 ]; then
-        sudo dnf install -y "${TMP_DIR}/${RPM_FILE}"
-      else
-        dnf install -y "${TMP_DIR}/${RPM_FILE}"
-      fi
-    else
-      if [ "$EUID" -ne 0 ]; then
-        sudo yum install -y "${TMP_DIR}/${RPM_FILE}"
-      else
-        yum install -y "${TMP_DIR}/${RPM_FILE}"
-      fi
-    fi
-
-    rm -rf "$TMP_DIR"
-
-  else
-    # Fallback - Téléchargement du binaire directement
-    warning "Gestionnaire de paquets non détecté, installation du binaire directement..."
-
-    INSTALL_DIR="/usr/local/bin"
-    BINARY_FILE="toole-linux-${ARCH}"
-    DOWNLOAD_URL="https://github.com/${GITHUB_REPO}/releases/download/${LATEST_VERSION}/${BINARY_FILE}"
-
-    info "Téléchargement du binaire..."
-    if command -v curl &>/dev/null; then
-      if [ "$EUID" -ne 0 ]; then
-        sudo curl -L -o "${INSTALL_DIR}/toole" "$DOWNLOAD_URL"
-      else
-        curl -L -o "${INSTALL_DIR}/toole" "$DOWNLOAD_URL"
-      fi
-    else
-      if [ "$EUID" -ne 0 ]; then
-        sudo wget -O "${INSTALL_DIR}/toole" "$DOWNLOAD_URL"
-      else
-        wget -O "${INSTALL_DIR}/toole" "$DOWNLOAD_URL"
-      fi
-    fi
-
-    # Rendre exécutable
-    if [ "$EUID" -ne 0 ]; then
-      sudo chmod +x "${INSTALL_DIR}/toole"
-    else
-      chmod +x "${INSTALL_DIR}/toole"
-    fi
+    echo "🚚 Déplacement des fichiers dans le système..."
+    sudo cp -r usr/* /usr/
+    sudo chmod +x /usr/bin/toole 2>/dev/null || true
   fi
-}
+  ;;
 
-# Installation sur macOS
-install_macos() {
-  info "Installation sur macOS..."
+Darwin*)
+  echo "🍎 Système détecté : macOS"
+  download_asset "dmg" "toole.dmg"
 
-  DMG_FILE="Toolé_${LATEST_VERSION#v}_universal.dmg"
-  DOWNLOAD_URL="https://github.com/${GITHUB_REPO}/releases/download/${LATEST_VERSION}/${DMG_FILE}"
+  echo "📦 Montage du fichier .dmg..."
+  MOUNT_DIR=$(mktemp -d)
 
-  TMP_DIR=$(mktemp -d)
-
-  info "Téléchargement du fichier .dmg..."
-  curl -L -o "${TMP_DIR}/${DMG_FILE}" "$DOWNLOAD_URL"
-
-  info "Montage du .dmg..."
-  MOUNT_POINT=$(hdiutil attach "${TMP_DIR}/${DMG_FILE}" | grep Volumes | awk '{print $3}')
-
-  if [ -z "$MOUNT_POINT" ]; then
-    error "Impossible de monter le .dmg"
+  if ! hdiutil attach "${TMP_DIR}/toole.dmg" -mountpoint "$MOUNT_DIR" -quiet; then
+    echo "❌ Échec du montage du .dmg"
+    exit 1
   fi
 
-  info "Installation dans /Applications..."
-  cp -R "${MOUNT_POINT}/Toolé.app" /Applications/
+  echo "🚚 Installation dans /Applications..."
+  APP_PATH=$(find "$MOUNT_DIR" -name "*.app" -maxdepth 1 | head -n 1)
 
-  info "Démontage du .dmg..."
-  hdiutil detach "$MOUNT_POINT"
-
-  rm -rf "$TMP_DIR"
-
-  warning "Note: Build non notarié, Gatekeeper peut refuser l'ouverture."
-  warning "Si nécessaire, exécutez: xattr -cr /Applications/Toolé.app"
-
-  info "La mise à jour automatique est désactivée sur macOS."
-}
-
-# Installation sur Windows (via WSL ou Git Bash)
-install_windows() {
-  info "Installation sur Windows..."
-
-  EXE_FILE="Toolé_${LATEST_VERSION#v}_x64-setup.exe"
-  DOWNLOAD_URL="https://github.com/${GITHUB_REPO}/releases/download/${LATEST_VERSION}/${EXE_FILE}"
-
-  info "Téléchargement de l'installateur Windows..."
-  TMP_DIR=$(mktemp -d)
-
-  curl -L -o "${TMP_DIR}/${EXE_FILE}" "$DOWNLOAD_URL"
-
-  info "Lancement de l'installateur..."
-  warning "L'installateur Windows va s'ouvrir dans une nouvelle fenêtre."
-  warning "Suivez les instructions à l'écran pour terminer l'installation."
-
-  if command -v cmd.exe &>/dev/null; then
-    cmd.exe /c "start ${TMP_DIR}/${EXE_FILE}"
-  elif command -v powershell.exe &>/dev/null; then
-    powershell.exe -Command "Start-Process '${TMP_DIR}/${EXE_FILE}'"
-  else
-    error "Impossible de lancer l'installateur Windows"
+  if [ -z "$APP_PATH" ]; then
+    echo "❌ Aucune application .app trouvée dans le .dmg"
+    hdiutil detach "$MOUNT_DIR" -quiet
+    exit 1
   fi
 
-  rm -rf "$TMP_DIR"
-}
+  APP_NAME=$(basename "$APP_PATH")
+  sudo cp -R "$APP_PATH" /Applications/
 
-# Vérification de l'installation
-verify_installation() {
-  info "Vérification de l'installation..."
+  hdiutil detach "$MOUNT_DIR" -quiet
 
-  if command -v toole &>/dev/null; then
-    success "Toolé est installé et disponible dans le PATH"
-    echo ""
-    echo -e "${GREEN}Pour lancer Toolé, tapez simplement:${NC}"
-    echo -e "${CYAN}  toole${NC}"
-    echo ""
-  else
-    case "$OS" in
-    linux)
-      if command -v toole &>/dev/null; then
-        success "Toolé est installé"
-      else
-        warning "Toolé est installé mais n'est pas dans le PATH"
-        info "Vous pouvez le trouver avec: which toole ou dpkg -L toole"
-      fi
-      ;;
-    macos)
-      success "Toolé est installé dans /Applications"
-      echo -e "${GREEN}Pour lancer Toolé:${NC}"
-      echo -e "${CYAN}  open /Applications/Toolé.app${NC}"
-      ;;
-    windows)
-      success "Toolé est installé sur Windows"
-      echo -e "${GREEN}Pour lancer Toolé, cherchez-le dans le menu Démarrer${NC}"
-      ;;
-    esac
-  fi
-}
+  echo "🛡️  Application du correctif Gatekeeper..."
+  sudo xattr -cr "/Applications/$APP_NAME"
 
-# Fonction principale
-main() {
-  print_banner
-  echo ""
+  echo "ℹ️  Note : La mise à jour automatique est désactivée sur macOS"
+  ;;
 
-  # Détection du système
-  detect_os
-  detect_arch
+*)
+  echo "❌ Système d'exploitation non supporté par ce script : $OS"
+  exit 1
+  ;;
+esac
 
-  echo ""
+echo ""
+echo "✅ Toolé a été installé avec succès !"
+echo ""
 
-  # Vérifier les dépendances
-  check_dependencies
-
-  # Récupérer la dernière version
-  get_latest_version
-
-  echo ""
-
-  # Installer selon l'OS
-  case "$OS" in
-  linux)
-    install_linux
-    ;;
-  macos)
-    install_macos
-    ;;
-  windows)
-    install_windows
-    ;;
-  esac
-
-  echo ""
-
-  # Vérifier l'installation
-  verify_installation
-
-  echo ""
-  success "Installation terminée ! 🎉"
-  echo ""
-  echo -e "${CYAN}Toolé - Transfert de fichiers P2P sur réseau local, chiffré (QUIC/TLS 1.3)${NC}"
-}
-
-# Exécution
-main "$@"
+# Vérification finale
+if command -v toole >/dev/null 2>&1; then
+  echo "🚀 Pour lancer Toolé, tapez simplement :"
+  echo "   toole"
+else
+  echo "📱 Toolé est installé. Cherchez-le dans vos applications."
+fi
