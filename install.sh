@@ -5,19 +5,48 @@ set -e
 # CONFIGURATION
 # ==========================================
 REPO="TOS-team/Toole"
+API_URL="https://api.github.com/repos/${REPO}/releases/latest"
+
+echo "╔════════════════════════════════════════╗"
+echo "║         Installation de Toolé          ║"
+echo "║  Transfert P2P chiffré sur réseau local║"
+echo "╚════════════════════════════════════════╝"
+echo ""
+
+# Vérification des dépendances
+check_dependencies() {
+  echo "🔍 Vérification des dépendances..."
+  MISSING_DEPS=""
+
+  if ! command -v curl >/dev/null 2>&1; then
+    MISSING_DEPS="$MISSING_DEPS curl"
+  fi
+
+  if ! command -v sudo >/dev/null 2>&1; then
+    MISSING_DEPS="$MISSING_DEPS sudo"
+  fi
+
+  if [ -n "$MISSING_DEPS" ]; then
+    echo "❌ Dépendances manquantes:$MISSING_DEPS"
+    echo "   Installez-les d'abord puis relancez le script."
+    exit 1
+  fi
+}
+
+check_dependencies
 
 echo "📡 Recherche de la dernière version de Toolé..."
-# Ajout de -f pour éviter les faux téléchargements
-LATEST_TAG=$(curl -fsSL "https://api.github.com/repos/${REPO}/releases/latest" | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/')
+
+# On récupère le tag de la dernière version (ex: v2.0.3)
+LATEST_TAG=$(curl -s "$API_URL" | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/')
 
 if [ -z "$LATEST_TAG" ]; then
   echo "❌ Impossible de récupérer la dernière version."
   exit 1
 fi
 
-# Extraction du numéro de version sans le 'v' (ex: 2.0.3)
-VERSION=$(echo "$LATEST_TAG" | sed 's/^v//')
 echo "🚀 Version trouvée : $LATEST_TAG"
+echo ""
 
 # ==========================================
 # PRÉPARATION
@@ -26,16 +55,21 @@ TMP_DIR=$(mktemp -d)
 trap 'rm -rf "$TMP_DIR"' EXIT
 OS="$(uname -s)"
 
-# Fonction pour télécharger et gérer l'encodage de l'accent "é"
+# 🚀 NOUVELLE MÉTHODE : On extrait l'URL exacte générée par GitHub
 download_asset() {
-  FILE_NAME="$1"
-  # Remplace "é" par "%C3%A9" pour l'URL GitHub
-  URL_NAME=$(echo "$FILE_NAME" | sed 's/é/%C3%A9/g')
-  URL="https://github.com/${REPO}/releases/download/${LATEST_TAG}/${URL_NAME}"
+  EXT="$1"
+  LOCAL_NAME="$2"
 
-  echo "⬇️ Téléchargement de $FILE_NAME..."
-  # -f force l'arrêt si l'URL renvoie une erreur 404
-  curl -fsSL "$URL" -o "${TMP_DIR}/${FILE_NAME}"
+  # Cherche la ligne "browser_download_url" qui se termine par l'extension voulue
+  URL=$(curl -s "$API_URL" | grep '"browser_download_url":' | grep "\.${EXT}\"" | cut -d '"' -f 4 | head -n 1)
+
+  if [ -z "$URL" ]; then
+    echo "❌ Impossible de trouver un fichier d'installation (.${EXT}) pour la version ${LATEST_TAG}."
+    exit 1
+  fi
+
+  echo "⬇️  Téléchargement de $(basename "$URL")..."
+  curl -fsSL "$URL" -o "${TMP_DIR}/${LOCAL_NAME}"
 }
 
 # ==========================================
@@ -45,38 +79,37 @@ case "$OS" in
 Linux*)
   echo "🐧 Système détecté : $OS"
 
-  # 1. CAS UBUNTU / DEBIAN / MINT / POP!_OS
+  # 1. CAS UBUNTU / DEBIAN / MINT
   if command -v dpkg >/dev/null 2>&1; then
-    download_asset "Toolé_${VERSION}_amd64.deb"
+    download_asset "deb" "toole.deb"
     echo "📦 Installation du paquet .deb..."
-    sudo dpkg -i "${TMP_DIR}/Toolé_${VERSION}_amd64.deb" || sudo apt-get install -f -y
+    sudo dpkg -i "${TMP_DIR}/toole.deb" || sudo apt-get install -f -y
 
-  # 2. CAS FEDORA / REDHAT / CENTOS / ROCKY
+  # 2. CAS FEDORA / REDHAT / CENTOS
   elif command -v rpm >/dev/null 2>&1; then
-    download_asset "Toolé-${VERSION}-1.x86_64.rpm"
+    download_asset "rpm" "toole.rpm"
     echo "📦 Installation du paquet .rpm..."
-    sudo rpm -i "${TMP_DIR}/Toolé-${VERSION}-1.x86_64.rpm"
+    sudo rpm -i "${TMP_DIR}/toole.rpm"
 
-  # 3. CAS ARCH LINUX / MANJARO / AUTRES (Extraction manuelle du .deb)
+  # 3. CAS ARCH LINUX / AUTRES (Extraction manuelle)
   else
-    echo "⚙️ Distribution générique/Arch détectée : installation manuelle du binaire..."
-    download_asset "Toolé_${VERSION}_amd64.deb"
+    echo "⚙️  Distribution générique/Arch détectée : installation manuelle du binaire..."
+    download_asset "deb" "toole.deb"
 
     cd "$TMP_DIR"
     echo "📦 Extraction de l'archive..."
 
-    # Priorité à 'ar' (l'outil standard pour les .deb) puis 'bsdtar'
-    if command -v ar >/dev/null 2>&1; then
-      ar x "Toolé_${VERSION}_amd64.deb"
-    elif command -v bsdtar >/dev/null 2>&1; then
-      bsdtar -xf "Toolé_${VERSION}_amd64.deb"
+    # Priorité à bsdtar puis ar
+    if command -v bsdtar >/dev/null 2>&1; then
+      bsdtar -xf "toole.deb"
+      bsdtar -xf data.tar.*
+    elif command -v ar >/dev/null 2>&1; then
+      ar x "toole.deb"
+      tar -xf data.tar.*
     else
-      echo "❌ Utilitaires d'extraction (ar ou bsdtar) introuvables sur ce système."
+      echo "❌ Utilitaires d'extraction (ar ou bsdtar) introuvables."
       exit 1
     fi
-
-    # Extraction de l'archive interne data.tar.* (contient les fichiers)
-    tar -xf data.tar.*
 
     echo "🚚 Déplacement des fichiers dans le système..."
     sudo cp -r usr/* /usr/
@@ -86,23 +119,34 @@ Linux*)
 
 Darwin*)
   echo "🍎 Système détecté : macOS"
-  download_asset "Toolé_${VERSION}_universal.dmg"
+  download_asset "dmg" "toole.dmg"
 
   echo "📦 Montage du fichier .dmg..."
   MOUNT_DIR=$(mktemp -d)
-  hdiutil attach "${TMP_DIR}/Toolé_${VERSION}_universal.dmg" -mountpoint "$MOUNT_DIR" -quiet
+
+  if ! hdiutil attach "${TMP_DIR}/toole.dmg" -mountpoint "$MOUNT_DIR" -quiet; then
+    echo "❌ Échec du montage du .dmg"
+    exit 1
+  fi
 
   echo "🚚 Installation dans /Applications..."
-  sudo cp -R "$MOUNT_DIR/"*.app /Applications/
+  APP_PATH=$(find "$MOUNT_DIR" -name "*.app" -maxdepth 1 | head -n 1)
 
-  # Trouver le nom exact de l'application
-  APP_NAME=$(ls "$MOUNT_DIR" | grep '\.app$' | head -n 1)
+  if [ -z "$APP_PATH" ]; then
+    echo "❌ Aucune application .app trouvée dans le .dmg"
+    hdiutil detach "$MOUNT_DIR" -quiet
+    exit 1
+  fi
+
+  APP_NAME=$(basename "$APP_PATH")
+  sudo cp -R "$APP_PATH" /Applications/
+
   hdiutil detach "$MOUNT_DIR" -quiet
 
-  if [ -n "$APP_NAME" ]; then
-    echo "🛡️ Application du correctif Gatekeeper (autorisation Apple Silicon/Intel)..."
-    sudo xattr -cr "/Applications/$APP_NAME"
-  fi
+  echo "🛡️  Application du correctif Gatekeeper..."
+  sudo xattr -cr "/Applications/$APP_NAME"
+
+  echo "ℹ️  Note : La mise à jour automatique est désactivée sur macOS"
   ;;
 
 *)
@@ -111,4 +155,14 @@ Darwin*)
   ;;
 esac
 
+echo ""
 echo "✅ Toolé a été installé avec succès !"
+echo ""
+
+# Vérification finale
+if command -v toole >/dev/null 2>&1; then
+  echo "🚀 Pour lancer Toolé, tapez simplement :"
+  echo "   toole"
+else
+  echo "📱 Toolé est installé. Cherchez-le dans vos applications."
+fi
