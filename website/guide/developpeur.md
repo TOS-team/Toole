@@ -35,11 +35,11 @@ Le code est découpé en deux crates et une app :
 | `discovery.rs` | Écoute/broadcast UDP 58199, gestion du timeout des pairs |
 | `transfer.rs` | Endpoints QUIC, protocole par stream, chunks pipelinés |
 | `sender.rs` | Émetteur : collecte des chemins, envoi en parallèle (max 2) |
-| `recever.rs` | Récepteur QUIC 58200 → écrit les fichiers dans `Téléchargements/Toolé` |
+| `receiver.rs` | Récepteur QUIC 58200 → écrit les fichiers dans `Téléchargements/Toolé` |
 | `file_certif.rs` | Certificat TLS auto-signé persistant + vérification désactivée |
 | `utils.rs` | `device_id` stable (hostname + suffixe Crockford) |
 | `error.rs` | Type `ToolError` |
-| `lib.rs` | Trait `UI` (10 méthodes) + type `Peer` |
+| `lib.rs` | Trait `UI` (12 méthodes) + type `Peer` + trait `TransferRegistry` |
 
 ### `desktop-app/src-tauri/`
 
@@ -72,9 +72,11 @@ chaque méthode en **événement** `tool://*` émis vers la webview.
 | `update_progress_bar(id, sent, total)` | `tool://transfer/progress` |
 | `file_progress_bar(id, name, sent, total)` | `tool://transfer/file_progress` |
 | `transfert_cancel(id)` | `tool://transfer/cancel` |
+| `transfert_incoming(id, sender, total, files)` | `tool://transfer/incoming` |
+| `transfert_refused(id)` | `tool://transfer/refused` |
 | `transfert_completed(id)` | `tool://transfer/done` |
 | `transfert_received(...)` | `tool://transfer/received` |
-| `tranfert_error(id, err)` | `tool://transfer/error` |
+| `transfert_error(id, err)` | `tool://transfer/error` |
 | `log(msg)` | `tool://log` |
 
 Le frontend s'abonne à ces événements dans les stores (`transfers.ts`,
@@ -122,12 +124,17 @@ des paquets.
 
 ### Protocole par stream
 
-Chaque fichier (ou dossier vide) est envoyé sur son **propre stream bidirectionnel**
-(`open_bi`), ce qui permet le multiplexage QUIC :
+Dès la connexion établie, l'émetteur ouvre un **premier stream** pour l'en-tête
+de lot, puis un stream par fichier (ou dossier vide) sur son **propre stream
+bidirectionnel** (`open_bi`), ce qui permet le multiplexage QUIC :
 
 ```
 Émetteur                                 Récepteur
 ──────────────────────────  ──────────────────────────
+BatchHeader (JSON + \n)      (affiche « Accepter / Refuser »)
+ ─────────────────────────►
+ Décision ACK (0x01) ou REFUSE (0x03) ◄────────────────
+    → si REFUSE : connexion fermée, aucun fichier
 Metadata (JSON + \n)
  ─────────────────────────►  (crée les dossiers)
 Ack (0x01) ◄───────────────
@@ -139,6 +146,15 @@ COMPLETE (0x02) ───────────►
 Ack final (0x01) ◄──────────
 finish()                              finish()
 ```
+
+### Demande d'acceptation
+
+Le récepteur présente la demande à l'utilisateur (`tool://transfer/incoming`,
+boutons Accepter / Refuser) **avant** de recevoir le moindre fichier. La réponse
+`ACK`/`REFUSE` part du `DecisionBoard` (map `transfer_id → oneshot`), résolu par
+la commande `respond_transfer(transfer_id, accepted)`. L'émetteur attend la
+décision **30 s** max (`DECISION_TIMEOUT`) ; la connexion reste vivante grâce
+aux pings de garde QUIC (voir Déconnexion soudaine).
 
 ### Metadata
 
@@ -184,9 +200,24 @@ Le `sender` lance une tâche par fichier mais limite à **2 en parallèle**
 - Chaque commande `send_files` enregistre un `stop_flag` (AtomicBool) et un
   `AbortHandle` dans `TransferState`.
 - `cancel_transfer` pose le flag puis abort la tâche.
-- L'émetteur, en vérifiant le flag, **resets son stream** (`send.reset`).
-- Côté récepteur, le stream échoue → `had_error` est posé → la connexion est
-  signalée en **erreur**, jamais comme un transfert reçu ou tronqué.
+- L'annulation est **croisée** : les deux côtés peuvent annuler depuis la croix
+  de la carte. L'émetteur resets ses streams et ferme la connexion avec
+  `CLOSE_CANCEL` (code 1) ; le récepteur distingue une **annulation** (reset du
+  stream ou `CLOSE_CANCEL` → `transfert_cancel`) d'une **erreur réseau**
+  (autre code ou perte → `transfert_error`).
+- Côté récepteur, un stream annulé pose `cancelled_by_peer`/`had_error` : la
+  connexion n'est **jamais** signalée comme un transfert reçu ou tronqué, et le
+  **fichier partiel est supprimé**.
+
+### Déconnexion soudaine
+
+- `transport_config` règle `max_idle_timeout = 15 s` + `keep_alive_interval = 3 s`.
+- Une app fermée brutalement (sans fermeture QUIC propre) est détectée en
+  ~15 s via le timeout d'idle QUIC → `transfert_error`, jamais une réception.
+- Le keepalive maintient la connexion vivante pendant les périodes silencieuses
+  (ex. les 30 s de réflexion sur la demande d'acceptation).
+- Garde-fou : contrôle de complétude `done < expected` avant de notifier une
+  réception valide.
 
 ## Réception
 
@@ -205,4 +236,4 @@ tâche Tokio dédiée ; chaque stream dans une sous-tâche.
 
 ---
 
-> [Sommaire](index.md) · Références techniques : [docs/](../docs/)
+> [Sommaire](index.md) · Références techniques : [docs/ sur GitHub](https://github.com/TOS-team/Toole/tree/main/docs)

@@ -65,15 +65,20 @@ pub trait UI: Send + Sync {
     fn update_progress_bar(&self, transfer_id: &str, bytes_sent: u64, total_bytes: u64);
     fn file_progress_bar(&self, transfer_id: &str, file_name: &str, file_bytes_sent: u64, file_total_bytes: u64);
     fn transfert_cancel(&self, transfer_id: &str);
+    fn transfert_incoming(&self, transfer_id: &str, sender: &str, total_bytes: u64, files: Vec<String>);
+    fn transfert_refused(&self, transfer_id: &str);
     fn transfert_completed(&self, transfer_id: &str);
     fn transfert_received(&self, transfer_id: &str, peer: &str, bytes: u64, files: Vec<String>);
-    fn tranfert_error(&self, transfer_id: &str, error: &ToolError);
+    fn transfert_error(&self, transfer_id: &str, error: &ToolError);
 }
 ```
 
 Dans `desktop-app/src-tauri/src/commands.rs`, la structure `AppUI` implémente ce trait et émet des événements Tauri vers le frontend :
 - `peer_found`/`peer_lost` maintiennent une liste partagée `Arc<Mutex<Vec<Peer>>>` et émettent `tool://peer_found` / `tool://peer_lost`
 - Les méthodes de progression émettent `tool://transfer/start`, `tool://transfer/progress`, `tool://transfer/file_progress`, `tool://transfer/done`, `tool://transfer/cancel`, `tool://transfer/received`, `tool://transfer/error`
+- `transfert_incoming` émet `tool://transfer/incoming` (demande d'acceptation : transfer_id, sender, total_bytes, files) et `transfert_refused` émet `tool://transfer/refused`
+
+Le récepteur dépose chaque demande d'acceptation dans un **`DecisionBoard`** partagé (map `transfer_id → oneshot`). Quand l'utilisateur clique sur Accepter / Refuser, la commande `respond_transfer(transfer_id, accepted)` résout la décision, qui est renvoyée à l'émetteur (`ACK 0x01` / `REFUSE 0x03`).
 
 Le frontend récupère la liste des pairs via la commande `get_peers` appelée toutes les 2s (polling), et s'abonne aux événements `tool://transfer/*` pour la progression.
 
@@ -158,7 +163,7 @@ Tokio Runtime
 | `file_certif.rs` | Certificat TLS auto-signé + SkipServerVerification (session unique) |
 | `transfer.rs` | Transfert QUIC : endpoints, streams, chunks pipelinés, UI throttle |
 | `sender.rs` | Côté émetteur : parcours des chemins, ouverture des streams en parallèle |
-| `recever.rs` | Côté récepteur : serveur QUIC (port 58200), écriture dans Downloads/Toolé |
+| `receiver.rs` | Côté récepteur : serveur QUIC (port 58200), écriture dans Downloads/Toolé |
 
 ### desktop-app/src-tauri/src/
 
@@ -166,7 +171,7 @@ Tokio Runtime
 |---|---|
 | `main.rs` | Point d'entrée, appelle `app_lib::run()` |
 | `lib.rs` | Builder Tauri : manage state, invoke_handler, récepteur au démarrage |
-| `commands.rs` | AppUI + commandes : start_discovery, stop_discovery, get_hostname, get_device_id, get_peers, send_files, cancel_transfer, read_clipboard, close_window, get_file_infos |
+| `commands.rs` | AppUI + commandes : start_discovery, stop_discovery, get_device_id, get_peers, send_files, cancel_transfer, respond_transfer, read_clipboard, get_file_infos |
 
 ### desktop-app/ui/
 
@@ -197,14 +202,13 @@ Tokio Runtime
 
 ### Fenêtre et permissions
 
-La fenêtre Tauri est configurée sans décoration native (`decorations: false`) avec fond transparent (`transparent: true`) et titlebar personnalisée (zone de drag `data-tauri-drag-region`, boutons Réduire et Fermer). Les permissions Tauri v2 sont déclarées dans `capabilities/default.json` : `core:default`, `core:window:allow-start-dragging`, `core:window:allow-minimize`, `core:window:allow-close`, `dialog:default`.
+La fenêtre Tauri est configurée sans décoration native (`decorations: false`) avec fond transparent (`transparent: true`) et titlebar personnalisée (zone de drag `data-tauri-drag-region`, boutons Réduire et Fermer). Les permissions Tauri v2 sont déclarées dans `capabilities/default.json` : `core:default`, `core:window:allow-start-dragging`, `core:window:allow-minimize`, `core:window:allow-toggle-maximize`, `core:window:allow-close`, `dialog:default`, `process:default`, `updater:default`.
 
 ### Commandes Tauri additionnelles
 
 | Commande | Rôle |
 |---|---|
 | `read_clipboard` | Lit le presse-papier système via `arboard` (Ctrl+V) |
-| `close_window` | Ferme la fenêtre (fallback) |
 | `get_file_infos` | Retourne taille et type (fichier/dossier) de chaque chemin |
 | `cancel_transfer` | Annule un transfert par son id (stop flag + abort) |
 

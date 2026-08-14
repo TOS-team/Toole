@@ -14,11 +14,17 @@ pub enum ToolError {
     #[error("QUIC error: {0}")]
     QuinnError(String),
 
-    #[error("Transfer cancelled")]
-    Cancelled,
-
     #[error("Transfer error: {0}")]
     TransferError(String),
+
+    #[error("Transfert annulé par l'utilisateur")]
+    Cancelled,
+
+    #[error("Transfert annulé par le destinataire")]
+    RemoteCancel,
+
+    #[error("Transfert refusé par le destinataire")]
+    Refused,
 
     #[error("Stream closed")]
     ClosedStream(#[from] quinn::ClosedStream),
@@ -45,7 +51,7 @@ impl From<quinn::ReadError> for ToolError {
     }
 }
 
-// ← CORRECTION : quinn::ReadExactError (pas tokio::io::ReadExactError)
+// quinn::ReadExactError (pas tokio::io::ReadExactError)
 impl From<quinn::ReadExactError> for ToolError {
     fn from(e: quinn::ReadExactError) -> Self {
         ToolError::QuinnError(e.to_string())

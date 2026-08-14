@@ -11,7 +11,7 @@
 | `transfer.rs` — transfert QUIC, streams, chunks | ✅ |
 | `file_certif.rs` — certificat TLS auto-signé | ✅ |
 | `sender.rs` — émetteur (chemins, streams parallèles) | ✅ |
-| `recever.rs` — récepteur QUIC (port 58200) | ✅ |
+| `receiver.rs` — récepteur QUIC (port 58200) | ✅ |
 
 ---
 
@@ -32,7 +32,6 @@
 | `utils.ts` — formatSize, extOf, fileVisual | ✅ |
 | `types.ts` — Peer, FileEntry | ✅ |
 | `read_clipboard` — commande Ctrl+V | ✅ |
-| `close_window` — commande fallback | ✅ |
 | `get_file_infos` — commande tailles/types fichiers | ✅ |
 
 ---

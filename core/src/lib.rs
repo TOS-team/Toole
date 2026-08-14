@@ -3,11 +3,13 @@ pub mod error;
 pub use error::ToolError;
 pub mod discovery;
 pub mod file_certif;
-pub mod recever;
+pub mod receiver;
 pub mod sender;
 pub mod transfer;
 pub mod utils;
 use serde::Serialize;
+use std::sync::atomic::AtomicBool;
+use std::sync::Arc;
 
 // ici je defini la structure d'un pair sur le reseau
 // chaque pair a un id jolie et unique (hostname-suffixe) et une addresse IP
@@ -44,6 +46,20 @@ pub trait UI: Send + Sync {
         file_total_bytes: u64,
     );
 
+    // quand un transfert entrant demande la validation de l'utilisateur :
+    // le recepteur affiche la demande (accepter / refuser) avec les infos
+    // du lot (emetteur, taille totale, liste des fichiers)
+    fn transfert_incoming(
+        &self,
+        transfer_id: &str,
+        sender: &str,
+        total_bytes: u64,
+        files: Vec<String>,
+    );
+
+    // quand un transfert est refuse par le destinataire
+    fn transfert_refused(&self, transfer_id: &str);
+
     // quand un transfert est annule par l'utilisateur
     fn transfert_cancel(&self, transfer_id: &str);
 
@@ -54,5 +70,13 @@ pub trait UI: Send + Sync {
     fn transfert_received(&self, transfer_id: &str, peer: &str, bytes: u64, files: Vec<String>);
 
     // quand une erreur survient pendant un transfert
-    fn tranfert_error(&self, transfer_id: &str, error: &ToolError);
+    fn transfert_error(&self, transfer_id: &str, error: &ToolError);
+}
+
+// registre des transferts actifs : le récepteur s'y enregistre dès qu'un lot
+// est identifié (transfer_id connu) pour que l'app puisse annuler la réception
+// en cours depuis l'interface. Le stop est le drapeau d'arrêt de la connexion.
+pub trait TransferRegistry: Send + Sync {
+    fn register(&self, transfer_id: &str, stop: Arc<AtomicBool>);
+    fn unregister(&self, transfer_id: &str);
 }

@@ -12,11 +12,14 @@ import { formatSize, fileVisual } from "../utils";
 import { convertFileSrc } from "@tauri-apps/api/core";
 import Icon from "./Icon.vue";
 
-const props = defineProps<{ compact?: boolean }>();
-
 const filesStore = useFilesStore();
 const isDragOver = ref(false);
-const dropHint = ref(true);
+
+// je tire le nom de fichier d'un chemin, peu importe le séparateur (Windows
+// utilise « \ » : split sur "/" seul rendrait le chemin complet en nom)
+function basename(p: string): string {
+  return p.split(/[\\/]/).pop() || p;
+}
 
 // je propose la boîte de dialogue système pour choisir un ou plusieurs fichiers
 async function pickFiles() {
@@ -28,12 +31,27 @@ async function pickFiles() {
     if (!selected) return;
     const entries: FileEntry[] = selected.map((p) => ({
       path: p,
-      name: p.split("/").pop() || p.split("\\").pop() || p,
+      name: basename(p),
     }));
     filesStore.addFiles(entries);
-    dropHint.value = false;
   } catch (e) {
     console.error("pick_files error:", e);
+  }
+}
+
+// la boîte de dialogue système ne mélange pas fichiers et dossiers : j'ouvre
+// un second sélecteur en mode répertoire pour pouvoir envoyer des dossiers
+async function pickFolder() {
+  try {
+    const selected = await open({
+      directory: true,
+      title: "Choisir un dossier à envoyer",
+    });
+    const p = Array.isArray(selected) ? selected[0] : selected;
+    if (!p) return;
+    filesStore.addFiles([{ path: p, name: basename(p) }]);
+  } catch (e) {
+    console.error("pick_folder error:", e);
   }
 }
 
@@ -52,18 +70,19 @@ function onDragLeave() {
   isDragOver.value = false;
 }
 
-// extrait des chemins de fichiers depuis du texte (file:// ou /path)
+// extrait des chemins de fichiers depuis du texte (file://, /path ou C:\path)
 function extractPathsFromText(text: string): FileEntry[] {
   const entries: FileEntry[] = [];
   for (const line of text.split("\n")) {
     let p = line.trim();
     if (!p) continue;
     if (p.startsWith("file://")) p = p.slice(7);
-    if (p.startsWith("/")) {
-      entries.push({
-        path: p,
-        name: p.split("/").pop() || p.split("\\").pop() || p,
-      });
+    // j'accepte tout chemin absolu : POSIX (/tmp/x), Windows (C:\x, \\serv\x)
+    const isPosix = p.startsWith("/");
+    const isWindowsDrive = /^[A-Za-z]:[\\/]/.test(p);
+    const isUnc = p.startsWith("\\\\");
+    if (isPosix || isWindowsDrive || isUnc) {
+      entries.push({ path: p, name: basename(p) });
     }
   }
   return entries;
@@ -80,7 +99,6 @@ async function onKeydown(e: KeyboardEvent) {
     const entries = extractPathsFromText(text);
     if (!entries.length) return;
     filesStore.addFiles(entries);
-    dropHint.value = false;
   } catch (err) {
     console.error("clipboard read error:", err);
   }
@@ -101,7 +119,6 @@ function onPaste(e: ClipboardEvent) {
       if (!entries.length) return;
       e.preventDefault();
       filesStore.addFiles(entries);
-      dropHint.value = false;
     }
     return;
   }
@@ -109,7 +126,6 @@ function onPaste(e: ClipboardEvent) {
   if (!entries.length) return;
   e.preventDefault();
   filesStore.addFiles(entries);
-  dropHint.value = false;
 }
 
 // ecoute le drag-and-drop natif Tauri (v2) pour recup les chemins des fichiers
@@ -131,10 +147,9 @@ onMounted(async () => {
       if (!paths.length) return;
       const entries: FileEntry[] = paths.map((p) => ({
         path: p,
-        name: p.split("/").pop() || p.split("\\").pop() || p,
+        name: basename(p),
       }));
       filesStore.addFiles(entries);
-      dropHint.value = false;
     }
   });
 });
@@ -151,7 +166,7 @@ onUnmounted(() => {
   <div
     class="flex flex-col glass-panel rounded-2xl border border-dashed border-outline-variant hover:border-primary/50 transition-all duration-300 cursor-pointer group relative overflow-hidden bg-surface/30"
     :class="[
-      props.compact ? 'p-3' : 'p-5 md:p-8',
+      'p-5 md:p-8',
       { '!border-primary !bg-primary/10': isDragOver },
     ]"
     @click="pickFiles"
@@ -162,6 +177,37 @@ onUnmounted(() => {
     <div
       class="absolute inset-0 bg-gradient-to-b from-primary/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none"
     ></div>
+
+    <div
+      v-if="filesStore.files.length"
+      class="relative z-10 flex items-center justify-between mb-3"
+    >
+      <span class="text-label-md font-label-md text-on-surface-variant">
+        {{ filesStore.files.length }} {{ filesStore.files.length > 1 ? "fichiers" : "fichier" }}
+      </span>
+      <div class="flex items-center gap-3">
+        <button
+          type="button"
+          aria-label="Ajouter un dossier"
+          title="Choisir un dossier"
+          class="inline-flex items-center gap-1.5 text-on-surface-variant hover:text-primary transition-colors text-label-md font-label-md cursor-pointer"
+          @click.stop="pickFolder"
+        >
+          <Icon name="folder" :size="18" />
+          Dossier
+        </button>
+        <button
+          type="button"
+          aria-label="Vider la liste"
+          title="Retirer tous les fichiers"
+          class="inline-flex items-center gap-1.5 text-on-surface-variant hover:text-error transition-colors text-label-md font-label-md cursor-pointer"
+          @click.stop="filesStore.clearFiles()"
+        >
+          <Icon name="delete" :size="18" />
+          Vider
+        </button>
+      </div>
+    </div>
 
     <ul
       v-if="filesStore.files.length"
@@ -208,7 +254,6 @@ onUnmounted(() => {
       class="relative z-10 flex-1 flex flex-col items-center justify-center text-center"
     >
       <div
-        v-if="!props.compact"
         class="h-20 w-20 rounded-2xl bg-surface-container-high border border-outline flex items-center justify-center mb-6 group-hover:scale-105 group-hover:border-primary/30 group-hover:shadow-[0_0_15px_color:color-mix(in_srgb,var(--color-primary)_20%,transparent)] transition-all duration-300 relative"
       >
         <Icon name="upload-file" :size="32" class="text-on-surface group-hover:text-primary transition-colors" />
@@ -219,12 +264,20 @@ onUnmounted(() => {
         </div>
       </div>
       <h2 class="text-headline-md font-headline-md text-on-background mb-3">
-        {{ props.compact ? "Fichiers à envoyer" : "Déposer des fichiers ici" }}
+        Déposer des fichiers ici
       </h2>
       <p class="text-body-md font-body-md text-on-surface-variant max-w-sm">
-        {{ props.compact ? "Cliquez pour ajouter" : "ou parcourir pour sélectionner." }}
-        <span v-if="!props.compact" class="text-label-sm text-primary/80 mt-2 block">Chiffrement de bout en bout activé</span>
+        ou parcourir pour sélectionner.
+        <span class="text-label-sm text-primary/80 mt-2 block">Chiffrement de bout en bout activé</span>
       </p>
+      <button
+        type="button"
+        class="mt-5 inline-flex items-center gap-2 text-label-md font-label-md text-primary hover:text-primary/80 transition-colors cursor-pointer"
+        @click.stop="pickFolder"
+      >
+        <Icon name="folder" :size="16" />
+        Choisir un dossier
+      </button>
     </div>
   </div>
 </template>
