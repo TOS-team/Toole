@@ -77,7 +77,7 @@ download_asset() {
 # ==========================================
 case "$OS" in
 Linux*)
-  echo "🐧 Système détecté : Linux"
+  echo "🐧 Système détecté : $OS"
 
   # 1. CAS UBUNTU / DEBIAN / MINT
   if command -v dpkg >/dev/null 2>&1; then
