@@ -33,6 +33,10 @@ const canSend = computed(
 );
 
 const sendError = ref("");
+// je ne garde que les transferts que J'AI envoyés : une erreur sur un
+// transfert reçu doit rester sur sa carte (gérée par le store des transferts),
+// pas s'afficher sous le bouton Transférer
+const sentTransferIds = new Set<string>();
 // je précise au survol pourquoi le bouton d'envoi est désactivé
 const buttonTitle = computed(() => {
   if (canSend.value) return undefined;
@@ -59,6 +63,7 @@ async function sendFiles() {
           peerAddr,
           peerId: peer.id,
         });
+        sentTransferIds.add(transferId);
         transfersStore.upsert(transferId, { peer: peer.id, files: names });
       } catch (e) {
         sendError.value = `Envoi vers ${peer.id} : ${e}`;
@@ -90,6 +95,7 @@ onMounted(async () => {
   }
   try {
     await listen<{ transfer_id: string; error: string }>("tool://transfer/error", (event) => {
+      if (!sentTransferIds.has(event.payload.transfer_id)) return;
       sendError.value = event.payload.error;
     });
   } catch (e) {
