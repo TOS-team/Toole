@@ -1,4 +1,4 @@
-use crate::file_certif::{certificat, SkipServerVerification};
+use crate::file_certif::{certificat, PinnedServerVerifier};
 use crate::{ToolError, UI};
 use quinn::{ClientConfig, Connection, Endpoint, RecvStream, SendStream, ServerConfig};
 use serde::{Deserialize, Serialize};
@@ -237,10 +237,17 @@ fn transport_config() -> quinn::TransportConfig {
     t
 }
 
-pub fn make_client_endpoint() -> Result<Endpoint, ToolError> {
+pub fn make_client_endpoint(expected_fingerprint: Option<&str>) -> Result<Endpoint, ToolError> {
+    // je vérifie l'identité du serveur par son empreinte épinglée (TOFU) :
+    // None au premier contact (on épingle après le handshake), l'empreinte
+    // attendue ensuite. Je ne vérifie plus « rien » : un cert différent de
+    // celui épinglé fait échouer le handshake
+    let verifier = Arc::new(PinnedServerVerifier {
+        expected: expected_fingerprint.map(str::to_string),
+    });
     let crypto = rustls::ClientConfig::builder()
         .dangerous()
-        .with_custom_certificate_verifier(Arc::new(SkipServerVerification))
+        .with_custom_certificate_verifier(verifier)
         .with_no_client_auth();
 
     let client_config = ClientConfig::new(Arc::new(

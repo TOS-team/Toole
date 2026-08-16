@@ -40,6 +40,7 @@ async fn should_transferer_sans_perte_ni_corruption() {
         "integrity".into(),
         vec![src.clone()],
         "127.0.0.1:58200".parse().unwrap(),
+        "test-integrity".into(),
         stop.clone(),
     )
     .await
@@ -117,6 +118,7 @@ async fn should_emettre_des_progressions_par_fichier() {
         "fileprog".into(),
         vec![src.clone()],
         "127.0.0.1:58200".parse().unwrap(),
+        "test-integrity".into(),
         stop.clone(),
     )
     .await

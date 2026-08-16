@@ -57,6 +57,7 @@ async function sendFiles() {
         const transferId = await invoke<string>("send_files", {
           paths,
           peerAddr,
+          peerId: peer.id,
         });
         transfersStore.upsert(transferId, { peer: peer.id, files: names });
       } catch (e) {

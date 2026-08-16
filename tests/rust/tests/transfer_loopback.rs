@@ -53,6 +53,7 @@ async fn run_transfer(files: Vec<(String, Vec<u8>)>) -> Arc<MockUI> {
         "transfer-loopback".into(),
         paths,
         "127.0.0.1:58200".parse().unwrap(),
+        "test-loopback".into(),
         send_stop.clone(),
     )
     .await
@@ -157,6 +158,7 @@ async fn should_transferer_un_dossier() {
         "folder-test".into(),
         vec![src_folder.clone()],
         "127.0.0.1:58200".parse().unwrap(),
+        "test-loopback".into(),
         stop.clone(),
     )
     .await

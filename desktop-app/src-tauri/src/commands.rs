@@ -226,6 +226,7 @@ pub async fn stop_discovery(state: State<'_, DiscoveryState>) -> Result<(), Stri
 pub async fn send_files(
     paths: Vec<String>,
     peer_addr: String,
+    peer_id: String,
     state: State<'_, TransferState>,
     window: WebviewWindow,
 ) -> Result<String, String> {
@@ -245,7 +246,9 @@ pub async fn send_files(
 
     let handle = tokio::spawn(async move {
         let tid = transfer_id_clone.clone();
-        if let Err(e) = start_sender(ui, transfer_id_clone, path_bufs, addr, stop_clone).await {
+        if let Err(e) = start_sender(ui, transfer_id_clone, path_bufs, addr, peer_id, stop_clone)
+            .await
+        {
             eprintln!("Sender error: {e}");
         }
         // l'envoi est terminé (succès, erreur ou annulation) : je retire

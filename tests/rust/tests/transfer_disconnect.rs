@@ -62,6 +62,7 @@ async fn should_signal_erreur_quand_le_recepteur_disparait() {
         "disconnect-test".into(),
         vec![src.clone()],
         "127.0.0.1:58200".parse().unwrap(),
+        "test-disconnect".into(),
         stop.clone(),
     )
     .await
@@ -103,7 +104,7 @@ async fn should_signal_erreur_et_nettoyer_quand_lemetteur_disparait() {
     wait_for_log(&ui, "Recepteur en ecoute", Duration::from_secs(5)).await;
 
     let client = tokio::spawn(async move {
-        let ep = make_client_endpoint().unwrap();
+        let ep = make_client_endpoint(None).unwrap();
         let connecting = ep
             .connect("127.0.0.1:58200".parse().unwrap(), "localhost")
             .unwrap();

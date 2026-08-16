@@ -42,6 +42,7 @@ async fn should_refuser_et_notifier_ui_des_deux_cotes() {
             "refuse-test".into(),
             vec![src.clone()],
             "127.0.0.1:58200".parse().unwrap(),
+            "test-refuse".into(),
             send_stop.clone(),
         )
         .await
