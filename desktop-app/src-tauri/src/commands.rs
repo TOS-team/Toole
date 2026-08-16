@@ -22,7 +22,7 @@ impl UI for AppUI {
     }
 
     fn peer_found(&self, peer: &Peer) {
-        let mut peers = self.peers.lock().unwrap();
+        let mut peers = self.peers.lock().unwrap_or_else(|e| e.into_inner());
         if !peers.iter().any(|p| p.id == peer.id) {
             peers.push(peer.clone());
             let _ = self.window.emit("tool://peer_found", peer);
@@ -30,7 +30,7 @@ impl UI for AppUI {
     }
 
     fn peer_lost(&self, id: &str) {
-        let mut peers = self.peers.lock().unwrap();
+        let mut peers = self.peers.lock().unwrap_or_else(|e| e.into_inner());
         peers.retain(|p| p.id != id);
         let _ = self.window.emit("tool://peer_lost", id);
     }
@@ -136,11 +136,14 @@ pub struct DiscoveryState {
     pub peers: Arc<Mutex<Vec<Peer>>>,
 }
 
+// transferts actifs (envois et réceptions) : drapeau d'arrêt + handle
+// d'abandon. Le handle est None pour les réceptions (l'annulation passe
+// par le drapeau, la connexion se ferme gracieusement).
+type ActiveTransfers =
+    Arc<Mutex<HashMap<String, (Arc<AtomicBool>, Option<tokio::task::AbortHandle>)>>>;
+
 pub struct TransferState {
-    /// transferts actifs (envois et réceptions) : drapeau d'arrêt + handle
-    /// d'abandon. Le handle est None pour les réceptions (l'annulation passe
-    /// par le drapeau, la connexion se ferme gracieusement).
-    pub active: Arc<Mutex<HashMap<String, (Arc<AtomicBool>, Option<tokio::task::AbortHandle>)>>>,
+    pub active: ActiveTransfers,
     /// registre des demandes d'acceptation en attente : respond_transfer y
     /// résout la décision de l'utilisateur pour le récepteur
     pub decisions: Arc<toole_core::transfer::DecisionBoard>,
@@ -149,19 +152,19 @@ pub struct TransferState {
 /// implémentation du registre de transferts côté Tauri : il se branche sur la
 /// même map que TransferState pour que cancel_transfer gère les réceptions
 pub struct TransferRegistryHandle {
-    pub active: Arc<Mutex<HashMap<String, (Arc<AtomicBool>, Option<tokio::task::AbortHandle>)>>>,
+    pub active: ActiveTransfers,
 }
 
 impl toole_core::TransferRegistry for TransferRegistryHandle {
     fn register(&self, transfer_id: &str, stop: Arc<AtomicBool>) {
         self.active
             .lock()
-            .unwrap()
+            .unwrap_or_else(|e| e.into_inner())
             .insert(transfer_id.to_string(), (stop, None));
     }
 
     fn unregister(&self, transfer_id: &str) {
-        self.active.lock().unwrap().remove(transfer_id);
+        self.active.lock().unwrap_or_else(|e| e.into_inner()).remove(transfer_id);
     }
 }
 
@@ -177,16 +180,16 @@ pub async fn start_discovery(
     // je stoppe l'ancienne découverte si elle tourne encore et j'attends
     // qu'elle ait libéré la socket 58199 : sinon le bind ci-dessous échoue
     // (AddressInUse) et la découverte ne redémarre jamais après un refresh
-    state.stop_flag.lock().unwrap().store(true, Ordering::Relaxed);
-    let old = state.handle.lock().unwrap().take();
+    state.stop_flag.lock().unwrap_or_else(|e| e.into_inner()).store(true, Ordering::Relaxed);
+    let old = state.handle.lock().unwrap_or_else(|e| e.into_inner()).take();
     if let Some(old) = old {
         let _ = old.await;
     }
 
-    state.peers.lock().unwrap().clear();
+    state.peers.lock().unwrap_or_else(|e| e.into_inner()).clear();
 
     let stop = Arc::new(AtomicBool::new(false));
-    *state.stop_flag.lock().unwrap() = stop.clone();
+    *state.stop_flag.lock().unwrap_or_else(|e| e.into_inner()) = stop.clone();
 
     let local_ip = toole_core::utils::local_ip();
     let peers = state.peers.clone();
@@ -201,17 +204,17 @@ pub async fn start_discovery(
             let _ = window.emit("tool://discovery/error", e.to_string());
         }
     });
-    *state.handle.lock().unwrap() = Some(handle);
+    *state.handle.lock().unwrap_or_else(|e| e.into_inner()) = Some(handle);
 
     Ok(())
 }
 
 #[tauri::command]
 pub async fn stop_discovery(state: State<'_, DiscoveryState>) -> Result<(), String> {
-    state.stop_flag.lock().unwrap().store(true, Ordering::Relaxed);
+    state.stop_flag.lock().unwrap_or_else(|e| e.into_inner()).store(true, Ordering::Relaxed);
     // j'attends la fin de la tâche pour que la socket soit libérée avant que
     // la commande ne rende la main (le refresh enchaîne sur start_discovery)
-    let h = state.handle.lock().unwrap().take();
+    let h = state.handle.lock().unwrap_or_else(|e| e.into_inner()).take();
     if let Some(h) = h {
         let _ = h.await;
     }
@@ -253,13 +256,13 @@ pub async fn send_files(
         }
         // l'envoi est terminé (succès, erreur ou annulation) : je retire
         // l'entrée du registre, sinon la map grossit à chaque transfert
-        active.lock().unwrap().remove(&tid);
+        active.lock().unwrap_or_else(|e| e.into_inner()).remove(&tid);
     });
 
     state
         .active
         .lock()
-        .unwrap()
+        .unwrap_or_else(|e| e.into_inner())
         .insert(transfer_id.clone(), (stop, Some(handle.abort_handle())));
 
     Ok(transfer_id)
@@ -271,7 +274,7 @@ pub async fn cancel_transfer(
     state: State<'_, TransferState>,
     window: WebviewWindow,
 ) -> Result<(), String> {
-    let mut active = state.active.lock().unwrap();
+    let mut active = state.active.lock().unwrap_or_else(|e| e.into_inner());
     if let Some((stop, handle)) = active.remove(&transfer_id) {
         stop.store(true, Ordering::Relaxed);
         // si l'envoi est bloqué (backpressure QUIC), le drapeau d'arrêt ne
@@ -312,7 +315,7 @@ pub fn get_device_id() -> String {
 
 #[tauri::command]
 pub fn get_peers(state: State<'_, DiscoveryState>) -> Result<Vec<Peer>, String> {
-    let peers = state.peers.lock().unwrap();
+    let peers = state.peers.lock().unwrap_or_else(|e| e.into_inner());
     Ok(peers.clone())
 }
 

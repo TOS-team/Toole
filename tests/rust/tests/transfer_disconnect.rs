@@ -159,17 +159,18 @@ async fn should_signal_erreur_et_nettoyer_quand_lemetteur_disparait() {
     // le récepteur doit signaler une erreur (jamais une réception valide)
     wait_for_error(&ui, Duration::from_secs(25)).await;
     let _ = client.await;
-    let state = ui.state.lock().unwrap();
-    assert!(
-        state.received.is_empty(),
-        "un transfert interrompu ne doit pas être notifié reçu: {:?}",
-        state.received
-    );
-    assert!(
-        !state.errors.is_empty(),
-        "le récepteur doit signaler une erreur quand l'émetteur disparaît"
-    );
-    drop(state);
+    {
+        let state = ui.state.lock().unwrap();
+        assert!(
+            state.received.is_empty(),
+            "un transfert interrompu ne doit pas être notifié reçu: {:?}",
+            state.received
+        );
+        assert!(
+            !state.errors.is_empty(),
+            "le récepteur doit signaler une erreur quand l'émetteur disparaît"
+        );
+    }
 
     // le fichier partiel doit avoir été supprimé du dossier de destination
     assert!(

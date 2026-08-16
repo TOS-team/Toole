@@ -92,7 +92,7 @@ pub async fn start_receiver(
                             ui.transfert_error(&tid, &err);
                         }
                         Ok(()) => {
-                            let received: Vec<String> = files.lock().unwrap().clone();
+                            let received: Vec<String> = files.lock().unwrap_or_else(|e| e.into_inner()).clone();
                             let total = bytes.load(Ordering::Relaxed);
                             ui.transfert_received(&tid, &peer, total, received);
                         }

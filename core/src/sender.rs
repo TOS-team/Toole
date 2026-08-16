@@ -114,7 +114,7 @@ pub async fn start_sender(
                 );
                 return Ok(());
             }
-            Err(e) if matches!(e, ToolError::RemoteCancel) => {
+            Err(ToolError::RemoteCancel) => {
                 // le destinataire a annulé pendant l'attente
                 connection.close(CLOSE_CANCEL.into(), b"annule par le destinataire");
                 endpoint.wait_idle().await;
