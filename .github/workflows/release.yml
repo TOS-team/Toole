@@ -78,20 +78,6 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev xdg-utils libgtk-3-dev
 
-      - name: je pré-télécharge les outils AppImage (download réflexe du bundler)
-        if: matrix.platform == 'ubuntu-22.04'
-        run: |
-          mkdir -p "$HOME/.cache/tauri"
-          cd "$HOME/.cache/tauri"
-          base=https://github.com/tauri-apps/binary-releases/releases/download
-          raw=https://raw.githubusercontent.com/tauri-apps
-          curl -fL --retry 6 --retry-all-errors --retry-delay 2 -o AppRun-x86_64 "$base/apprun-old/AppRun-x86_64"
-          curl -fL --retry 6 --retry-all-errors --retry-delay 2 -o linuxdeploy-x86_64.AppImage "$base/linuxdeploy/linuxdeploy-x86_64.AppImage"
-          curl -fL --retry 6 --retry-all-errors --retry-delay 2 -o linuxdeploy-plugin-gtk.sh "$raw/linuxdeploy-plugin-gtk/master/linuxdeploy-plugin-gtk.sh"
-          curl -fL --retry 6 --retry-all-errors --retry-delay 2 -o linuxdeploy-plugin-gstreamer.sh "$raw/linuxdeploy-plugin-gstreamer/master/linuxdeploy-plugin-gstreamer.sh"
-          curl -fL --retry 6 --retry-all-errors --retry-delay 2 -o linuxdeploy-plugin-appimage-x86_64.AppImage "https://github.com/linuxdeploy/linuxdeploy-plugin-appimage/releases/download/continuous/linuxdeploy-plugin-appimage-x86_64.AppImage" || true
-          chmod +x AppRun-x86_64 linuxdeploy-x86_64.AppImage linuxdeploy-plugin-gtk.sh linuxdeploy-plugin-gstreamer.sh linuxdeploy-plugin-appimage-x86_64.AppImage 2>/dev/null || true
-
       - name: je construit et je pousse vers la release
         uses: tauri-apps/tauri-action@v1
         env:
@@ -120,25 +106,6 @@ jobs:
           releaseDraft: true
           prerelease: false
           args: ${{ matrix.args }}
-
-      - name: je publie aussi une archive portable Linux (.tar.gz)
-        if: matrix.platform == 'ubuntu-22.04'
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          set -e
-          VERSION=$(node -p "require('./desktop-app/ui/package.json').version")
-          APP_DIR="target/release/bundle/appimage"
-          APP_IMG=$(ls "$APP_DIR"/*.AppImage | head -1)
-          cd "$(dirname "$APP_IMG")"
-          ARCHIVE="Toole-${VERSION}-linux-x86_64.tar.gz"
-          if APPIMAGE_EXTRACT_AND_RUN=1 "./$(basename "$APP_IMG")" --appimage-extract >/dev/null 2>&1; then
-            tar -czf "$ARCHIVE" squashfs-root
-          else
-            # extract impossible (fuse manquant) : j'archive l'AppImage telle quelle
-            tar -czf "$ARCHIVE" "$(basename "$APP_IMG")"
-          fi
-          gh release upload "v${VERSION}" "$ARCHIVE" --clobber --repo "${{ github.repository }}"
 
   publish:
     needs: build
