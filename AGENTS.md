@@ -20,6 +20,7 @@ Toolé détecte les appareils voisins par UDP broadcast et transfère des fichie
 - `desktop-app/ui/` — Vue 3 + Pinia + Tailwind v4 + Vite. Stores : `peers`, `files`, `transfers`, `settings`, `updater`. `tauri.ts` wrappe `invoke`
 - `tests/rust/` — tests d'intégration cargo (`-p toole_tests`) : discovery, protocol, transfer_*, utils
 - `tests/frontend/` — vitest + jsdom, avec mocks Tauri (alias vers `tests/frontend/src/mocks/`)
+- `desktop-app/e2e/` — test e2e WebDriver (tauri-driver + WebdriverIO) : vraie app (webview WebKitGTK) + vrai pont IPC Tauri. `run-e2e.sh` compile l'app, lance Vite (le binaire debug charge la UI depuis le serveur de dev), exécute wdio et nettoie. `wdio.conf.ts` gère le cycle de vie de `tauri-driver`
 - `docs/docs/` — SRS, PRD, architecture, protocol, crypto, roadmap. `website/` = vitrine + guide Docsify (déployé sur Firebase à chaque push main)
 
 ## Commandes
@@ -34,6 +35,7 @@ Toolé détecte les appareils voisins par UDP broadcast et transfère des fichie
 | `npm test` | `tests/frontend/` | tests frontend vitest |
 | `cargo tauri dev` | `desktop-app/` | lancer l'app en dev (vite port 1420, HMR 1421) |
 | `npm run dev` | `desktop-app/ui/` | vite seul (port 1420) |
+| `./run-e2e.sh` | `desktop-app/e2e/` | e2e complet front → backend (compile l'app, lance Vite, exécute wdio, nettoie) |
 
 Pas de linter configuré : fais au minimum `cargo check -p app` et `npm run build` avant de finir. **Ne commit pas de modif qui casse le build ou les tests.**
 
@@ -62,3 +64,4 @@ Pas de linter configuré : fais au minimum `cargo check -p app` et `npm run buil
 - Le récepteur démarre au `setup` et écrit dans `Downloads/Toolé`. Un changement de dossier cible implique de nouvelles commandes + capabilities.
 - CSP : `style-src 'unsafe-inline'` et `assetProtocol.scope: ["**"]` sont voulus (Tailwind + asset protocol) — documenter avant de resserrer.
 - La fenêtre `main` est `decorations: false`, `transparent: true` : les tests visuels dépendent de la couche CSS (sidebar, fenêtre, `useDragRegion` sur la barre de titre).
+- **E2E** : le binaire debug de Tauri charge la UI depuis `devUrl` (`http://localhost:1420`) — `run-e2e.sh` lance donc Vite avant wdio et l'arrête après. WebKitWebDriver ne renvoie pas le texte des éléments (`getElementText`) ni l'endpoint « element click » : le test lit le texte et clique via `executeScript` (voir les helpers dans `app.e2e.ts`). L'app n'est pas lancée directement par WebDriver : `tauri:options.application` pointe vers `target/debug/app`.
