@@ -56,8 +56,9 @@ jobs:
         run: |
           # Sécurité : On crée le dossier s'il n'existe pas pour éviter l'erreur "No such file or directory"
           mkdir -p target/doc
-          CRATE_NAME="app" 
+          CRATE_NAME="app_lib" 
           echo "<meta http-equiv=\"refresh\" content=\"0; url=${CRATE_NAME}/index.html\">" > target/doc/index.html
+          ls -la target/doc/
 
       - name: je configure GitHub Pages
         uses: actions/configure-pages@v4
