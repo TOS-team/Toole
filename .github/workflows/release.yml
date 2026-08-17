@@ -59,6 +59,7 @@ jobs:
           CRATE_NAME="app_lib" 
           echo "<meta http-equiv=\"refresh\" content=\"0; url=${CRATE_NAME}/index.html\">" > target/doc/index.html
           ls -la target/doc/
+          pwd
 
       - name: je configure GitHub Pages
         uses: actions/configure-pages@v4
