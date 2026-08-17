@@ -60,7 +60,7 @@ jobs:
       - name: je cache les builds rust
         uses: swatinem/rust-cache@v2
         with:
-          workspaces: './ -> target'
+          workspaces: "./ -> target"
 
       - name: j'installe le CLI Tauri (cargo tauri)
         run: cargo install tauri-cli --locked
