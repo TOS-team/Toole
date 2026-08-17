@@ -1,4 +1,4 @@
-use crate::file_certif::{certificat, SkipServerVerification};
+use crate::file_certif::{certificat, PinnedServerVerifier};
 use crate::{ToolError, UI};
 use quinn::{ClientConfig, Connection, Endpoint, RecvStream, SendStream, ServerConfig};
 use serde::{Deserialize, Serialize};
@@ -231,16 +231,25 @@ fn transport_config() -> quinn::TransportConfig {
     t.receive_window(VarInt::from(32u32 * 1024 * 1024));
     t.send_window(32 * 1024 * 1024);
     t.max_idle_timeout(Some(
-        quinn::IdleTimeout::try_from(Duration::from_secs(15)).unwrap(),
+        // 15 s est une constante dans la plage valide de quinn (10 ms – ~2^62 ms) :
+        // je documente l'invariant au lieu d'un unwrap muet
+        quinn::IdleTimeout::try_from(Duration::from_secs(15)).expect("idle timeout 15 s valide"),
     ));
     t.keep_alive_interval(Some(Duration::from_secs(3)));
     t
 }
 
-pub fn make_client_endpoint() -> Result<Endpoint, ToolError> {
+pub fn make_client_endpoint(expected_fingerprint: Option<&str>) -> Result<Endpoint, ToolError> {
+    // je vérifie l'identité du serveur par son empreinte épinglée (TOFU) :
+    // None au premier contact (on épingle après le handshake), l'empreinte
+    // attendue ensuite. Je ne vérifie plus « rien » : un cert différent de
+    // celui épinglé fait échouer le handshake
+    let verifier = Arc::new(PinnedServerVerifier {
+        expected: expected_fingerprint.map(str::to_string),
+    });
     let crypto = rustls::ClientConfig::builder()
         .dangerous()
-        .with_custom_certificate_verifier(Arc::new(SkipServerVerification))
+        .with_custom_certificate_verifier(verifier)
         .with_no_client_auth();
 
     let client_config = ClientConfig::new(Arc::new(
@@ -547,7 +556,7 @@ async fn receive_one(
         fs::create_dir_all(&full_path).await?;
         send.write_all(&[ACK]).await.map_err(write_quinn_to_err)?;
         send.finish()?;
-        files.lock().unwrap().push(name);
+        files.lock().unwrap_or_else(|e| e.into_inner()).push(name);
         return Ok(());
     }
 
@@ -597,7 +606,7 @@ async fn receive_one(
 
     match &res {
         Ok(()) => {
-            files.lock().unwrap().push(name);
+            files.lock().unwrap_or_else(|e| e.into_inner()).push(name);
         }
         Err(ToolError::RemoteCancel) => {
             // l'émetteur a annulé : pas de nettoyage nécessaire côté récepteur

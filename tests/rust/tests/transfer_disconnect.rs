@@ -62,6 +62,7 @@ async fn should_signal_erreur_quand_le_recepteur_disparait() {
         "disconnect-test".into(),
         vec![src.clone()],
         "127.0.0.1:58200".parse().unwrap(),
+        "test-disconnect".into(),
         stop.clone(),
     )
     .await
@@ -103,7 +104,7 @@ async fn should_signal_erreur_et_nettoyer_quand_lemetteur_disparait() {
     wait_for_log(&ui, "Recepteur en ecoute", Duration::from_secs(5)).await;
 
     let client = tokio::spawn(async move {
-        let ep = make_client_endpoint().unwrap();
+        let ep = make_client_endpoint(None).unwrap();
         let connecting = ep
             .connect("127.0.0.1:58200".parse().unwrap(), "localhost")
             .unwrap();
@@ -158,17 +159,18 @@ async fn should_signal_erreur_et_nettoyer_quand_lemetteur_disparait() {
     // le récepteur doit signaler une erreur (jamais une réception valide)
     wait_for_error(&ui, Duration::from_secs(25)).await;
     let _ = client.await;
-    let state = ui.state.lock().unwrap();
-    assert!(
-        state.received.is_empty(),
-        "un transfert interrompu ne doit pas être notifié reçu: {:?}",
-        state.received
-    );
-    assert!(
-        !state.errors.is_empty(),
-        "le récepteur doit signaler une erreur quand l'émetteur disparaît"
-    );
-    drop(state);
+    {
+        let state = ui.state.lock().unwrap();
+        assert!(
+            state.received.is_empty(),
+            "un transfert interrompu ne doit pas être notifié reçu: {:?}",
+            state.received
+        );
+        assert!(
+            !state.errors.is_empty(),
+            "le récepteur doit signaler une erreur quand l'émetteur disparaît"
+        );
+    }
 
     // le fichier partiel doit avoir été supprimé du dossier de destination
     assert!(

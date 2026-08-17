@@ -16,12 +16,28 @@ pub async fn start_sender(
     transfer_id: String,
     paths: Vec<PathBuf>,
     peer_addr: SocketAddr,
+    peer_id: String,
     stop: Arc<AtomicBool>,
 ) -> Result<(), ToolError> {
-    let endpoint = make_client_endpoint()?;
+    // je vérifie l'identité du pair au handshake : l'empreinte attendue vient
+    // de l'épingle (premier contact = aucune, j'épingle après coup)
+    let expected = crate::file_certif::pin_for(&peer_id);
+    let endpoint = make_client_endpoint(expected.as_deref())?;
     let connecting = endpoint.connect(peer_addr, "localhost").map_err(io_err)?;
     let connection = connecting.await?;
     ui.log(&format!("Connecte a {peer_addr}"));
+
+    // handshake réussi : au premier contact j'épingle l'empreinte du
+    // certificat reçu (TOFU). Si une épingle existait mais ne correspondait
+    // pas, le handshake aurait déjà échoué à l'étape ci-dessus
+    if let Some(fp) = crate::file_certif::peer_fingerprint(&connection) {
+        if crate::file_certif::pin_for(&peer_id) != Some(fp.clone()) {
+            match crate::file_certif::save_pin(&peer_id, &fp) {
+                Ok(()) => ui.log(&format!("Empreinte du pair {peer_id} epinglee ({fp})")),
+                Err(e) => ui.log(&format!("epingle impossible: {e}")),
+            }
+        }
+    }
 
     let mut entries = Vec::new();
     for path in &paths {
@@ -98,7 +114,7 @@ pub async fn start_sender(
                 );
                 return Ok(());
             }
-            Err(e) if matches!(e, ToolError::RemoteCancel) => {
+            Err(ToolError::RemoteCancel) => {
                 // le destinataire a annulé pendant l'attente
                 connection.close(CLOSE_CANCEL.into(), b"annule par le destinataire");
                 endpoint.wait_idle().await;

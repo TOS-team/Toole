@@ -151,6 +151,7 @@ async fn main() -> Result<(), ToolError> {
         "bench".to_string(),
         vec![PathBuf::from(&src)],
         "127.0.0.1:58200".parse().unwrap(),
+        "bench-peer".to_string(),
         stop.clone(),
     )
     .await?;

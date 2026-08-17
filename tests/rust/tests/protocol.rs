@@ -68,7 +68,7 @@ async fn should_lire_une_ligne_json_sur_un_flux_quic() {
         connecting.close(0u32.into(), b"test termine");
     });
 
-    let ep = make_client_endpoint().unwrap();
+    let ep = make_client_endpoint(None).unwrap();
     let connecting = ep
         .connect("127.0.0.1:58200".parse().unwrap(), "localhost")
         .map_err(io_err)

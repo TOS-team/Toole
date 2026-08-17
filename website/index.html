@@ -482,7 +482,7 @@
               </h3>
               <p class="text-slate-400 text-sm mb-4">
                 Détecte automatiquement votre gestionnaire de paquets (apt,
-                pacman, dnf, ou AppImage).
+                pacman, dnf).
               </p>
               <div class="code-block p-4 pr-24 text-[#00f2ff]">
                 <code
@@ -496,8 +496,9 @@
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
               <a
                 class="glass-card p-6 rounded-xl hover:border-[#ff0033]/50 transition-colors"
-                href="https://github.com/TOS-team/Toole/releases/latest"
+                href="https://github.com/TOS-team/Toole/releases/download/v2.0.3/Toole_2.0.3_amd64.deb"
                 target="_blank"
+                data-asset="deb"
               >
                 <h4 class="font-bold text-white mb-1">📦 .deb</h4>
                 <p class="text-sm text-slate-400">
@@ -506,29 +507,12 @@
               </a>
               <a
                 class="glass-card p-6 rounded-xl hover:border-[#ff0033]/50 transition-colors"
-                href="https://github.com/TOS-team/Toole/releases/latest"
+                href="https://github.com/TOS-team/Toole/releases/download/v2.0.3/Toole-2.0.3-1.x86_64.rpm"
                 target="_blank"
+                data-asset="rpm"
               >
                 <h4 class="font-bold text-white mb-1">📦 .rpm</h4>
                 <p class="text-sm text-slate-400">Fedora, openSUSE, RHEL</p>
-              </a>
-              <a
-                class="glass-card p-6 rounded-xl hover:border-[#ff0033]/50 transition-colors"
-                href="https://github.com/TOS-team/Toole/releases/latest"
-                target="_blank"
-              >
-                <h4 class="font-bold text-white mb-1">🚀 AppImage</h4>
-                <p class="text-sm text-slate-400">Toute distribution Linux</p>
-              </a>
-              <a
-                class="glass-card p-6 rounded-xl hover:border-[#ff0033]/50 transition-colors"
-                href="https://aur.archlinux.org/packages/toole-bin"
-                target="_blank"
-              >
-                <h4 class="font-bold text-white mb-1">🎩 AUR</h4>
-                <p class="text-sm text-slate-400">
-                  Arch, Manjaro : yay -S toole-bin
-                </p>
               </a>
             </div>
           </div>
@@ -556,8 +540,9 @@
             </div>
             <a
               class="glass-card block p-6 rounded-xl hover:border-[#ff0033]/50 transition-colors text-center"
-              href="https://github.com/TOS-team/Toole/releases/latest"
+              href="https://github.com/TOS-team/Toole/releases/download/v2.0.3/Toole_2.0.3_universal.dmg"
               target="_blank"
+              data-asset="dmg"
             >
               <h4 class="font-bold text-white mb-1">💿 Télécharger le .dmg</h4>
               <p class="text-sm text-slate-400">Pour installation manuelle</p>
@@ -583,19 +568,10 @@
             </div>
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
               <a
-                class="glass-card p-6 rounded-xl hover:border-[#ff0033]/50 transition-colors"
-                href="https://github.com/TOS-team/Toole/releases/latest"
+                class="glass-card p-6 rounded-xl hover:border-[#ff0033]/50 transition-colors md:col-span-2"
+                href="https://github.com/TOS-team/Toole/releases/download/v2.0.3/Toole_2.0.3_x64-setup.exe"
                 target="_blank"
-              >
-                <h4 class="font-bold text-white mb-1">📦 .msi</h4>
-                <p class="text-sm text-slate-400">
-                  Installation silencieuse d'entreprise
-                </p>
-              </a>
-              <a
-                class="glass-card p-6 rounded-xl hover:border-[#ff0033]/50 transition-colors"
-                href="https://github.com/TOS-team/Toole/releases/latest"
-                target="_blank"
+                data-asset="setup-exe"
               >
                 <h4 class="font-bold text-white mb-1">🧰 Setup.exe</h4>
                 <p class="text-sm text-slate-400">
@@ -1026,6 +1002,41 @@
       document.addEventListener("DOMContentLoaded", () => {
         switchTab(detectOS());
       });
+
+      // je relie les liens de téléchargement aux fichiers de la dernière
+      // release GitHub : les href codés en dur (repli sur la version
+      // courante) sont remplacés par ceux de la dernière release dès que
+      // l'API répond, pour ne jamais pointer vers un fichier obsolète
+      function refreshDownloadLinks() {
+        const matchers = {
+          deb: (name) => name.endsWith(".deb"),
+          rpm: (name) => name.endsWith(".rpm"),
+          dmg: (name) => name.endsWith(".dmg"),
+          "setup-exe": (name) => name.endsWith("-setup.exe"),
+        };
+        fetch("https://api.github.com/repos/TOS-team/Toole/releases/latest")
+          .then((r) => {
+            if (!r.ok) throw new Error(`GitHub API ${r.status}`);
+            return r.json();
+          })
+          .then((release) => {
+            const tag = release.tag_name;
+            for (const asset of release.assets || []) {
+              for (const [key, match] of Object.entries(matchers)) {
+                if (match(asset.name)) {
+                  const link = document.querySelector(`a[data-asset="${key}"]`);
+                  if (link) {
+                    link.href = `https://github.com/TOS-team/Toole/releases/download/${tag}/${asset.name}`;
+                  }
+                }
+              }
+            }
+          })
+          .catch(() => {
+            // API injoignable : je garde les liens de la release courante
+          });
+      }
+      document.addEventListener("DOMContentLoaded", refreshDownloadLinks);
 
       // Animations existantes
       const prefersReduced = window.matchMedia(

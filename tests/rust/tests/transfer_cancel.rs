@@ -45,6 +45,7 @@ async fn should_annuler_proprement_et_notifier_ui() {
             "cancel-test".into(),
             vec![src.clone()],
             "127.0.0.1:58200".parse().unwrap(),
+            "test-cancel".into(),
             send_stop.clone(),
         )
         .await
@@ -115,6 +116,7 @@ async fn should_annuler_cote_receveur_sans_erreur_chez_l_emetteur() {
             "cancel-recv-test".into(),
             vec![src.clone()],
             "127.0.0.1:58200".parse().unwrap(),
+            "test-cancel".into(),
             send_stop.clone(),
         )
         .await

@@ -29,6 +29,9 @@ pub enum ToolError {
     #[error("Stream closed")]
     ClosedStream(#[from] quinn::ClosedStream),
 
+    #[error("JSON error: {0}")]
+    JsonError(#[from] serde_json::Error),
+
     #[error("TLS error: {0}")]
     TlsError(#[from] rustls::Error),
 }

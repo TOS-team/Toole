@@ -4,7 +4,7 @@ Toolé détecte les appareils voisins par UDP broadcast et transfère des fichie
 
 ## Règles d'or (à lire avant tout)
 
-1. **Ne repasse jamais les hooks `beforeDevCommand`/`beforeBuildCommand` en `sh -c '…'`**. Tauri les exécute avec `cwd` = le dossier parent du `dist` (`desktop-app/`) : sur Windows le hook tourne via `cmd /S /C` où `sh` n'existe pas (build cassé). Le seul formé fiable partout est `cd ui && npm run …`.
+1. **Ne repasse jamais les hooks `beforeDevCommand`/`beforeBuildCommand` en `sh -c '…'`** et ne force pas un `cwd` précis : Tauri lance le hook via la shell (`sh -c` sur Unix, `cmd /S /C` sur Windows) avec un `cwd` qui dépend du répertoire d'invocation (`desktop-app/` → `desktop-app/ui`, `src-tauri/` → `desktop-app`). La seule forme fiable partout et quel que soit le `cwd` est `cd ui || npm run …` : de `desktop-app/ui` le `cd` échoue et on lance npm à l'endroit courant, ailleurs le `cd ui` mène au projet.
 2. **La fenêtre est dupliquée volontairement** dans `tauri.conf.json` **et** `tauri.linux.conf.json`, `tauri.macos.conf.json`, `tauri.windows.conf.json`. Toute modif de fenêtre (taille, min, resizable…) doit être répercutée sur **les 4 fichiers** (macOS ajoute `titleBarStyle: "Overlay"` + `hiddenTitle: true`).
 3. **ACL Tauri (capabilities)** : tout appel à une API/plugin Tauri depuis le front (window, dialog, process, updater…) doit avoir sa permission dans `capabilities/default.json`, sinon erreur de permission au runtime. Les commandes IPC custom ne passent **pas** par les capabilities.
 4. **Nouvelle commande Tauri** : ajoute-la dans `desktop-app/src-tauri/src/commands.rs` **et** dans `invoke_handler` de `lib.rs` (généré par `generate_handler!`). Sinon l'invoke renvoie une erreur.
@@ -20,6 +20,7 @@ Toolé détecte les appareils voisins par UDP broadcast et transfère des fichie
 - `desktop-app/ui/` — Vue 3 + Pinia + Tailwind v4 + Vite. Stores : `peers`, `files`, `transfers`, `settings`, `updater`. `tauri.ts` wrappe `invoke`
 - `tests/rust/` — tests d'intégration cargo (`-p toole_tests`) : discovery, protocol, transfer_*, utils
 - `tests/frontend/` — vitest + jsdom, avec mocks Tauri (alias vers `tests/frontend/src/mocks/`)
+- `desktop-app/e2e/` — test e2e WebDriver (tauri-driver + WebdriverIO) : vraie app (webview WebKitGTK) + vrai pont IPC Tauri. `run-e2e.sh` compile l'app, lance Vite (le binaire debug charge la UI depuis le serveur de dev), exécute wdio et nettoie. `wdio.conf.ts` gère le cycle de vie de `tauri-driver`
 - `docs/docs/` — SRS, PRD, architecture, protocol, crypto, roadmap. `website/` = vitrine + guide Docsify (déployé sur Firebase à chaque push main)
 
 ## Commandes
@@ -34,6 +35,7 @@ Toolé détecte les appareils voisins par UDP broadcast et transfère des fichie
 | `npm test` | `tests/frontend/` | tests frontend vitest |
 | `cargo tauri dev` | `desktop-app/` | lancer l'app en dev (vite port 1420, HMR 1421) |
 | `npm run dev` | `desktop-app/ui/` | vite seul (port 1420) |
+| `./run-e2e.sh` | `desktop-app/e2e/` | e2e complet front → backend (compile l'app, lance Vite, exécute wdio, nettoie) |
 
 Pas de linter configuré : fais au minimum `cargo check -p app` et `npm run build` avant de finir. **Ne commit pas de modif qui casse le build ou les tests.**
 
@@ -62,3 +64,4 @@ Pas de linter configuré : fais au minimum `cargo check -p app` et `npm run buil
 - Le récepteur démarre au `setup` et écrit dans `Downloads/Toolé`. Un changement de dossier cible implique de nouvelles commandes + capabilities.
 - CSP : `style-src 'unsafe-inline'` et `assetProtocol.scope: ["**"]` sont voulus (Tailwind + asset protocol) — documenter avant de resserrer.
 - La fenêtre `main` est `decorations: false`, `transparent: true` : les tests visuels dépendent de la couche CSS (sidebar, fenêtre, `useDragRegion` sur la barre de titre).
+- **E2E** : le binaire debug de Tauri charge la UI depuis `devUrl` (`http://localhost:1420`) — `run-e2e.sh` lance donc Vite avant wdio et l'arrête après. WebKitWebDriver ne renvoie pas le texte des éléments (`getElementText`) ni l'endpoint « element click » : le test lit le texte et clique via `executeScript` (voir les helpers dans `app.e2e.ts`). L'app n'est pas lancée directement par WebDriver : `tauri:options.application` pointe vers `target/debug/app`.
