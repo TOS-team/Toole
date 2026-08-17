@@ -72,7 +72,7 @@ jobs:
 
       - name: je déploie la doc sur GitHub Pages
         id: deployment
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@v5
   # VOS JOBS EXISTANTS (S'exécutent UNIQUEMENT s'il s'agit d'un Tag v*)
   # =========================================================================
   check-versions:
