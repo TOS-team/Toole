@@ -23,7 +23,8 @@ pub fn local_ip() -> String {
 // ID device : {hostname}-{suffixe base32}. Généré une seule fois puis persisté
 // pour rester unique même si deux OS partagent le même hostname.
 pub fn device_id() -> String {
-    let Some(proj_dirs) = directories::ProjectDirs::from("com", "Tiligre Open Space", "Toole") else {
+    let Some(proj_dirs) = directories::ProjectDirs::from("com", "Tiligre Open Space", "Toole")
+    else {
         return current_hostname();
     };
     let dir = proj_dirs.data_dir();

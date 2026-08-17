@@ -13,6 +13,7 @@ import Icon from "./components/Icon.vue";
 import SidebarNav from "./components/SidebarNav.vue";
 import PeerList from "./components/PeerList.vue";
 import AboutModal from "./components/AboutModal.vue";
+import IncomingTransferModal from "./components/IncomingTransferModal.vue";
 import HistoryPage from "./components/HistoryPage.vue";
 import TransferPage from "./components/TransferPage.vue";
 import HomePage from "./components/HomePage.vue";
@@ -32,6 +33,10 @@ const canSend = computed(
 );
 
 const sendError = ref("");
+// je ne garde que les transferts que J'AI envoyés : une erreur sur un
+// transfert reçu doit rester sur sa carte (gérée par le store des transferts),
+// pas s'afficher sous le bouton Transférer
+const sentTransferIds = new Set<string>();
 // je précise au survol pourquoi le bouton d'envoi est désactivé
 const buttonTitle = computed(() => {
   if (canSend.value) return undefined;
@@ -56,9 +61,10 @@ async function sendFiles() {
         const transferId = await invoke<string>("send_files", {
           paths,
           peerAddr,
+          peerId: peer.id,
         });
+        sentTransferIds.add(transferId);
         transfersStore.upsert(transferId, { peer: peer.id, files: names });
-        console.log("Transfert démarré vers", peer.id, ":", transferId);
       } catch (e) {
         sendError.value = `Envoi vers ${peer.id} : ${e}`;
         console.error("Erreur envoi vers", peer.id, ":", e);
@@ -67,8 +73,6 @@ async function sendFiles() {
   }
   view.value = "transfers";
 }
-
-
 
 // au montage je récupère l'identité de la machine, je démarre la découverte
 // des appareils et je m'abonne aux événements du processus Rust
@@ -91,6 +95,7 @@ onMounted(async () => {
   }
   try {
     await listen<{ transfer_id: string; error: string }>("tool://transfer/error", (event) => {
+      if (!sentTransferIds.has(event.payload.transfer_id)) return;
       sendError.value = event.payload.error;
     });
   } catch (e) {
@@ -100,6 +105,15 @@ onMounted(async () => {
     await transfersStore.startListening();
   } catch (e) {
     console.error("startListening error:", e);
+  }
+  // quand un appareil m'envoie des fichiers, je bascule sur la page des
+  // transferts pour afficher la demande (boutons accepter / refuser)
+  try {
+    await listen("tool://transfer/incoming", () => {
+      view.value = "transfers";
+    });
+  } catch (e) {
+    console.error("incoming listener error:", e);
   }
   // je vérifie silencieusement les mises à jour au lancement : si une
   // nouvelle version existe, l'utilisateur la verra dans Paramètres
@@ -133,7 +147,7 @@ window.addEventListener("beforeunload", () => {
       }"
     ></div>
 
-    <SidebarNav :hostname="deviceId" :active="view" @navigate="view = $event" />
+    <SidebarNav :active="view" @navigate="view = $event" />
 
       <main
         class="flex-1 min-w-0 flex flex-col relative z-10 overflow-hidden rounded-2xl border border-outline-variant bg-surface-container-lowest active-shadow"
@@ -192,4 +206,5 @@ window.addEventListener("beforeunload", () => {
   </div>
 
   <AboutModal ref="aboutModal" />
+  <IncomingTransferModal />
 </template>

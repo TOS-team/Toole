@@ -49,11 +49,10 @@ pub async fn start_discovery(
 ) -> Result<(), ToolError> {
     let socket = Arc::new(UdpSocket::bind(format!("0.0.0.0:{DISCOVERY_PORT}")).await?);
     socket.set_broadcast(true)?;
+    ui.log(&format!("Decouverte demarree sur le port {DISCOVERY_PORT}"));
 
     let targets = broadcast_targets();
-    let me: IpAddr = local_ip
-        .parse()
-        .unwrap_or_else(|_| IpAddr::V4(Ipv4Addr::LOCALHOST));
+    let me: IpAddr = local_ip.parse().unwrap_or(IpAddr::V4(Ipv4Addr::LOCALHOST));
 
     let my_id = crate::utils::device_id();
     let mut last_seen: HashMap<String, Instant> = HashMap::new();
@@ -99,11 +98,23 @@ pub async fn start_discovery(
                                 id: id.to_string(),
                                 addr: addr.ip().to_string(),
                             };
+                            // je ne notifie l'UI qu'à la première apparition
+                            // d'un pair : le remote répond à chaque broadcast
+                            // (3s) et à chaque cible → doublons sinon
+                            let is_new = !last_seen.contains_key(id);
                             last_seen.insert(id.to_string(), Instant::now());
-                            ui.peer_found(&peer);
+                            if is_new {
+                                ui.peer_found(&peer);
+                            }
                         }
                     }
                 }
+            }
+            _ = tokio::time::sleep(Duration::from_millis(200)) => {
+                // je relance la boucle toutes les 200 ms pour re-tester `stop` :
+                // l'arrêt libère ainsi la socket en ~200 ms max (au lieu
+                // d'attendre le prochain broadcast), ce qui permet au refresh
+                // de relancer la découverte sans race sur le port UDP
             }
         }
     }

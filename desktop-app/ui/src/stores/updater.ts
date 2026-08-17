@@ -55,11 +55,35 @@ export const useUpdaterStore = defineStore("updater", () => {
         status.value = "available";
         return true;
       }
+      // plus rien de disponible : je purge l'annonce précédente s'il y en avait
+      newVersion.value = "";
+      notes.value = "";
       status.value = asap ? "up-to-date" : "idle";
       return false;
     } catch (e) {
+      // si le check est silencieux (démarrage, panneau ouvert d'office), je ne
+      // remonte jamais d'erreur : un utilisateur hors-ligne ne doit rien voir.
+      if (!asap) {
+        status.value = "idle";
+        error.value = "";
+        return false;
+      }
+      // check explicite : je choisis un message lisible selon la cause
+      const msg = String(e).toLowerCase();
+      if (msg.includes("json")) {
+        error.value = "Aucune version publiée pour le moment.";
+      } else if (
+        msg.includes("network") ||
+        msg.includes("fetch") ||
+        msg.includes("reqwest") ||
+        msg.includes("timed out") ||
+        msg.includes("connection")
+      ) {
+        error.value = "Vérifie ta connexion internet puis réessaie.";
+      } else {
+        error.value = String(e);
+      }
       status.value = "error";
-      error.value = String(e);
       return false;
     }
   }
@@ -72,13 +96,17 @@ export const useUpdaterStore = defineStore("updater", () => {
     downloaded.value = 0;
     contentLength.value = 0;
 
-    const update = await check(); // je récupère la mise à jour annoncée
-    if (!update) {
-      status.value = "up-to-date";
-      return;
-    }
-
     try {
+      // je récupère la mise à jour annoncée (le réseau peut couper ici : je
+      // reste dans le try pour que l'erreur soit remontée proprement)
+      const update = await check();
+      if (!update) {
+        status.value = "up-to-date";
+        newVersion.value = "";
+        notes.value = "";
+        return;
+      }
+
       await update.downloadAndInstall((event: DownloadEvent) => {
         switch (event.event) {
           case "Started":

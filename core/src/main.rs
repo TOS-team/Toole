@@ -22,13 +22,32 @@ impl UI for ConsoleUI {
         _file_name: &str,
         _file_bytes_sent: u64,
         _file_total_bytes: u64,
-    ) {}
+    ) {
+    }
+    fn transfert_incoming(
+        &self,
+        transfer_id: &str,
+        sender: &str,
+        total_bytes: u64,
+        files: Vec<String>,
+    ) {
+        println!(
+            "[DEMANDE] {} de {} ({} octets, {:?})",
+            transfer_id, sender, total_bytes, files
+        );
+    }
+    fn transfert_refused(&self, transfer_id: &str) {
+        println!("[REFUSE] {}", transfer_id);
+    }
     fn transfert_cancel(&self, _transfer_id: &str) {}
     fn transfert_completed(&self, _transfer_id: &str) {}
     fn transfert_received(&self, transfer_id: &str, peer: &str, bytes: u64, files: Vec<String>) {
-        println!("[RECU] {} depuis {} ({} octets, {:?})", transfer_id, peer, bytes, files);
+        println!(
+            "[RECU] {} depuis {} ({} octets, {:?})",
+            transfer_id, peer, bytes, files
+        );
     }
-    fn tranfert_error(&self, _transfer_id: &str, _error: &ToolError) {}
+    fn transfert_error(&self, _transfer_id: &str, _error: &ToolError) {}
 }
 
 #[tokio::main]

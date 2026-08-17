@@ -42,6 +42,16 @@ sudo ufw allow 58200/udp
 
 Autorisez Toolé dans *Préférences Système → Réseau → Pare-feu → Options*.
 
+## Informations Windows — Éditeur de l'application
+
+Sur Windows, les propriétés du fichier (`Toolé.exe` ou l'installeur) affichent
+comme **Éditeur** la valeur **Tiligré Open Space** (onglet *Détails* →
+*Éditeur*).
+
+> L'avertissement SmartScreen « **Éditeur inconnu** » au lancement peut
+> néanmoins subsister : il ne disparaît qu'avec une **signature de code**
+> (certificat Authenticode), qui n'est pas fournie par l'application.
+
 ## Le transfert échoue en cours de route
 
 - **« Un ou plusieurs fichiers ont échoué »** : le récepteur a fermé la
@@ -100,6 +110,20 @@ port 58199 est déjà utilisé par un autre processus. Dans ce cas :
   auto-signé stocké dans le dossier de données de l'application. Si la
   génération échoue (dossier non accessible en écriture), l'application peut
   ne pas démarrer.
+
+## « The signature was created with a different key »
+
+Lors d'une mise à jour automatique, l'app vérifie la signature du fichier
+téléchargé avec la clé publique embarquée. Cette erreur signifie que la clé
+de signature des releases (dans les secrets GitHub) ne correspond pas à la
+clé embarquée dans l'app. Cela arrive si le couple de clés a été régénéré
+sans mettre à jour `plugins.updater.pubkey` dans
+`desktop-app/src-tauri/tauri.conf.json`.
+
+La solution : aligner `pubkey` avec la clé privée `TAURI_SIGNING_PRIVATE_KEY`
+des secrets, reconstruire la release, puis **réinstaller une fois** l'app de
+base à la main (`.deb`/`.rpm`) — l'installation existante porte encore
+l'ancienne clé et refusera toute mise à jour.
 
 ---
 

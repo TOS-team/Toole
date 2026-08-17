@@ -32,7 +32,10 @@ fn should_generer_des_suffixes_differents() {
     for _ in 0..50 {
         seen.insert(short_suffix());
     }
-    assert!(seen.len() > 10, "les suffixes doivent varier, j'ai {seen:?}");
+    assert!(
+        seen.len() > 10,
+        "les suffixes doivent varier, j'ai {seen:?}"
+    );
 }
 
 #[test]
@@ -43,7 +46,11 @@ fn should_device_id_suivre_le_format_hostname_suffixe() {
     let (host, suffix) = id
         .rsplit_once('-')
         .unwrap_or_else(|| panic!("device_id doit contenir un '-': {id}"));
-    assert_eq!(suffix.len(), 5, "le suffixe doit faire 5 caractères dans {id}");
+    assert_eq!(
+        suffix.len(),
+        5,
+        "le suffixe doit faire 5 caractères dans {id}"
+    );
     for c in suffix.chars() {
         assert!(
             CROCKFORD.contains(&(c as u8)),
@@ -74,5 +81,8 @@ fn should_local_ip_renvoyer_une_ip_valide() {
     let parsed: std::net::IpAddr = ip.parse().unwrap_or_else(|_| {
         panic!("local_ip doit être une IP valide, j'ai {ip:?}");
     });
-    assert!(!parsed.is_unspecified(), "local_ip ne doit pas être 0.0.0.0");
+    assert!(
+        !parsed.is_unspecified(),
+        "local_ip ne doit pas être 0.0.0.0"
+    );
 }
