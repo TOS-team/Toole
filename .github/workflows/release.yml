@@ -23,6 +23,10 @@ jobs:
   # =========================================================================
   # JOB AJOUTÉ : Génération et déploiement de la documentation technique Rust
   # =========================================================================
+  # =========================================================================
+  # =========================================================================
+  # JOB : Génération et déploiement de la documentation technique Rust
+  # =========================================================================
   deploy-doc:
     runs-on: ubuntu-latest
     steps:
@@ -36,13 +40,19 @@ jobs:
         with:
           workspaces: "desktop-app/src-tauri -> target"
 
+      # =========================================================================
+      # AJOUT : Installation des paquets systèmes requis par gobject-sys et Tauri
+      # =========================================================================
+      - name: je récupère les dépendances système Linux
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev xdg-utils libgtk-3-dev
+
       - name: je génère la documentation cargo
-        # Modifié : On cible le dossier spécifique de votre code Rust
         run: cargo doc --no-deps --workspace --manifest-path desktop-app/src-tauri/Cargo.toml
 
       - name: je crée le point d'entrée index.html pour GitHub Pages
         run: |
-          # Rust convertit le "é" de Toolé et les majuscules en "toole" pour les dossiers de doc
           CRATE_NAME="toole" 
           echo "<meta http-equiv=\"refresh\" content=\"0; url=${CRATE_NAME}/index.html\">" > desktop-app/src-tauri/target/doc/index.html
 
@@ -57,8 +67,6 @@ jobs:
       - name: je déploie la doc sur GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
-
-  # =========================================================================
   # VOS JOBS EXISTANTS (S'exécutent UNIQUEMENT s'il s'agit d'un Tag v*)
   # =========================================================================
   check-versions:
