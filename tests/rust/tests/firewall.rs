@@ -77,14 +77,42 @@ fn should_combiner_ufw_et_firewalld() {
 
 #[test]
 fn should_proposer_des_commandes_par_os() {
-    let linux = commands_for("linux");
-    assert_eq!(linux.len(), 2);
-    assert!(linux[0].contains("ufw allow 58199/udp"));
-    assert!(linux[1].contains("ufw allow 58200/udp"));
+    let ufw = commands_for("ufw");
+    assert_eq!(ufw.len(), 2);
+    assert!(ufw[0].contains("ufw allow 58199/udp"));
+    assert!(ufw[1].contains("ufw allow 58200/udp"));
+    let fw = commands_for("firewalld");
+    assert_eq!(fw.len(), 3);
+    assert!(fw[0].contains("firewall-cmd --permanent --add-port=58199/udp"));
+    assert!(fw[1].contains("firewall-cmd --permanent --add-port=58200/udp"));
+    assert!(fw[2].contains("--reload"));
     let windows = commands_for("windows");
     assert!(windows[0].contains("netsh advfirewall"));
     assert!(windows[0].contains("58199,58200"));
     assert!(commands_for("macos").is_empty());
+    assert!(commands_for("linux").is_empty());
+}
+
+#[test]
+fn should_choisir_les_commandes_du_pare_feu_actif() {
+    // ufw actif sans ports → commandes ufw
+    let s = linux_status(true, false, false, false);
+    assert!(s.active);
+    assert!(!s.ports_open);
+    assert_eq!(s.commands.len(), 2);
+    assert!(s.commands[0].contains("ufw"));
+    // firewalld actif sans ports → commandes firewalld, jamais d'ufw
+    let s2 = linux_status(false, false, true, false);
+    assert!(s2.active);
+    assert!(!s2.ports_open);
+    assert_eq!(s2.commands.len(), 3);
+    assert!(s2.commands[0].contains("firewall-cmd"));
+    assert!(!s2.commands.iter().any(|c| c.contains("ufw")));
+    // aucun pare-feu → rien à signaler ni à proposer
+    let s3 = linux_status(false, false, false, false);
+    assert!(!s3.active);
+    assert!(s3.ports_open);
+    assert!(s3.commands.is_empty());
 }
 
 #[test]

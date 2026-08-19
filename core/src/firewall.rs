@@ -59,12 +59,18 @@ pub fn firewalld_ports_open(ports: &str) -> bool {
     discovery && receiver
 }
 
-// commandes à proposer à l'utilisateur selon l'OS, avec les ports Toolé
-pub fn commands_for(os: &str) -> Vec<String> {
-    match os {
-        "linux" => vec![
+// commandes à proposer à l'utilisateur selon le pare-feu actif (ou l'OS) :
+// les ports UDP de Toolé sont 58199 (découverte) et 58200 (réception)
+pub fn commands_for(fw: &str) -> Vec<String> {
+    match fw {
+        "ufw" => vec![
             format!("sudo ufw allow {DISCOVERY_PORT}/udp"),
             format!("sudo ufw allow {RECEIVER_PORT}/udp"),
+        ],
+        "firewalld" => vec![
+            format!("sudo firewall-cmd --permanent --add-port={DISCOVERY_PORT}/udp"),
+            format!("sudo firewall-cmd --permanent --add-port={RECEIVER_PORT}/udp"),
+            "sudo firewall-cmd --reload".to_string(),
         ],
         "windows" => vec![
             format!(
@@ -78,7 +84,8 @@ pub fn commands_for(os: &str) -> Vec<String> {
 // je construis le statut consolidé pour Linux : je combine ufw et firewalld.
 // Les deux peuvent coexister mais en pratique un seul est actif ; si aucun
 // n'est présent, je considère le pare-feu inactif (pas d'iptables/nftables
-// natif suivi ici).
+// natif suivi ici). Je ne propose que les commandes du pare-feu réellement
+// actif : montrer du ufw sur une machine firewalld serait trompeur.
 pub fn linux_status(ufw_active: bool, ufw_open: bool, fw_active: bool, fw_open: bool) -> FirewallStatus {
     let active = ufw_active || fw_active;
     // sans pare-feu actif, les ports sont ouverts par défaut ; sinon je me
@@ -90,11 +97,18 @@ pub fn linux_status(ufw_active: bool, ufw_open: bool, fw_active: bool, fw_open: 
     } else {
         fw_open
     };
+    let commands = if ufw_active {
+        commands_for("ufw")
+    } else if fw_active {
+        commands_for("firewalld")
+    } else {
+        vec![]
+    };
     FirewallStatus {
         os: "linux".to_string(),
         active,
         ports_open,
-        commands: commands_for("linux"),
+        commands,
     }
 }
 
