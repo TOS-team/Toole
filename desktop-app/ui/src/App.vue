@@ -13,7 +13,6 @@ import { useFirewallStore } from "./stores/firewall";
 import Icon from "./components/Icon.vue";
 import SidebarNav from "./components/SidebarNav.vue";
 import PeerList from "./components/PeerList.vue";
-import FirewallBanner from "./components/FirewallBanner.vue";
 import AboutModal from "./components/AboutModal.vue";
 import IncomingTransferModal from "./components/IncomingTransferModal.vue";
 import HistoryPage from "./components/HistoryPage.vue";
@@ -179,7 +178,6 @@ window.addEventListener("beforeunload", () => {
         class="w-[240px] md:w-[280px] xl:w-[300px] flex flex-col rounded-2xl border border-outline-variant bg-surface-container/80 active-shadow relative z-10 flex-shrink-0 min-h-0 overflow-hidden"
       >
         <div class="flex-1 flex flex-col min-h-0 pt-5 md:pt-9 overflow-y-auto w-full">
-          <FirewallBanner class="mx-6 mb-3" />
           <PeerList class="flex-1 min-h-0 w-full" />
         </div>
 
