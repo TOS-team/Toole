@@ -19,11 +19,21 @@
 - Vérifiez que les deux machines sont sur le même réseau : `ping <ip-de-l'autre-machine>`.
 - Cliquez sur l'icône **rafraîchir** dans le panneau Appareils.
 - Autorisez Toolé dans le pare-feu (voir [Pare-feu](#pare-feu)).
+- **Ajoutez l'autre appareil manuellement** : dans le panneau Appareils, saisissez
+  son **IPv4 locale** (ex. `192.168.1.42`) et cliquez **Ajouter**. Toolé s'y
+  connecte directement, sans dépendre du broadcast. Fonctionne pour
+  `10.x`, `172.16–31.x`, `192.168.x` et `169.254.x` (link-local).
 
 > L'appareil disparaît aussi si **l'application est fermée** ou que le timeout
 > de 9 s expire sans réponse.
 
 ## Pare-feu
+
+> Depuis la **v2.1**, `install.sh` ouvre automatiquement les ports
+> **58199/58200** (ufw si actif, sinon firewalld) et l'installeur Windows ajoute
+> la règle `Toolé UDP` quand il est lancé avec les droits admin. Si un pare-feu
+> bloque encore, Toolé affiche **une bannière** dans l'application avec les
+> commandes à exécuter.
 
 ### Windows
 
@@ -31,11 +41,24 @@
 2. Ajoutez `Toolé.exe` (ou `toole`).
 3. Cochez les profils **Privé** et **Domaine**.
 
+Ou en ligne de commande (admin) :
+
+```powershell
+netsh advfirewall firewall add rule name="Toolé UDP" dir=in action=allow protocol=UDP localport=58199,58200 profile=private,domain
+```
+
 ### Linux
 
 ```bash
 sudo ufw allow 58199/udp
 sudo ufw allow 58200/udp
+```
+
+Ou avec firewalld :
+
+```bash
+sudo firewall-cmd --permanent --add-port=58199/udp --add-port=58200/udp
+sudo firewall-cmd --reload
 ```
 
 ### macOS

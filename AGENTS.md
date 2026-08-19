@@ -15,8 +15,8 @@ Toolé détecte les appareils voisins par UDP broadcast et transfère des fichie
 
 ## Structure
 
-- `core/` — bibliothèque Rust pure (sans Tauri). Modules : `discovery` (UDP broadcast, port 58199), `transfer` (framing des flux QUIC, `DecisionBoard` pour la demande d'acceptation), `sender` (émetteur, 2 fichiers max en parallèle), `receiver` (récepteur QUIC port 58200 → `Downloads/Toolé`), `file_certif` (certificat auto-signé persisté), `utils` (`device_id`), `error` (`ToolError`), `lib` (trait `UI` à 12 méthodes + trait `TransferRegistry`), `examples/bench.rs` (bench loopback)
-- `desktop-app/src-tauri/` — app Tauri : `commands.rs` (9 commandes `#[tauri::command]`, `AppUI` implémente le trait `UI` via events `tool://…`), `lib.rs` (builder, plugins, récepteur au setup), `capabilities/default.json` (ACL)
+- `core/` — bibliothèque Rust pure (sans Tauri). Modules : `discovery` (UDP broadcast, port 58199), `transfer` (framing des flux QUIC, `DecisionBoard` pour la demande d'acceptation), `sender` (émetteur, 2 fichiers max en parallèle), `receiver` (récepteur QUIC port 58200 → `Downloads/Toolé`), `file_certif` (certificat auto-signé persisté), `firewall` (détection ufw/firewalld + validation IPv4 privée pour les pairs manuels), `utils` (`device_id`, `manual_peer`), `error` (`ToolError`), `lib` (trait `UI` à 12 méthodes + trait `TransferRegistry`), `examples/bench.rs` (bench loopback)
+- `desktop-app/src-tauri/` — app Tauri : `commands.rs` (11 commandes `#[tauri::command]`, `AppUI` implémente le trait `UI` via events `tool://…`), `lib.rs` (builder, plugins, récepteur au setup), `nsis-hooks.nsh` (règle pare-feu Windows `Toolé UDP` à l'install, si admin), `capabilities/default.json` (ACL)
 - `desktop-app/ui/` — Vue 3 + Pinia + Tailwind v4 + Vite. Stores : `peers`, `files`, `transfers`, `settings`, `updater`. `tauri.ts` wrappe `invoke`
 - `tests/rust/` — tests d'intégration cargo (`-p toole_tests`) : discovery, protocol, transfer_*, utils
 - `tests/frontend/` — vitest + jsdom, avec mocks Tauri (alias vers `tests/frontend/src/mocks/`)
