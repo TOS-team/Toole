@@ -171,24 +171,6 @@ jobs:
           prerelease: false
           args: ${{ matrix.args }}
 
-      - name: je publie aussi une archive portable Linux (.tar.gz)
-        if: matrix.platform == 'ubuntu-24.04'
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          set -e
-          VERSION=$(node -p "require('./desktop-app/ui/package.json').version")
-          APP_DIR="desktop-app/src-tauri/target/release/bundle/appimage"
-          APP_IMG=$(ls "$APP_DIR"/*.AppImage | head -1)
-          cd "$(dirname "$APP_IMG")"
-          ARCHIVE="Toole-${VERSION}-linux-x86_64.tar.gz"
-          if APPIMAGE_EXTRACT_AND_RUN=1 "./$(basename "$APP_IMG")" --appimage-extract >/dev/null 2>&1; then
-            tar -czf "$ARCHIVE" squashfs-root
-          else
-            tar -czf "$ARCHIVE" "$(basename "$APP_IMG")"
-          fi
-          gh release upload "v${VERSION}" "$ARCHIVE" --clobber --repo "${{ github.repository }}"
-
   publish:
     if: startsWith(github.ref, 'refs/tags/v') # Sécurité : Ne s'exécute pas sur un simple push main
     needs: build
