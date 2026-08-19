@@ -550,35 +550,17 @@
           </div>
 
           <div class="fade-up delay-100 hidden" id="install-windows">
-            <div class="glass-card p-8 rounded-xl mb-6">
-              <h3 class="text-lg font-bold text-white mb-2">
-                PowerShell (admin)
-              </h3>
-              <p class="text-slate-400 text-sm mb-4">
-                Télécharge et installe automatiquement la dernière version.
+            <a
+              class="glass-card block p-6 rounded-xl hover:border-[#ff0033]/50 transition-colors text-center"
+              href="https://github.com/TOS-team/Toole/releases/download/v2.0.3/Toole_2.0.3_x64-setup.exe"
+              target="_blank"
+              data-asset="setup-exe"
+            >
+              <h4 class="font-bold text-white mb-1">🧰 Setup.exe</h4>
+              <p class="text-sm text-slate-400">
+                Installateur classique avec auto-update
               </p>
-              <div class="code-block p-4 pr-24 text-[#00f2ff]">
-                <code
-                  >iwr -useb
-                  https://raw.githubusercontent.com/TOS-team/Toole/main/install.ps1
-                  | iex</code
-                >
-                <button class="btn-copy" onclick="copy(this)">Copier</button>
-              </div>
-            </div>
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <a
-                class="glass-card p-6 rounded-xl hover:border-[#ff0033]/50 transition-colors md:col-span-2"
-                href="https://github.com/TOS-team/Toole/releases/download/v2.0.3/Toole_2.0.3_x64-setup.exe"
-                target="_blank"
-                data-asset="setup-exe"
-              >
-                <h4 class="font-bold text-white mb-1">🧰 Setup.exe</h4>
-                <p class="text-sm text-slate-400">
-                  Installateur classique avec auto-update
-                </p>
-              </a>
-            </div>
+            </a>
           </div>
         </div>
       </section>
