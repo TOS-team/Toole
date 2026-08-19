@@ -13,6 +13,7 @@
     "core:window:allow-close",
     "dialog:default",
     "process:default",
-    "updater:default"
+    "updater:default",
+    "opener:default"
   ]
 }

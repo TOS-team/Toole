@@ -9,6 +9,7 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_process::init())
+        .plugin(tauri_plugin_opener::init())
         .manage(commands::DiscoveryState {
             stop_flag: Mutex::new(Arc::new(AtomicBool::new(false))),
             handle: Mutex::new(None),

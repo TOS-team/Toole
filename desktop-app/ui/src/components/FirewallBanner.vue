@@ -2,10 +2,14 @@
 // bannière d'avertissement quand le pare-feu système bloque les ports UDP
 // de Toolé : j'affiche les commandes à exécuter, avec copie en un clic
 import { ref } from "vue";
+import { openUrl } from "@tauri-apps/plugin-opener";
 import { useFirewallStore } from "../stores/firewall";
 
 const firewallStore = useFirewallStore();
 const copied = ref("");
+
+// le guide de dépannage du site officiel, section pare-feu
+const DEPANNAGE_URL = "https://toole-site.web.app/guide/index.html#/depannage";
 
 async function copyCommand(cmd: string) {
   try {
@@ -50,5 +54,13 @@ async function copyCommand(cmd: string) {
         {{ copied === cmd ? "Copié !" : "Copier" }}
       </button>
     </div>
+    <p class="text-[11px] text-on-surface-variant/70 mt-2">
+      Toujours bloqué après ces commandes ?
+      <a
+        href="#"
+        class="underline decoration-warning/60 underline-offset-2 hover:text-warning transition-colors"
+        @click.prevent="openUrl(DEPANNAGE_URL)"
+      >Consultez la section Dépannage du site.</a>
+    </p>
   </div>
 </template>
