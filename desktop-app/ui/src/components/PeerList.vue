@@ -1,5 +1,6 @@
 <script setup lang="ts">
-// liste des appareils détectés, avec sélection multiple et bouton d'actualisation
+// liste des appareils détectés, avec sélection multiple, bouton d'actualisation
+// et ajout manuel d'un appareil par adresse IP (quand la découverte est bloquée)
 import { ref } from "vue";
 import { usePeersStore } from "../stores/peers";
 import { invoke } from "../tauri";
@@ -7,6 +8,8 @@ import Icon from "./Icon.vue";
 
 const peersStore = usePeersStore();
 const spinning = ref(false);
+const manualIp = ref("");
+const manualError = ref("");
 
 function peerKey(id: string, addr: string) {
   return id + "@" + addr;
@@ -26,6 +29,17 @@ async function onRefresh() {
   setTimeout(() => {
     spinning.value = false;
   }, 800);
+}
+
+// j'ajoute un appareil par IP : le backend valide l'adresse (IPv4 privé)
+async function addManual() {
+  manualError.value = "";
+  try {
+    await invoke("add_peer", { ip: manualIp.value });
+    manualIp.value = "";
+  } catch (e) {
+    manualError.value = String(e);
+  }
 }
 </script>
 
@@ -100,12 +114,48 @@ async function onRefresh() {
       <p class="text-label-md font-label-md text-on-surface-variant">
         Aucun appareil détecté
       </p>
-      <p class="text-[11px] text-on-surface-variant/70 mt-1 max-w-[180px]">
-        Ouvrez l'application sur une autre machine du réseau.
+      <p class="text-[11px] text-on-surface-variant/70 mt-1 max-w-[200px]">
+        Vérifiez que les machines sont sur le même réseau, que le pare-feu
+        autorise Toolé et que l'isolation client du routeur est désactivée.
+      </p>
+      <p class="text-[11px] text-on-surface-variant/70 mt-1 max-w-[200px]">
+        Vous pouvez aussi ajouter un appareil par adresse IP ci-dessous.
       </p>
       <p v-if="peersStore.discoveryError" class="text-[11px] text-error mt-2 max-w-[200px]">
         Erreur découverte : {{ peersStore.discoveryError }}
       </p>
     </div>
+
+    <form
+      class="flex gap-2 relative z-10 flex-shrink-0"
+      @submit.prevent="addManual"
+    >
+      <input
+        v-model="manualIp"
+        type="text"
+        inputmode="decimal"
+        autocomplete="off"
+        spellcheck="false"
+        placeholder="Ajouter par IP (ex. 192.168.1.42)"
+        aria-label="Adresse IP de l'appareil"
+        class="flex-1 min-w-0 px-3 py-2 rounded-lg text-[12px] font-mono
+               bg-surface-container-high border border-outline/50
+               text-on-surface placeholder:text-on-surface-variant/50
+               focus-visible:outline-2 focus-visible:outline-primary"
+      />
+      <button
+        type="submit"
+        title="Ajouter l'appareil"
+        :disabled="!manualIp.trim()"
+        class="px-3 rounded-lg border border-outline/50 text-on-surface-variant
+               hover:text-primary hover:border-primary/50 transition-colors
+               disabled:opacity-40 disabled:pointer-events-none cursor-pointer"
+      >
+        <Icon name="add" :size="16" />
+      </button>
+    </form>
+    <p v-if="manualError" class="text-[11px] text-error flex-shrink-0" role="alert">
+      {{ manualError }}
+    </p>
   </div>
 </template>

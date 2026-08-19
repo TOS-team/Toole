@@ -21,6 +21,8 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             commands::start_discovery,
             commands::stop_discovery,
+            commands::add_peer,
+            commands::check_firewall,
             commands::get_device_id,
             commands::get_peers,
             commands::send_files,
