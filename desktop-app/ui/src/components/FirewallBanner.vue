@@ -1,27 +1,14 @@
 <script setup lang="ts">
 // bannière d'avertissement quand le pare-feu système bloque les ports UDP
 // de Toolé : j'affiche les commandes à exécuter, avec copie en un clic
-import { ref } from "vue";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { useFirewallStore } from "../stores/firewall";
+import FirewallCommands from "./FirewallCommands.vue";
 
 const firewallStore = useFirewallStore();
-const copied = ref("");
 
 // le guide de dépannage du site officiel, section pare-feu
 const DEPANNAGE_URL = "https://toole-site.web.app/guide/index.html#/depannage";
-
-async function copyCommand(cmd: string) {
-  try {
-    await navigator.clipboard.writeText(cmd);
-    copied.value = cmd;
-    setTimeout(() => {
-      copied.value = "";
-    }, 1500);
-  } catch (e) {
-    console.error("copy error:", e);
-  }
-}
 </script>
 
 <template>
@@ -37,23 +24,7 @@ async function copyCommand(cmd: string) {
     <p class="text-[11px] text-on-surface-variant mt-1">
       Exécutez ces commandes dans un terminal (administrateur sous Windows) :
     </p>
-    <div
-      v-for="cmd in firewallStore.status?.commands ?? []"
-      :key="cmd"
-      class="flex items-center gap-2 mt-2"
-    >
-      <code
-        class="flex-1 min-w-0 px-2 py-1 rounded bg-surface-container-high text-[11px] font-mono text-primary truncate"
-      >{{ cmd }}</code>
-      <button
-        type="button"
-        class="px-2 py-1 rounded text-[11px] border border-outline/50 text-on-surface-variant
-               hover:text-primary hover:border-primary/50 transition-colors cursor-pointer flex-shrink-0"
-        @click="copyCommand(cmd)"
-      >
-        {{ copied === cmd ? "Copié !" : "Copier" }}
-      </button>
-    </div>
+    <FirewallCommands :commands="firewallStore.status?.commands ?? []" />
     <p class="text-[11px] text-on-surface-variant/70 mt-2">
       Toujours bloqué après ces commandes ?
       <a

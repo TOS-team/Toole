@@ -3,11 +3,24 @@
 // halo. Je préviens App.vue quand l'utilisateur veut ouvrir la modale "à
 // propos".
 import { useSettingsStore, GLOW_COLORS, type ThemeMode } from "../stores/settings";
+import { useFirewallStore } from "../stores/firewall";
+import { openUrl } from "@tauri-apps/plugin-opener";
+import FirewallCommands from "./FirewallCommands.vue";
 import UpdatePanel from "./UpdatePanel.vue";
 
 const emit = defineEmits<{ (e: "open-about"): void }>();
 
 const settings = useSettingsStore();
+const firewallStore = useFirewallStore();
+
+// le guide de dépannage du site officiel, section pare-feu
+const DEPANNAGE_URL = "https://toole-site.web.app/guide/index.html#/depannage";
+
+// j'analyse le pare-feu si l'app ne l'a pas encore fait (l'app le fait au
+// démarrage, mais je couvre aussi l'ouverture directe des paramètres)
+if (!firewallStore.status) {
+  firewallStore.check();
+}
 
 const themes: { id: ThemeMode; label: string }[] = [
   { id: "auto", label: "Suivre le système" },
@@ -127,6 +140,58 @@ function colorStyle(id: string) {
             }"
             @click="settings.glowColor = c.id"
           ></button>
+        </div>
+      </section>
+
+      <section
+        class="bg-surface-container-high rounded-2xl border border-outline/50 p-5"
+      >
+        <h2 class="text-label-sm font-label-sm text-on-surface-variant uppercase mb-1">
+          Réseau
+        </h2>
+        <p class="text-body-md font-body-md text-on-background mb-3">
+          Pare-feu et ports UDP (58199 découverte, 58200 réception)
+        </p>
+
+        <div v-if="!firewallStore.status" class="text-label-md font-label-md text-on-surface-variant">
+          Analyse du pare-feu en cours…
+        </div>
+
+        <div
+          v-else-if="firewallStore.needsAction"
+          class="rounded-xl border border-warning/50 bg-warning/10 px-4 py-3"
+          role="alert"
+        >
+          <p class="text-[12px] font-semibold text-warning">
+            Pare-feu actif : Toolé ne recevra rien tant que les ports UDP
+            58199 / 58200 ne sont pas autorisés.
+          </p>
+          <p class="text-[11px] text-on-surface-variant mt-1">
+            Exécutez ces commandes dans un terminal (administrateur sous Windows) :
+          </p>
+          <FirewallCommands :commands="firewallStore.status.commands" />
+          <p class="text-[11px] text-on-surface-variant/70 mt-2">
+            Toujours bloqué après ces commandes ?
+            <a
+              href="#"
+              class="underline decoration-warning/60 underline-offset-2 hover:text-warning transition-colors"
+              @click.prevent="openUrl(DEPANNAGE_URL)"
+            >Consultez la section Dépannage du site.</a>
+          </p>
+        </div>
+
+        <div
+          v-else
+          class="flex items-center gap-2 rounded-xl border border-outline/50 bg-surface-container-lowest px-4 py-3"
+        >
+          <span class="h-2 w-2 rounded-full bg-tertiary shrink-0"></span>
+          <p class="text-label-md font-label-md text-on-surface">
+            {{
+              firewallStore.status.active
+                ? "Pare-feu actif : les ports UDP de Toolé sont autorisés."
+                : "Aucun pare-feu actif détecté."
+            }}
+          </p>
         </div>
       </section>
 
