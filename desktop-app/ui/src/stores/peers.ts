@@ -44,6 +44,13 @@ export const usePeersStore = defineStore("peers", () => {
       : new Set();
   }
 
+  // je retire un appareil de la liste (pair manuel supprimé par l'utilisateur)
+  // et je purge sa sélection éventuelle
+  function removePeer(id: string) {
+    peers.value = peers.value.filter((p) => p.id !== id);
+    selectedIds.value.delete(id);
+  }
+
   let pollTimer: ReturnType<typeof setInterval> | null = null;
 
   // j'interroge get_peers toutes les 2 secondes pour garder la liste à jour
@@ -81,6 +88,7 @@ export const usePeersStore = defineStore("peers", () => {
     updatePeers,
     toggleSelection,
     selectAll,
+    removePeer,
     startPolling,
     stopPolling,
     startListening,

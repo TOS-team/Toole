@@ -23,6 +23,7 @@ pub fn run() {
             commands::start_discovery,
             commands::stop_discovery,
             commands::add_peer,
+            commands::remove_peer,
             commands::check_firewall,
             commands::get_device_id,
             commands::get_peers,

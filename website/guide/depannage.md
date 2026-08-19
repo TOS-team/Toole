@@ -19,10 +19,12 @@
 - Vérifiez que les deux machines sont sur le même réseau : `ping <ip-de-l'autre-machine>`.
 - Cliquez sur l'icône **rafraîchir** dans le panneau Appareils.
 - Autorisez Toolé dans le pare-feu (voir [Pare-feu](#pare-feu)).
-- **Ajoutez l'autre appareil manuellement** : dans le panneau Appareils, saisissez
-  son **IPv4 locale** (ex. `192.168.1.42`) et cliquez **Ajouter**. Toolé s'y
-  connecte directement, sans dépendre du broadcast. Fonctionne pour
-  `10.x`, `172.16–31.x`, `192.168.x` et `169.254.x` (link-local).
+- **Ajoutez l'autre appareil manuellement** : dans le panneau Appareils, cliquez
+  sur **« Ajouter un appareil par IP »** puis saisissez son **IPv4 locale**
+  (ex. `192.168.1.42`). Toolé s'y connecte directement, sans dépendre du
+  broadcast. Fonctionne pour `10.x`, `172.16–31.x`, `192.168.x` et
+  `169.254.x` (link-local). L'appareil porte l'étiquette **« manuel »** : vous
+  pouvez le retirer à tout moment avec son bouton 🗑.
 
 > L'appareil disparaît aussi si **l'application est fermée** ou que le timeout
 > de 9 s expire sans réponse.

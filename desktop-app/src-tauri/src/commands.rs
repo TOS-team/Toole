@@ -186,7 +186,9 @@ pub async fn start_discovery(
         let _ = old.await;
     }
 
-    state.peers.lock().unwrap_or_else(|e| e.into_inner()).clear();
+    // je vide la liste des pairs découverts mais je garde les pairs ajoutés
+    // manuellement : ils n'ont pas de timeout et doivent survivre au refresh
+    state.peers.lock().unwrap_or_else(|e| e.into_inner()).retain(|p| p.id.starts_with("manual-"));
 
     let stop = Arc::new(AtomicBool::new(false));
     *state.stop_flag.lock().unwrap_or_else(|e| e.into_inner()) = stop.clone();
@@ -238,6 +240,19 @@ pub async fn add_peer(
     }
     peers.push(peer.clone());
     let _ = window.emit("tool://peer_found", &peer);
+    Ok(())
+}
+
+// retire un pair ajouté manuellement : les appareils découverts disparaissent
+// d'eux-mêmes à l'expiration du timeout, seuls les pairs manuels restent
+// jusqu'à l'arrêt de l'app et méritent un retrait explicite
+#[tauri::command]
+pub async fn remove_peer(id: String, state: State<'_, DiscoveryState>) -> Result<(), String> {
+    let mut peers = state.peers.lock().unwrap_or_else(|e| e.into_inner());
+    if !id.starts_with("manual-") {
+        return Ok(()); // je ne retire que les pairs manuels
+    }
+    peers.retain(|p| p.id != id);
     Ok(())
 }
 
