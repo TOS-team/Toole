@@ -35,44 +35,27 @@ jobs:
       - name: j'installe rust stable
         uses: dtolnay/rust-toolchain@stable
 
-      - name: je cache les builds rust (accélère les builds futurs)
-        uses: swatinem/rust-cache@v2
-        with:
-          workspaces: "desktop-app/src-tauri -> target"
-
       - name: je récupère les dépendances système Linux
         run: |
           sudo apt-get update
           sudo apt-get install -y libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev xdg-utils libgtk-3-dev
 
-      - name: je génère la documentation cargo
-        # AJOUT : On se place directement dans le dossier src-tauri pour exécuter la commande
-        working-directory: desktop-app/src-tauri
-        run: cargo doc --no-deps --workspace
-
-      - name: je crée le point d'entrée index.html pour GitHub Pages
-        # AJOUT : On se place aussi ici dans le dossier src-tauri
-        working-directory: desktop-app/src-tauri
-        run: |
-          # Sécurité : On crée le dossier s'il n'existe pas pour éviter l'erreur "No such file or directory"
-          CRATE_NAME="app_lib" 
-          echo "<meta http-equiv=\"refresh\" content=\"0; url=${CRATE_NAME}/index.html\">" > target/doc/index.html
-          ls -la target/doc/
-          pwd
+      - name: je génère la documentation cargo directement dans le dossier du site web
+        # On demande à Rust de compiler tout le Workspace et d'envoyer la doc dans website/tech-doc/
+        run: cargo doc --no-deps --workspace --target-dir website/tech-doc
 
       - name: je configure GitHub Pages
         uses: actions/configure-pages@v4
 
-      - name: je téléverse l'artefact de la doc
+      - name: je téléverse l'intégralité du site web (Guide + Doc technique)
         uses: actions/upload-pages-artifact@v3
         with:
-          # Modifié : Le chemin est désormais plus court et précis
-          path: "desktop-app/src-tauri/target/doc"
+          # ÉTAPE CLÉ : On publie tout le dossier website
+          path: "website"
 
-      - name: je déploie la doc sur GitHub Pages
+      - name: je déploie le site sur GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v5
-  # VOS JOBS EXISTANTS (S'exécutent UNIQUEMENT s'il s'agit d'un Tag v*)
   # =========================================================================
   check-versions:
     if: startsWith(github.ref, 'refs/tags/v') # Sécurité : Ne s'exécute pas sur un simple push main
