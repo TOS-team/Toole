@@ -9,6 +9,7 @@ import { usePeersStore } from "./stores/peers";
 import { useFilesStore } from "./stores/files";
 import { useTransfersStore } from "./stores/transfers";
 import { useUpdaterStore } from "./stores/updater";
+import { useFirewallStore } from "./stores/firewall";
 import Icon from "./components/Icon.vue";
 import SidebarNav from "./components/SidebarNav.vue";
 import PeerList from "./components/PeerList.vue";
@@ -118,6 +119,8 @@ onMounted(async () => {
   // je vérifie silencieusement les mises à jour au lancement : si une
   // nouvelle version existe, l'utilisateur la verra dans Paramètres
   useUpdaterStore().checkForUpdate(false).catch(console.error);
+  // je détecte un pare-feu qui bloquerait les ports UDP (bannière si besoin)
+  useFirewallStore().check();
 });
 
 // je coupe le polling et la découverte quand je quitte

@@ -59,6 +59,8 @@
   --color-outline-variant: #262626;
   --color-error: #ba1a1a;
   --color-on-error: #ffffff;
+  --color-warning: #f9a825;
+  --color-on-warning: #1a1200;
   --color-tertiary: #006b2d;
   --color-tertiary-fixed-dim: #4ae176;
   --color-on-tertiary: #ffffff;
@@ -130,6 +132,8 @@ body {
   --color-outline-variant: #d0d4d9;
   --color-error: #ba1a1a;
   --color-on-error: #ffffff;
+  --color-warning: #f9a825;
+  --color-on-warning: #1a1200;
   --color-tertiary: #006b2d;
   --color-tertiary-fixed-dim: #2d9c4e;
   --color-on-tertiary: #ffffff;

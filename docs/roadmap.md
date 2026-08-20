@@ -12,6 +12,8 @@
 | `file_certif.rs` — certificat TLS auto-signé | ✅ |
 | `sender.rs` — émetteur (chemins, streams parallèles) | ✅ |
 | `receiver.rs` — récepteur QUIC (port 58200) | ✅ |
+| `firewall.rs` — détection ufw/firewalld + IPv4 privée | ✅ |
+| `utils.rs` — manual_peer (pair par IPv4 privée) | ✅ |
 
 ---
 
@@ -33,6 +35,10 @@
 | `types.ts` — Peer, FileEntry | ✅ |
 | `read_clipboard` — commande Ctrl+V | ✅ |
 | `get_file_infos` — commande tailles/types fichiers | ✅ |
+| `add_peer` — ajout manuel d'un pair par IPv4 privée | ✅ |
+| `check_firewall` — détection pare-feu + bannière (ufw/firewalld/netsh) | ✅ |
+| `nsis-hooks.nsh` — règle pare-feu Windows à l'installation | ✅ |
+| `install.sh` — ouverture auto ufw/firewalld | ✅ |
 
 ---
 

@@ -109,6 +109,14 @@ Le frontend récupère la liste des pairs via la commande `get_peers` appelée t
       3. La liste des pairs s'affiche dans l'interface
 ```
 
+### Découverte manuelle et pare-feu
+
+Le broadcast ne traverse pas toujours les pare-feu des appareils ni certaines box (filtrage multicast/broadcast). Pour couvrir ces cas :
+
+- **Pair manuel** : la commande `add_peer` valide une IPv4 privée (RFC1918 ou link-local, jamais loopback/publique/multicast, pas d'IPv6) via `firewall::is_manual_ipv4_allowed`, puis ajoute un pair `manual-<ip>` à la liste. L'émetteur se connecte ensuite directement à cette IP en QUIC.
+- **Pare-feu actif** : au démarrage, l'app interroge `check_firewall` — sur Linux elle parse `ufw status` et `firewall-cmd --list-ports` (module `firewall.rs`), sur Windows elle cherche la règle netsh `Toolé UDP`, sur macOS c'est un no-op. Si un pare-feu actif ferme les ports UDP 58199/58200, une bannière affiche les commandes à exécuter.
+- **Installation** : `install.sh` ouvre automatiquement les ports 58199/58200 (ufw si actif, sinon firewalld si démarré). Sur Windows, `nsis-hooks.nsh` ajoute la règle `Toolé UDP` (profils privé/domaine, jamais public) quand l'installateur est élevé — sinon la bannière prend le relais.
+
 ---
 
 ## Architecture transfert QUIC
@@ -158,9 +166,10 @@ Tokio Runtime
 |---|---|
 | `lib.rs` | Trait UI, type Peer, exports des modules |
 | `error.rs` | ToolError (IoError, Canceled, TransferError) |
-| `utils.rs` | current_hostname, local_ip, device_id (hostname + suffixe stable) |
+| `utils.rs` | current_hostname, local_ip, device_id (hostname + suffixe stable), manual_peer (pair par IPv4 privée) |
 | `discovery.rs` | UDP broadcast (TOOLE_DISCOVERY / TOOLE_HERE), port 58199 |
 | `file_certif.rs` | Certificat TLS auto-signé + SkipServerVerification (session unique) |
+| `firewall.rs` | Détection ufw/firewalld (ports 58199/58200), commandes à suggérer, validation IPv4 privée |
 | `transfer.rs` | Transfert QUIC : endpoints, streams, chunks pipelinés, UI throttle |
 | `sender.rs` | Côté émetteur : parcours des chemins, ouverture des streams en parallèle |
 | `receiver.rs` | Côté récepteur : serveur QUIC (port 58200), écriture dans Downloads/Toolé |
@@ -171,7 +180,7 @@ Tokio Runtime
 |---|---|
 | `main.rs` | Point d'entrée, appelle `app_lib::run()` |
 | `lib.rs` | Builder Tauri : manage state, invoke_handler, récepteur au démarrage |
-| `commands.rs` | AppUI + commandes : start_discovery, stop_discovery, get_device_id, get_peers, send_files, cancel_transfer, respond_transfer, read_clipboard, get_file_infos |
+| `commands.rs` | AppUI + commandes : start_discovery, stop_discovery, get_device_id, get_peers, add_peer, send_files, cancel_transfer, respond_transfer, read_clipboard, get_file_infos, check_firewall |
 
 ### desktop-app/ui/
 

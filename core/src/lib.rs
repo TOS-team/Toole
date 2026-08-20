@@ -3,6 +3,7 @@ pub mod error;
 pub use error::ToolError;
 pub mod discovery;
 pub mod file_certif;
+pub mod firewall;
 pub mod receiver;
 pub mod sender;
 pub mod transfer;
