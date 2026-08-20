@@ -55,3 +55,18 @@ pub fn short_suffix() -> String {
     }
     out
 }
+
+// crée un pair manuel à partir d'une IP saisie par l'utilisateur : seul
+// l'IPv4 est accepté (le transfert QUIC est aujourd'hui mono-pile v4), et
+// je refuse les adresses de loopback. L'id est dérivé de l'IP pour rester
+// stable et distinct des ids de la découverte (hostname-suffixe)
+pub fn manual_peer(ip: &str) -> Option<crate::Peer> {
+    let ip: std::net::Ipv4Addr = ip.trim().parse().ok()?;
+    if !crate::firewall::is_manual_ipv4_allowed(ip) {
+        return None;
+    }
+    Some(crate::Peer {
+        id: format!("manual-{ip}"),
+        addr: ip.to_string(),
+    })
+}

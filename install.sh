@@ -284,6 +284,50 @@ echo ""
 echo "✅ Toolé a été installé avec succès !"
 echo ""
 
+# ==========================================
+# PARE-FEU
+# ==========================================
+# j'ouvre les ports UDP de Toolé (58199 découverte, 58200 réception) si un
+# pare-feu est actif : ufw (Debian/Ubuntu) et firewalld (Fedora/RHEL).
+# Jamais bloquant pour l'installation : en cas d'échec, simple avertissement.
+configure_firewall() {
+    echo "🛡️  Vérification du pare-feu..."
+
+    # ufw : je n'ajoute que si le pare-feu est actif, et seulement les règles
+    # manquantes (ufw refuse les doublons)
+    if command -v ufw >/dev/null 2>&1; then
+        if sudo ufw status 2>/dev/null | grep -q "Status: active"; then
+            echo "🛡️  ufw actif : ouverture des ports UDP 58199/58200..."
+            if ! sudo ufw status 2>/dev/null | grep -q "58199/udp"; then
+                sudo ufw allow 58199/udp >/dev/null 2>&1 || echo "⚠️  Impossible d'ouvrir le port 58199/udp"
+            fi
+            if ! sudo ufw status 2>/dev/null | grep -q "58200/udp"; then
+                sudo ufw allow 58200/udp >/dev/null 2>&1 || echo "⚠️  Impossible d'ouvrir le port 58200/udp"
+            fi
+        else
+            echo "ℹ️  ufw présent mais inactif : rien à configurer."
+        fi
+    fi
+
+    # firewalld : les ajouts permanents sont idempotents
+    if command -v firewall-cmd >/dev/null 2>&1; then
+        if sudo firewall-cmd --state 2>/dev/null | grep -q "running"; then
+            echo "🛡️  firewalld actif : ouverture des ports UDP 58199/58200..."
+            sudo firewall-cmd --permanent --add-port=58199/udp >/dev/null 2>&1 || echo "⚠️  Impossible d'ouvrir le port 58199/udp"
+            sudo firewall-cmd --permanent --add-port=58200/udp >/dev/null 2>&1 || echo "⚠️  Impossible d'ouvrir le port 58200/udp"
+            sudo firewall-cmd --reload >/dev/null 2>&1 || echo "⚠️  Rechargement firewalld impossible"
+        else
+            echo "ℹ️  firewalld présent mais inactif : rien à configurer."
+        fi
+    fi
+
+    echo "✅ Vérification du pare-feu terminée."
+}
+
+case "$(uname -s)" in
+    Linux*) configure_firewall ;;
+esac
+
 # Vérification finale
 echo "🔍 Vérification de l'installation..."
 

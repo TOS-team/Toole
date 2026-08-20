@@ -2,13 +2,13 @@
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "Toolé",
   "mainBinaryName": "toole",
-  "version": "2.0.3",
+  "version": "2.1.1",
   "identifier": "com.Tos-team.toole",
   "build": {
     "frontendDist": "../ui/dist",
     "devUrl": "http://localhost:1420",
-    "beforeDevCommand": "cd ui || npm run dev",
-    "beforeBuildCommand": "cd ui || npm run build"
+    "beforeDevCommand": "npm --prefix ui run dev || npm run dev",
+    "beforeBuildCommand": "npm --prefix ui run build || npm run build"
   },
   "app": {
     "macOSPrivateApi": true,
@@ -48,6 +48,11 @@
     ],
     "android": {
       "debugApplicationIdSuffix": ".debug"
+    },
+    "windows": {
+      "nsis": {
+        "installerHooks": "nsis-hooks.nsh"
+      }
     }
   },
   "plugins": {

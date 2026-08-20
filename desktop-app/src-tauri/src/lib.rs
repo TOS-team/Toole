@@ -9,6 +9,7 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_process::init())
+        .plugin(tauri_plugin_opener::init())
         .manage(commands::DiscoveryState {
             stop_flag: Mutex::new(Arc::new(AtomicBool::new(false))),
             handle: Mutex::new(None),
@@ -21,6 +22,9 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             commands::start_discovery,
             commands::stop_discovery,
+            commands::add_peer,
+            commands::remove_peer,
+            commands::check_firewall,
             commands::get_device_id,
             commands::get_peers,
             commands::send_files,

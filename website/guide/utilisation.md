@@ -30,6 +30,19 @@ la machine et un suffixe court (base32 Crockford) généré une fois puis stock�
 Cliquez sur l'icône **rafraîchir** (à côté de « Appareils (n) ») pour relancer
 la découverte immédiatement et purger la liste.
 
+### Ajouter un appareil manuellement
+
+Si le broadcast est bloqué (réseau isolé, box qui filtre), vous pouvez ajouter
+un appareil par son **adresse IPv4 locale** :
+
+1. Saisissez l'IP dans le champ prévu en bas du panneau Appareils
+   (ex. `192.168.1.42`).
+2. Cliquez sur **Ajouter**.
+
+L'appareil apparaît avec une étiquette « manuel » et peut recevoir vos fichiers
+comme les autres. Seules les IPv4 privées sont acceptées
+(`10.x`, `172.16–31.x`, `192.168.x`, `169.254.x`).
+
 ### Sélection multiple
 
 - Cliquez sur un appareil pour le **sélectionner** (il passe en surbrillance).

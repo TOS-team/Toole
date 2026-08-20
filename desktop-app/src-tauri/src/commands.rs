@@ -186,7 +186,9 @@ pub async fn start_discovery(
         let _ = old.await;
     }
 
-    state.peers.lock().unwrap_or_else(|e| e.into_inner()).clear();
+    // je vide la liste des pairs découverts mais je garde les pairs ajoutés
+    // manuellement : ils n'ont pas de timeout et doivent survivre au refresh
+    state.peers.lock().unwrap_or_else(|e| e.into_inner()).retain(|p| p.id.starts_with("manual-"));
 
     let stop = Arc::new(AtomicBool::new(false));
     *state.stop_flag.lock().unwrap_or_else(|e| e.into_inner()) = stop.clone();
@@ -219,6 +221,105 @@ pub async fn stop_discovery(state: State<'_, DiscoveryState>) -> Result<(), Stri
         let _ = h.await;
     }
     Ok(())
+}
+
+// ajoute un pair manuel à partir d'une IP saisie par l'utilisateur : utile
+// quand la découverte est bloquée (isolation client, pare-feu, broadcast
+// filtré). Le pair n'a pas de timeout : il reste tant que l'app tourne.
+#[tauri::command]
+pub async fn add_peer(
+    ip: String,
+    state: State<'_, DiscoveryState>,
+    window: WebviewWindow,
+) -> Result<(), String> {
+    let peer = toole_core::utils::manual_peer(&ip)
+        .ok_or_else(|| format!("Adresse invalide : {ip} (IPv4 privé attendu)"))?;
+    let mut peers = state.peers.lock().unwrap_or_else(|e| e.into_inner());
+    if peers.iter().any(|p| p.id == peer.id) {
+        return Ok(()); // déjà présent, je ne fais rien
+    }
+    peers.push(peer.clone());
+    let _ = window.emit("tool://peer_found", &peer);
+    Ok(())
+}
+
+// retire un pair ajouté manuellement : les appareils découverts disparaissent
+// d'eux-mêmes à l'expiration du timeout, seuls les pairs manuels restent
+// jusqu'à l'arrêt de l'app et méritent un retrait explicite
+#[tauri::command]
+pub async fn remove_peer(id: String, state: State<'_, DiscoveryState>) -> Result<(), String> {
+    let mut peers = state.peers.lock().unwrap_or_else(|e| e.into_inner());
+    if !id.starts_with("manual-") {
+        return Ok(()); // je ne retire que les pairs manuels
+    }
+    peers.retain(|p| p.id != id);
+    Ok(())
+}
+
+// analyse le pare-feu du système pour guider l'utilisateur si les ports
+// UDP de Toolé sont bloqués (ufw/firewalld sous Linux, règles Windows).
+// Lecture seule : les ouvertures se font à l'installation ou par l'utilisateur.
+#[tauri::command]
+pub fn check_firewall() -> Result<serde_json::Value, String> {
+    use toole_core::firewall::*;
+
+    #[cfg(target_os = "linux")]
+    {
+        let mut ufw_active = false;
+        let mut ufw_open = false;
+        if let Ok(out) = std::process::Command::new("ufw").arg("status").output() {
+            if let Ok(s) = String::from_utf8(out.stdout) {
+                let (a, o) = ufw_ports_open(&s);
+                ufw_active = a;
+                ufw_open = o;
+            }
+        }
+        let mut fw_active = false;
+        let mut fw_open = false;
+        if let Ok(out) = std::process::Command::new("firewall-cmd").arg("--list-ports").output() {
+            if let Ok(s) = String::from_utf8(out.stdout) {
+                fw_active = out.status.success();
+                fw_open = firewalld_ports_open(&s);
+            }
+        }
+        let status = linux_status(ufw_active, ufw_open, fw_active, fw_open);
+        return Ok(serde_json::to_value(status).map_err(|e| e.to_string())?);
+    }
+
+    #[cfg(target_os = "windows")]
+    {
+        // je vérifie si la règle créée par l'installeur NSIS existe : la
+        // sortie est locale-dépendante, je me base sur le code de sortie
+        // (0 = règle trouvée) et sur la présence du nom de la règle
+        let mut ports_open = false;
+        if let Ok(out) = std::process::Command::new("netsh")
+            .args(["advfirewall", "firewall", "show", "rule", "name=Toolé UDP"])
+            .output()
+        {
+            ports_open = out.status.success()
+                && String::from_utf8_lossy(&out.stdout).contains("Toolé UDP");
+        }
+        let status = FirewallStatus {
+            os: "windows".to_string(),
+            active: true,
+            ports_open,
+            commands: commands_for("windows"),
+        };
+        return Ok(serde_json::to_value(status).map_err(|e| e.to_string())?);
+    }
+
+    #[cfg(target_os = "macos")]
+    {
+        // le pare-feu applicatif macOS est géré par le système (invite à la
+        // première écoute) : rien à détecter ici
+        let status = FirewallStatus {
+            os: "macos".to_string(),
+            active: false,
+            ports_open: true,
+            commands: vec![],
+        };
+        return Ok(serde_json::to_value(status).map_err(|e| e.to_string())?);
+    }
 }
 
 // ───────────────────────────────────────────────

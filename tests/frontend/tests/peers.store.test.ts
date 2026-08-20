@@ -80,6 +80,20 @@ describe("sélection", () => {
     expect(store.selectedIds.has("pc-b")).toBe(false);
     expect(store.selectedPeers).toHaveLength(1);
   });
+
+  it("removePeer retire un pair manuel et purge sa sélection", () => {
+    const store = freshStore();
+    store.updatePeers([
+      { id: "manual-192.168.1.42", addr: "192.168.1.42" },
+      A,
+    ]);
+    store.toggleSelection("manual-192.168.1.42");
+    expect(store.selectedPeers).toHaveLength(1);
+
+    store.removePeer("manual-192.168.1.42");
+    expect(store.peers.map((p) => p.id)).toEqual(["pc-a"]);
+    expect(store.selectedIds.size).toBe(0);
+  });
 });
 
 describe("polling get_peers", () => {
