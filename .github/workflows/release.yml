@@ -42,23 +42,115 @@ jobs:
 
       - name: je liste le contenu genere
         run: ls -la target/doc/
-
       - name: je cree la page d'accueil de la doc
         run: |
           cat > target/doc/index.html << 'EOF'
           <!DOCTYPE html>
           <html lang="fr">
-          <head><meta charset="utf-8"><title>Documentation Toole</title></head>
+          <head>
+          <meta charset="utf-8">
+          <title>Documentation technique - Toole</title>
+          <style>
+            :root {
+              --base: #1e1e2e;
+              --mantle: #181825;
+              --surface0: #313244;
+              --surface1: #45475a;
+              --text: #cdd6f4;
+              --subtext: #a6adc8;
+              --mauve: #cba6f7;
+              --blue: #89b4fa;
+              --green: #a6e3a1;
+              --peach: #fab387;
+            }
+            * { box-sizing: border-box; }
+            body {
+              margin: 0;
+              min-height: 100vh;
+              background: radial-gradient(circle at top left, var(--mantle), var(--base));
+              color: var(--text);
+              font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, sans-serif;
+              display: flex;
+              flex-direction: column;
+              align-items: center;
+              padding: 4rem 1.5rem;
+            }
+            header { text-align: center; margin-bottom: 3rem; max-width: 640px; }
+            h1 {
+              font-size: 2.2rem;
+              margin-bottom: 0.5rem;
+              background: linear-gradient(90deg, var(--mauve), var(--blue));
+              -webkit-background-clip: text;
+              background-clip: text;
+              color: transparent;
+            }
+            header p { color: var(--subtext); font-size: 1.05rem; line-height: 1.5; }
+            .cards {
+              display: grid;
+              grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+              gap: 1.5rem;
+              width: 100%;
+              max-width: 760px;
+            }
+            .card {
+              background: var(--surface0);
+              border: 1px solid var(--surface1);
+              border-radius: 14px;
+              padding: 1.75rem;
+              text-decoration: none;
+              color: var(--text);
+              transition: transform 0.15s ease, border-color 0.15s ease;
+            }
+            .card:hover {
+              transform: translateY(-4px);
+              border-color: var(--mauve);
+            }
+            .card .tag {
+              display: inline-block;
+              font-size: 0.75rem;
+              text-transform: uppercase;
+              letter-spacing: 0.05em;
+              color: var(--base);
+              background: var(--green);
+              padding: 0.15rem 0.55rem;
+              border-radius: 999px;
+              margin-bottom: 0.75rem;
+              font-weight: 600;
+            }
+            .card.app .tag { background: var(--peach); }
+            .card h2 { margin: 0 0 0.5rem; font-size: 1.25rem; }
+            .card p { margin: 0; color: var(--subtext); font-size: 0.92rem; line-height: 1.5; }
+            footer {
+              margin-top: 3rem;
+              color: var(--subtext);
+              font-size: 0.85rem;
+              text-align: center;
+            }
+          </style>
+          </head>
           <body>
-            <h1>Documentation technique - Toole</h1>
-            <ul>
-              <li><a href="toole_core/index.html">toole_core</a></li>
-              <li><a href="app_lib/index.html">app_lib</a></li>
-            </ul>
+            <header>
+              <h1>Documentation technique</h1>
+              <p>Reference API generee automatiquement depuis le code source Rust de Toole, transfert de fichiers pair-a-pair chiffre via QUIC.</p>
+            </header>
+            <div class="cards">
+              <a class="card core" href="toole_core/index.html">
+                <span class="tag">Core</span>
+                <h2>toole_core</h2>
+                <p>Protocole QUIC, decouverte des pairs sur le reseau local, chiffrement et logique de transfert de fichiers.</p>
+              </a>
+              <a class="card app" href="app_lib/index.html">
+                <span class="tag">Tauri</span>
+                <h2>app_lib</h2>
+                <p>Commandes IPC et pont entre l'interface desktop et le coeur applicatif.</p>
+              </a>
+            </div>
+            <footer>
+              Genere automatiquement a chaque push sur main
+            </footer>
           </body>
           </html>
           EOF
-
       - name: je configure GitHub Pages
         uses: actions/configure-pages@v4
 
