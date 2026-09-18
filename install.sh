@@ -5,7 +5,8 @@
 # Transfert de fichiers P2P chiffré (Rust + Tauri v2 + QUIC/TLS 1.3)
 # ==============================================================================
 GITHUB_REPO="TOS-team/Toole"
-APP_NAME="Toole"               # ⚠️ À vérifier : nom exact du binaire/.app produit par la CI Tauri
+APP_NAME="Toole"               # ⚠️ À vérifier : nom exact de l'asset (.deb/.dmg/.AppImage) produit par la CI Tauri
+BIN_NAME="toole"               # Nom de la commande finale installée (minuscule, convention Linux/AUR)
 VERSION="${1:-latest}"         # Usage : ./install-toole.sh v1.2.0  (sinon = dernière release)
 # ==============================================================================
 
@@ -136,9 +137,14 @@ case "$OS" in
             echo -e "Configuration des permissions et déplacement..."
             chmod +x "$FILE_NAME"
             mkdir -p ~/.local/bin
-            mv "$FILE_NAME" ~/.local/bin/"$APP_NAME"
-            echo -e "${GREEN}L'AppImage a été installée dans ~/.local/bin/${APP_NAME}${NC}"
-            echo -e "Assure-toi que ~/.local/bin est dans ton \$PATH."
+            mv "$FILE_NAME" ~/.local/bin/"$BIN_NAME"
+            echo -e "${GREEN}L'AppImage a été installée dans ~/.local/bin/${BIN_NAME}${NC}"
+            if [[ ":$PATH:" != *":$HOME/.local/bin:"* ]]; then
+                echo -e "${YELLOW}~/.local/bin n'est pas dans ton \$PATH actuel.${NC}"
+                echo -e "  fish   : fish_add_path ~/.local/bin"
+                echo -e "  bash   : echo 'export PATH=\"\$HOME/.local/bin:\$PATH\"' >> ~/.bashrc"
+                echo -e "  zsh    : echo 'export PATH=\"\$HOME/.local/bin:\$PATH\"' >> ~/.zshrc"
+            fi
         fi
         ;;
 
@@ -184,4 +190,4 @@ case "$OS" in
 esac
 
 echo -e "${GREEN}=== Installation terminée avec succès ! ===${NC}"
-echo -e "Tu peux maintenant lancer $APP_NAME."
+echo -e "Tu peux maintenant lancer : $BIN_NAME"
